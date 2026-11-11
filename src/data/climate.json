@@ -1,0 +1,7 @@
+{
+  "datasetId": "mars-climate-dev-fallback",
+  "status": "DEV_FALLBACK",
+  "dust": { "baseline": 0.15, "noise": 0.12, "stormStartSol": 12, "stormPeakSol": 17, "stormEndSol": 26, "stormPeak": 0.85 },
+  "tempC": { "mean": -55, "amplitude": 22, "periodSols": 40, "noise": 6 },
+  "wind": { "mean": 6, "noise": 4, "gustChance": 0.15, "gustMs": 20 }
+}

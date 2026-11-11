@@ -1,0 +1,75 @@
+// All simulation types. Game state is plain JSON (no classes, no functions) so it can be saved and snapshotted.
+export type ResKey = 'o2' | 'water' | 'food' | 'power';
+export type CrewId = 'reyes' | 'aiko' | 'david' | 'sofia';
+export type CropId = 'potato' | 'lettuce' | 'tomato' | 'bean';
+export type FarmLight = 'bright' | 'dim';
+export type LsMode = 'oxy' | 'bal' | 'wat';
+export type FlagValue = boolean | number | string;
+
+export interface Resources { o2: number; water: number; food: number; power: number }
+export interface Plot { id: string; crop: CropId | null; growth: number; watered: boolean }
+export interface CaveProgress { explore: number; excavate: number; pressurize: number; shield: number }
+
+export interface Decision { sol: number; sourceId: string; optionId: string; label: string }
+export interface JournalEntry {
+  id: string; sol: number; title: string;
+  happened: string; decision: string; why: string; science: string;
+  sourceId?: string; realData: boolean; kind: 'event' | 'discovery';
+}
+export interface LogEntry { sol: number; who: string; text: string }
+export interface SolSummary { sol: number; res: Resources; decisions: string[]; note: string }
+export interface DailyReport { sol: number; lines: string[]; mission: string }
+export interface Pending { kind: 'beat' | 'event'; id: string }
+
+export interface GameState {
+  version: number; seed: number;
+  sol: number; hour: number; energy: number;
+  res: Resources; suit: number; rad: number; outside: boolean;
+  farm: FarmLight; ls: LsMode;
+  panelDust: number;
+  plots: Plot[]; buildings: string[]; stage: number;
+  crew: Record<CrewId, { friendship: number; met: boolean }>;
+  flags: Record<string, FlagValue>;            // flags starting with "tmp_" are cleared every Sol
+  seenBeats: string[]; discovered: string[];
+  pending: Pending | null;                      // one decision waiting for the player
+  lastEventSol: number;
+  cave: CaveProgress;
+  solsSinceShipment: number; bestSelfSufficient: number; shipmentArrivesSol: number;
+  campaignComplete: boolean;
+  decisions: Decision[]; journal: JournalEntry[]; history: SolSummary[]; log: LogEntry[];
+  lastReport: DailyReport | null;
+  failed: ResKey | null;
+}
+
+// Everything a choice can change. Keep effects declarative so beats/events stay data, not code.
+export interface Effect {
+  res?: Partial<Resources>; energy?: number; rad?: number;
+  panelDust?: number; friend?: { crew: CrewId; n: number };
+  flag?: Record<string, FlagValue>; addFlag?: Record<string, number>;
+  setting?: { farm?: FarmLight; ls?: LsMode };
+  log?: string;
+}
+export interface Choice {
+  id: string; label: string; hint?: string;
+  requires?: (s: GameState) => boolean; effects: Effect;
+}
+
+// Environment for a Sol. Derived ONLY from src/data (never from player state), so rewinding cannot rewrite it.
+export interface Env {
+  sol: number; dust: number; tempC: number; windMs: number;
+  flare: null | { id: string; classType: string; mult: number; date: string };
+  globalStorm: boolean;
+}
+
+export interface Beat {
+  id: string; speaker: CrewId | 'system';
+  when: (s: GameState) => boolean;
+  lines: string[]; choices?: Choice[]; effects?: Effect;
+}
+export interface EventDef {
+  id: string; title: string; speaker: CrewId | 'system';
+  weight: (s: GameState, env: Env) => number;
+  text: (s: GameState, env: Env) => string;
+  choices: Choice[];
+  journal: { why: string; science: string; sourceId?: string; realData: boolean };
+}

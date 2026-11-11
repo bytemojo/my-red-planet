@@ -1,0 +1,61 @@
+{
+  "_readme": "Dataset manifest. Every real-data event in the game must reference an id here. Update `verified` only after checking the primary source yourself.",
+  "datasets": [
+    {
+      "id": "donki-flr-2024-05-14",
+      "name": "DONKI solar flare, X8.7, 14 May 2024",
+      "source": "NASA CCMC DONKI (Space Weather Database Of Notifications, Knowledge, Information)",
+      "url": "https://ccmc.gsfc.nasa.gov/tools/DONKI/",
+      "instrument": "GOES X-ray flux (flare classification as catalogued in DONKI)",
+      "dateRange": "2024-05-14",
+      "location": "Sun / Earth orbit. NOT measured at Mars.",
+      "units": "GOES flare class (X8.7)",
+      "transformation": "Scheduled onto a mission Sol by the game. Class mapped to a simplified radiation multiplier (X=2.0, M=1.4, C=1.0).",
+      "limitations": "DONKI does not measure radiation at the fictional outpost. The multiplier is a game model.",
+      "kind": "observation",
+      "verified": false
+    },
+    {
+      "id": "donki-flr-2024-10-03",
+      "name": "DONKI solar flare, X9.0, 3 Oct 2024",
+      "source": "NASA CCMC DONKI",
+      "url": "https://ccmc.gsfc.nasa.gov/tools/DONKI/",
+      "instrument": "GOES X-ray flux (as catalogued in DONKI)",
+      "dateRange": "2024-10-03",
+      "location": "Sun / Earth orbit. NOT measured at Mars.",
+      "units": "GOES flare class (X9.0)",
+      "transformation": "Same as above.",
+      "limitations": "Same as above. Check class and date in DONKI before submission.",
+      "kind": "observation",
+      "verified": false
+    },
+    {
+      "id": "mars-2018-global-dust-storm",
+      "name": "2018 Mars global dust storm",
+      "source": "NASA Mars exploration reporting (Opportunity rover mission)",
+      "url": "https://science.nasa.gov/mars/",
+      "instrument": "Opportunity rover, orbiters",
+      "dateRange": "2018-05 to 2018-09",
+      "location": "Global; Opportunity at Meridiani Planum",
+      "units": "n/a (narrative event)",
+      "transformation": "Used as inspiration for the 'global dust storm' event. Game dust opacity is a simplified 0-1 value.",
+      "limitations": "Not Hellas Planitia. Exact URL to be replaced with the specific NASA article.",
+      "kind": "observation",
+      "verified": false
+    },
+    {
+      "id": "mars-climate-dev-fallback",
+      "name": "DEV FALLBACK seasonal climate table",
+      "source": "PLACEHOLDER. Hand-written to be Mars-plausible. NOT NASA data.",
+      "url": "",
+      "instrument": "none",
+      "dateRange": "n/a",
+      "location": "Fictional outpost near Hadriacus Mons, Hellas Planitia",
+      "units": "dust opacity 0-1 (game), temperature C, wind m/s",
+      "transformation": "Sinusoid plus storm window plus deterministic noise.",
+      "limitations": "MUST be replaced with values derived from a NASA Mars Global Climate Model product or rover (MEDA/REMS) data, and documented here. Until then it is a labelled development fallback.",
+      "kind": "dev-fallback",
+      "verified": false
+    }
+  ]
+}

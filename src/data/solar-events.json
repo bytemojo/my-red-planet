@@ -1,0 +1,8 @@
+{
+  "_readme": "Real flares from the DONKI catalogue, scheduled onto mission Sols by the game (a documented transformation).",
+  "schedule": { "firstSol": 6, "everySols": 9 },
+  "events": [
+    { "id": "donki-flr-2024-05-14", "date": "2024-05-14", "classType": "X8.7", "mult": 2.0 },
+    { "id": "donki-flr-2024-10-03", "date": "2024-10-03", "classType": "X9.0", "mult": 2.0 }
+  ]
+}
