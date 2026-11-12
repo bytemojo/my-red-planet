@@ -2,10 +2,12 @@
 // World drawing ported from legacy/Junior_Mars_Commander.html (buildWorld). Same rooms, same look.
 // Farm beds, bunks, rover and buildings are rewritten to read the new game state. The rest is verbatim.
 import { CROPS } from '../core/constants';
+import { createPixelSprites } from './sprites';
 export const T = 32, W = 44, H = 30;
 export const world: any = { ready: false };
 export function buildWorld(scene: any, ctx: any) {
 const { clamp } = ctx; const S = ctx.S;
+ createPixelSprites(scene);
  const rng=(seed=>()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296})(214);
  const grid=v=>Array.from({length:H},()=>Array(W).fill(v));
  const inside=grid(false),blocked=grid(false),kind=grid('ground');
@@ -77,19 +79,21 @@ const { clamp } = ctx; const S = ctx.S;
  const bedGfx = []; const FCOL = { lettuce: [0x2f8f3f, 0x7be88a], tomato: [0x2a7f3a, 0x62d870], bean: [0x3a8a35, 0xa5d85c], potato: [0x2a6f3a, 0x58c070] };
  farmBeds.forEach(([x,y],bi)=>{const px=x*T,py=y*T,g=obj((y+2)*T);box(g,px,py,2*T,2*T,12,0x3a2416,0x5d6f8f);g.fillStyle(0xff4fd8,.9);g.fillRect(px+4,py+2*T-8,2*T-8,3);bedGfx.push(g);
   const d=obj((y+2)*T+1);bedGfx.push(d);
+  const sprouts=Array.from({length:6},(_,i)=>scene.add.image(px+10+(i%3)*22,py+27+Math.floor(i/3)*21,'crop_lettuce_0').setOrigin(.5,1).setDepth((y+2)*T+2).setVisible(false));
   dyn.push(t=>{d.clear();const st=ctx.state();const plot=st.plots[bi];const vis=!!plot;g.setVisible(vis);d.setVisible(vis);if(!vis)return;
+   sprouts.forEach(s=>s.setVisible(false));
    const hg=12;const lit=st.farm==='bright'?1:.5;d.fillStyle(0xff4fd8,(.06+.05*Math.sin(t/500+bi))*lit);d.fillRect(px,py-hg,2*T,2*T);
    if(plot.watered){d.fillStyle(0x4aa3df,.28);d.fillRect(px+3,py-hg+3,2*T-6,2*T-6)}
    if(!plot.crop)return;
-   const need=CROPS[plot.crop].sols,gr=Math.min(1,plot.growth/need),ready=plot.growth>=need,col=FCOL[plot.crop];
-   for(let r=0;r<2;r++)for(let c=0;c<3;c++){const cx=px+10+c*22,cy=py-hg+16+r*30,rad=2+gr*7,sw=Math.sin(t/600+c+r+bi)*1.2;
-    d.fillStyle(col[0],1);d.fillCircle(cx,cy+2,rad);d.fillStyle(col[1],1);d.fillCircle(cx+sw-1,cy-1-gr*2,rad*.65);d.fillStyle(0xbdf5c0,.8);d.fillCircle(cx+sw,cy-2-gr*2,rad*.25);
-    if(ready){const k=plot.crop==='tomato'?0xff5a4a:plot.crop==='potato'?0xd8b070:plot.crop==='bean'?0xd8f07a:0xeaffd0;d.fillStyle(k,1);d.fillCircle(cx+4,cy-4,3)}}
+   const need=CROPS[plot.crop].sols,gr=Math.min(1,plot.growth/need),ready=plot.growth>=need,stage=Math.min(3,Math.floor(gr*3.01));
+   sprouts.forEach((sprout,i)=>sprout.setTexture(`crop_${plot.crop}_${stage}`).setVisible(true).setY(py-hg+39+Math.floor(i/3)*21+Math.sin(t/650+i+bi)*.7));
    if(ready){d.lineStyle(2,0xffb340,.5+.4*Math.sin(t/200));d.strokeRect(px+1,py-hg+1,2*T-2,2*T-2)}})});
  world.bedGfx=bedGfx;
  // life support
  {let g=obj(5*T);box(g,19*T,3*T,3*T,2*T,26,0xaebbd3,0x3d4f75);g.fillStyle(0x1b2a47,1);g.fillCircle(19*T+T+16,3*T-26+T,18);g.fillStyle(0x39d9ff,.6);g.fillCircle(19*T+T+16,3*T-26+T,12);g.fillStyle(0x93a8cc,1);g.fillRect(19*T+8,5*T-20,80,8);
   g=obj(5*T);box(g,24*T,3*T,3*T,2*T,26,0xaebbd3,0x3d4f75);[0,1].forEach(i=>{g.fillStyle(0x2d7ed8,1);g.fillRect(24*T+10+i*44,3*T-26+10,32,44);g.fillStyle(0x8ccaff,.8);g.fillRect(24*T+14+i*44,3*T-26+14,6,36)});
+  scene.add.image(20.5*T,5*T-13,'machine_oxygen').setOrigin(.5,1).setDepth(5*T+2);
+  scene.add.image(25.5*T,5*T-13,'machine_water').setOrigin(.5,1).setDepth(5*T+2);
   const d=obj(5*T+1);dyn.push(t=>{d.clear();for(let i=0;i<3;i++){const a=((t/900+i/3)%1);d.fillStyle(0xbfeaff,1-a);d.fillCircle(19*T+T+16+Math.sin(t/300+i)*6,3*T-26-a*22,3)}d.fillStyle(Math.sin(t/400)>0?0x4dffb0:0x1a5a45,1);d.fillRect(19*T+6,5*T-12,6,4);d.fillStyle(Math.sin(t/500)>0?0xffb340:0x5a3a10,1);d.fillRect(26*T+14,5*T-12,6,4)});
   label('O₂ MAKER',20.5*T,5.35*T,'#bfe8ff',10);label('WATER MAKER',25.5*T,5.35*T,'#bfe8ff',10)}
  // control module + holo mars
@@ -128,22 +132,12 @@ const { clamp } = ctx; const S = ctx.S;
  world.sync=()=>{const st=ctx.state();if(!st)return;roverObjs.forEach(o=>o.setVisible(st.buildings.includes('rover_bay')));for(const k of Object.keys(bld))bld[k].forEach(o=>o.setVisible(st.buildings.includes(k)));caveObjs.forEach(o=>o.setVisible(!!st.flags.cave_unlocked));world.setQuarantine(!!st.flags.quarantine_over)};
  label('INDOOR FARM',9.5*T,5.55*T,'#9dffb0',11);label('CONTROL MODULE',16*T,5.1*T,'#ffd79a',10);label('AIRLOCK',16*T,17.25*T,'#ffd24a',11);
  /* player */
- const mk=(key,suit,step)=>{const g=scene.make.graphics({x:0,y:0,add:false});const up=(n)=>step===n?1:0;
-  g.fillStyle(suit?0xdfe8f5:0xe8702a,1);g.fillRect(5,19-up(1),5,7);g.fillRect(12,19-up(2),5,7);g.fillStyle(0x222b44,1);g.fillRect(5,25-up(1),5,3);g.fillRect(12,25-up(2),5,3);
-  g.fillStyle(suit?0xcfd9ea:0xf27d35,1);g.fillRect(1,11+up(2),4,8);g.fillRect(17,11+up(1),4,8);
-  g.fillStyle(suit?0xeef3fb:0xff8a3d,1);g.fillRect(4,10,14,10);g.fillStyle(suit?0x39d9ff:0xffffff,1);g.fillRect(4,14,14,2);
-  if(suit){g.fillStyle(0xaab6cc,1);g.fillRect(2,8,4,11);g.fillStyle(0xf4f8ff,1);g.fillCircle(11,6,7);g.fillStyle(0x1a2b4d,1);g.fillRoundedRect(6,3,10,7,2);g.fillStyle(0xffb340,1);g.fillRoundedRect(7,4,8,5,2);g.fillStyle(0xffffff,.7);g.fillRect(8,4,3,1)}
-  else{g.fillStyle(0xf0c49a,1);g.fillRect(6,1,10,9);g.fillStyle(0x2b1a12,1);g.fillRect(5,0,12,4);g.fillRect(5,4,2,3);g.fillStyle(0x1a1a1a,1);g.fillRect(8,6,2,2);g.fillRect(13,6,2,2)}
-  g.generateTexture(key,22,29);g.destroy()};
- [0,1,2].forEach(s=>{mk('ah'+s,false,s);mk('as'+s,true,s)});
  const sg=scene.make.graphics({x:0,y:0,add:false});sg.fillStyle(0,.35);sg.fillEllipse(10,4,18,7);sg.generateTexture('shadow',20,8);sg.destroy();
  const player=scene.add.sprite(16*T,14.5*T,'ah0').setOrigin(.5,1);const shadow=scene.add.image(0,0,'shadow');
 
- const mkNpc=(key,body,hair)=>{const g=scene.make.graphics({x:0,y:0,add:false});g.fillStyle(0x222b44,1);g.fillRect(5,19,5,7);g.fillRect(12,19,5,7);g.fillStyle(0x222b44,1);g.fillRect(5,25,5,3);g.fillRect(12,25,5,3);g.fillStyle(body,1);g.fillRect(1,11,4,8);g.fillRect(17,11,4,8);g.fillRect(4,10,14,10);g.fillStyle(0xffffff,1);g.fillRect(4,14,14,2);g.fillStyle(0xf0c49a,1);g.fillRect(6,1,10,9);g.fillStyle(hair,1);g.fillRect(5,0,12,4);g.fillStyle(0x1a1a1a,1);g.fillRect(8,6,2,2);g.fillRect(13,6,2,2);g.generateTexture(key,22,29);g.destroy()};
- const CREWC={reyes:[0xd64545,0x2b1a12],aiko:[0x2fb5b0,0x1a1a1a],david:[0xe8c33a,0x3a2412],sofia:[0x8f5fc0,0x5a2a12]};
- world.npcs={};for(const [id,[b,h]] of Object.entries(CREWC)){mkNpc('npc_'+id,b,h);world.npcs[id]=scene.add.sprite(0,0,'npc_'+id).setOrigin(.5,1).setVisible(false)}
+ world.npcs={};for(const id of ['reyes','aiko','david','sofia'])world.npcs[id]=scene.add.sprite(0,0,'npc_'+id).setOrigin(.5,1).setVisible(false)
  world.placeNpcs=(over)=>{const spots={reyes:[19.5,6],aiko:[11.5,6.4],david:[22.5,11.5],sofia:[9.5,11]};for(const [id,sp] of Object.entries(world.npcs)){const [x,y]=spots[id];sp.setVisible(over).setPosition(x*T,y*T).setDepth(y*T)}};
- world.player=player;world.shadow=shadow;world.scene=scene;world.anim=0;world.mk=mk;
+ world.player=player;world.shadow=shadow;world.scene=scene;world.anim=0;
  const arrow=scene.add.graphics().setDepth(9990);world.arrow=arrow;
  const cam=scene.cameras.main;cam.setBounds(0,0,W*T,H*T);cam.startFollow(player,true,.14,.14);cam.roundPixels=true;
  const fit=()=>{const w=scene.scale.width,h=scene.scale.height;cam.setZoom(clamp(Math.round(Math.min(w,h)/(T*12)*4)/4,1,2.5))};fit();scene.scale.on('resize',fit);

@@ -1,15 +1,20 @@
 # HANDOFF (update at the end of every session)
 
-## State: Phase 0 done, Phase 2 partly done. Last updated by the starter-repo author.
+## State: Phase 0 done, Phase 2 partly done; original pixel-sprite pass started. Last updated by Codex.
 
 ### Done and tested (npm test: 15 passing)
 Simulation (power/air/water/food, dust, flares), energy per action, farming, 5 buildings, cave verbs + cavern + campaign end, sustainability streak, events + scripted beats + memory flags, rewind to any Sol, save/load, data-integrity tests, daily report generation.
 
-### Built but NOT yet run in a browser
-The whole front end: `src/game/WorldScene.ts`, `src/game/world.ts`, `src/ui/*`, `src/main.ts`. They type-check and `npm run build` succeeds, but nobody has played them (no browser was available). **First job: run `npm run dev` and play Sol 1-3.** Likely trouble spots: `world.ts` (ported legacy drawing, ts-nocheck, patched farm/bunk/building code), zone prompts and the `E` key, dialogue flow when a beat fires after an action, the 5th farm bed (annex) visibility, NPC positions after quarantine ends, panel re-rendering after actions, touch joystick.
+### Built but NOT yet played through in a browser
+The whole front end: `src/game/WorldScene.ts`, `src/game/world.ts`, `src/ui/*`, `src/main.ts`. `npm run check` passes (15 tests plus type-check and production build). The local Vite server returns HTTP 200. A headless-Chrome screenshot attempt did not produce a file in this environment, so **first job: open the game and play Sol 1-3**, checking the new player/EVA walk frames, crew sprites after quarantine, crop stages in the farm, zone prompts and the `E` key.
 
 ### Look and feel
 The owner wants the prototype's look (menu, HUD, rooms, plants, sick bay, control module, result screen) kept as is. It was ported, not redesigned. The earlier placeholder-sprite atlas was removed. The Stardew-style art question is open (see AGENTS.md).
+
+### Art work in this session
+- Owner approved an original cozy, high-detail pixel-art direction (not Stardew Valley assets or copied designs).
+- `src/game/sprites.ts` now generates crisp, project-owned runtime sprite textures for the junior explorer (indoor + EVA, three walk frames), four identifiable crew members, and four growth stages for each crop.
+- `src/game/world.ts` consumes those textures for the player, crew and six plants per active bed; the oxygen and water makers now have pixel-machine overlays. The remaining world/rover/building art is retained for the next pass.
 
 ### Known gaps
 - Climate data is a DEV FALLBACK (see docs/DATA_MANIFEST.md). Flare entries unverified.
@@ -20,9 +25,9 @@ The owner wants the prototype's look (menu, HUD, rooms, plants, sick bay, contro
 - Journal "happened" text strips the speaker prefix with a regex; check it reads well.
 
 ### Next
-1. Browser playtest + fixes (Phase 2).
-2. Real data replacement (Phase 4), in parallel if a second agent is available.
-3. Decide with the owner whether to move characters/crops to Stardew-style sprites (AGENTS.md, Look and feel).
+1. Browser playtest + fixes (Phase 2), especially visual crop placement/occlusion and the character walk cycle.
+2. Continue the approved original pixel-art pass: machine/rover/building texture atlases and construction variants, while keeping the locked UI.
+3. Real data replacement (Phase 4).
 
 ### Commands
 `npm install` · `npm run dev` · `npm run check` (tests + type-check + build) · 
