@@ -16,6 +16,12 @@ The owner wants the prototype's look (menu, HUD, rooms, plants, sick bay, contro
 - `src/game/sprites.ts` now generates crisp, project-owned runtime sprite textures for the junior explorer (indoor + EVA, three walk frames), four identifiable crew members, and four growth stages for each crop.
 - `src/game/world.ts` consumes those textures for the player, crew and six plants per active bed; the oxygen and water makers now have pixel-machine overlays. The remaining world/rover/building art is retained for the next pass.
 
+### Progressive learning and sources
+- The game title shown in the browser/menu is now **My Little Red Planet**.
+- `src/story/learning.ts` holds optional, kid-friendly NASA source cards. A small magnifying-glass button opens a card only when the player chooses it, then offers an external NASA link.
+- Current objectives, source-backed decision events, earned discoveries, and auto-added mission/crop lessons can all carry that button. Mission completion and a first crop plan write simple lessons to the journal.
+- Official NASA links cover space crops, the 2018 dust storm, DONKI, Mars exploration resources, and cave/radiation research. The game still clearly labels its climate table as a dev fallback and its radiation multiplier as a game model.
+
 ### Known gaps
 - Climate data is a DEV FALLBACK (see docs/DATA_MANIFEST.md). Flare entries unverified.
 - Walking crew NPCs after quarantine are static sprites. The 5th bed's floor area is blocked even before the annex exists.
@@ -26,8 +32,9 @@ The owner wants the prototype's look (menu, HUD, rooms, plants, sick bay, contro
 
 ### Next
 1. Browser playtest + fixes (Phase 2), especially visual crop placement/occlusion and the character walk cycle.
-2. Continue the approved original pixel-art pass: machine/rover/building texture atlases and construction variants, while keeping the locked UI.
-3. Real data replacement (Phase 4).
+2. Browser-check magnifying-glass controls in HUD, dialogue, reports, stage results, and journal; confirm external NASA links open correctly.
+3. Continue the approved original pixel-art pass: machine/rover/building texture atlases and construction variants, while keeping the locked UI.
+4. Real data replacement (Phase 4).
 
 ### Commands
 `npm install` · `npm run dev` · `npm run check` (tests + type-check + build) · 

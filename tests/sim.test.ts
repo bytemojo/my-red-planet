@@ -53,6 +53,13 @@ describe('energy', () => {
     s.energy = 1;
     expect(act(s, 'water', { plot: 'p0' }).ok).toBe(false);
   });
+  it('records an optional learning note when the player first plans a crop', () => {
+    const s = newGame(1); dismissAll(s);
+    act(s, 'plant', { plot: 'p0', crop: 'potato' });
+    const lesson = s.journal.find(j => j.id === 'lesson:crop-planning');
+    expect(lesson?.learnId).toBe('space_crops');
+    expect(lesson?.decision).toContain('4 Sols');
+  });
   it('sleeping late restores less energy', () => {
     const s = newGame(1); dismissAll(s); s.hour = 23; endSol(s); expect(s.energy).toBe(80);
   });

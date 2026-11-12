@@ -105,6 +105,8 @@ const stageDone: Record<number, (s: GameState) => boolean> = {
 export function checkProgress(s: GameState): void {
   s.bestSelfSufficient = Math.max(s.bestSelfSufficient, s.solsSinceShipment);
   while (!s.campaignComplete && stageDone[s.stage]?.(s)) {
+    const finished = STAGES[s.stage - 1];
+    s.journal.push({ id: `mission:${finished.id}`, sol: s.sol, title: `${finished.title} complete`, happened: `You completed this mission: ${finished.objective}`, decision: 'You kept the colony moving forward.', why: 'Each mission builds a skill needed for a sustainable colony.', science: 'Open the magnifying glass only if you want to learn more.', learnId: finished.learnId, realData: false, kind: 'mission' });
     if (s.stage === 6) { s.campaignComplete = true; addLog(s, 'MISSION', 'Campaign complete! Keep building in sandbox mode.'); break; }
     s.stage += 1;
     addLog(s, 'MISSION', `Stage ${s.stage}: ${STAGES[s.stage - 1].title}`);
@@ -170,6 +172,7 @@ export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?
       if (p.crop) return fail('Something is already growing here.');
       if (arg.crop === 'tomato' && !s.flags.tomato_unlocked) return fail('You do not have tomato seeds yet.');
       p.crop = arg.crop; p.growth = 0; p.watered = false; spend();
+      if (!s.flags.crop_lesson) { s.flags.crop_lesson = true; s.journal.push({ id: 'lesson:crop-planning', sol: s.sol, title: 'Crop planning', happened: 'You planted your first crop.', decision: `In this game, ${CROPS[arg.crop].name.toLowerCase()} takes ${CROPS[arg.crop].sols} Sols and gives ${CROPS[arg.crop].food} food.`, why: 'Choose between quick food and a bigger later harvest.', science: 'Crop timings are game balance, not a NASA measurement.', learnId: 'space_crops', realData: false, kind: 'lesson' }); }
       return done(`Planted ${CROPS[arg.crop].name}.`);
     }
     case 'water': {

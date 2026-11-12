@@ -4,6 +4,7 @@ import type { PendingView } from '../core/director';
 import type { GameState } from '../core/types';
 import { CREW } from '../story/crew';
 import { STAGES } from '../core/constants';
+import { LEARNING } from '../story/learning';
 
 export const $ = (s: string, r: ParentNode = document) => r.querySelector(s) as HTMLElement;
 export const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
@@ -43,6 +44,9 @@ export const vbar = (ic: string, frac: number, cls: string, right = '') =>
 export const optCard = (key: string, ic: string, name: string, active: boolean, fx: string, disabled = false, why = '') =>
   `<button class="opt big ${active ? 'active' : ''}" data-do="${esc(key)}" ${disabled ? 'disabled' : ''}><span class="oico">${ICON[ic] ?? ''}</span><span class="obody"><span class="opt-top"><b>${esc(name)}</b>${active ? '<span class="badge">ON</span>' : ''}</span>${why ? `<span class="why">${esc(why)}</span>` : ''}<span class="fx">${fx}</span></span></button>`;
 export const levelClass = (v: number) => (v < 20 ? 'crit' : v < 40 ? 'warn' : '');
+export const learnButton = (id?: string) => id ? `<button class="learn-btn" data-learn="${esc(id)}" aria-label="Learn more from NASA">⌕</button>` : '';
+export function openLearning(id: string) { const l = LEARNING[id]; if (!l) return; overlay('learn', `<div class="holo-panel learn-card">${head('bulb', l.title)}<div class="panel-body"><p><b>Did you know?</b> ${esc(l.learned)}</p><p class="why">${esc(l.detail)}</p><a class="holo-btn small amber" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">READ THE NASA SOURCE ↗</a><p class="src-line">${esc(l.sourceTitle)}${l.note ? ` · ${esc(l.note)}` : ''}</p></div></div>`); }
+export function bindLearning(root: ParentNode = document) { root.querySelectorAll('[data-learn]').forEach(el => ((el as HTMLElement).onclick = () => { sfx.click(); openLearning((el as HTMLElement).dataset.learn!); })); }
 
 // ---------- dialogue with portrait (beats and events) ----------
 const COLORS: Record<string, string> = { reyes: '#ff8d9a', aiko: '#7de8e0', david: '#ffd96a', sofia: '#c9a6ff', system: '#8ceaff' };
@@ -57,7 +61,7 @@ export function runPending(v: PendingView): Promise<string> {
       <div class="portrait" aria-hidden="true"><svg viewBox="0 0 90 120" fill="${col}22" stroke="${col}" stroke-width="1.6"><path d="M8 120c0-26 14-38 37-40 23 2 37 14 37 40z"/><rect x="38" y="62" width="14" height="18" rx="4"/><ellipse cx="45" cy="42" rx="19" ry="23"/><path d="M26 38c2-16 12-22 19-22s17 6 19 22c-6-8-12-11-19-11s-13 3-19 11z"/></svg></div>
       <div class="dlg-main"><div class="dlg-name" id="dlg-name"></div><div class="dlg-text" id="dlg-text" aria-live="polite"></div><div class="dlg-actions" id="dlg-actions"></div></div></div>`);
     const name = $('#dlg-name', el), tx = $('#dlg-text', el), actions = $('#dlg-actions', el);
-    name.innerHTML = `${esc(speakerName(v.speaker))}${place ? ' · ' + place : ''}${v.title ? ' · ' + esc(v.title) : ''}${v.realData ? ' <span class="tag emb">REAL DATA</span>' : ''}`;
+    name.innerHTML = `${esc(speakerName(v.speaker))}${place ? ' · ' + place : ''}${v.title ? ' · ' + esc(v.title) : ''}${v.realData ? ' <span class="tag emb">REAL DATA</span>' : ''}${learnButton(v.learnId)}`; bindLearning(el);
     let i = 0, timer = 0, full = '';
     const finish = (id: string) => { clearInterval(timer); UI.close('dlg'); runPending.next = null; resolve(id); };
     const show = () => {
@@ -87,17 +91,17 @@ runPending.next = null as null | (() => void);
 export function showReport(s: GameState): Promise<void> {
   const r = s.lastReport; if (!r) return Promise.resolve();
   return new Promise(res => {
-    const el = overlay('report', `<div class="holo-panel">${head('sun', `MY RED PLANET · SOL ${String(r.sol).padStart(3, '0')}`, false)}<div class="panel-body">
+    const el = overlay('report', `<div class="holo-panel">${head('sun', `MY LITTLE RED PLANET · SOL ${String(r.sol).padStart(3, '0')}`, false)}<div class="panel-body">
       <p class="line" style="margin:0;font-size:20px">Good morning, Commander.</p>
       <div class="optlist">${r.lines.map(l => `<div class="msg2"><span class="face">${ICON.ping}</span><span>${esc(l)}</span></div>`).join('')}</div>
-      <div class="fact">${ICON.bulb}<span><b>Today's mission:</b> ${esc(r.mission)}</span></div>
+      <div class="fact">${ICON.bulb}<span><b>Today's mission:</b> ${esc(r.mission)}</span>${learnButton(STAGES[s.stage - 1]?.learnId)}</div>
       <div class="row" style="justify-content:flex-end"><button class="holo-btn small amber" id="rep-go">START THE DAY ▸</button></div></div></div>`);
-    $('#rep-go', el).onclick = () => { sfx.ok(); UI.close('report'); res(); };
+    bindLearning(el); $('#rep-go', el).onclick = () => { sfx.ok(); UI.close('report'); res(); };
   });
 }
 export function journalHtml(s: GameState): string {
   if (!s.journal.length) return '<p class="why">Nothing yet. Decisions and discoveries are written here as you play.</p>';
-  return [...s.journal].reverse().map(j => `<div class="card"><h3>Sol ${j.sol} · ${esc(j.title)} <span class="tag ${j.realData ? 'emb' : 'arch'}">${j.realData ? 'REAL DATA' : 'GAME'}</span></h3>
+  return [...s.journal].reverse().map(j => `<div class="card"><h3>Sol ${j.sol} · ${esc(j.title)} <span class="tag ${j.realData ? 'emb' : 'arch'}">${j.realData ? 'REAL DATA' : 'GAME'}</span>${learnButton(j.learnId)}</h3>
     <p>${esc(j.happened)}</p><p><b>You:</b> ${esc(j.decision)}</p><p><b>Why it mattered:</b> ${esc(j.why)}</p><p><b>The science:</b> ${esc(j.science)}</p>${j.sourceId ? `<p class="src-line">Source: ${esc(j.sourceId)}</p>` : ''}</div>`).join('');
 }
 export function stageScore(s: GameState) {
@@ -116,9 +120,9 @@ export function showStageResult(s: GameState, finished: number): Promise<void> {
       <div class="stars" aria-label="${r.stars} of 3 stars">${'★'.repeat(r.stars)}<span style="opacity:.25">${'★'.repeat(3 - r.stars)}</span></div><div class="score">${r.score}</div>
       <div><div class="bd"><span>Average supplies left</span><span>${Math.round(r.avg)}%</span></div><div class="bd"><span>Radiation allowance left</span><span>${Math.round(s.rad)}%</span></div>
       <div class="bd"><span>Sols without an Earth shipment</span><span>${s.solsSinceShipment}</span></div><div class="bd"><span>Crew friendship</span><span>${r.friends}</span></div><div class="bd"><span>Suit blackouts</span><span>${r.tows}</span></div></div>
-      ${last ? '<div class="card won"><h3>Campaign complete</h3><p>The colony is yours. Keep building in sandbox mode.</p></div>' : `<div class="card"><h3>Next: ${esc(STAGES[finished].title)}</h3><p>${esc(STAGES[finished].objective)}</p></div>`}
+      ${last ? '<div class="card won"><h3>Campaign complete</h3><p>The colony is yours. Keep building in sandbox mode.</p></div>' : `<div class="card"><h3>Next: ${esc(STAGES[finished].title)} ${learnButton(STAGES[finished].learnId)}</h3><p>${esc(STAGES[finished].objective)}</p></div>`}
       <div class="row" style="justify-content:flex-end"><button class="holo-btn small amber" id="r-go">KEEP EXPLORING ▸</button></div></div></div>`);
-    $('#r-go', el).onclick = () => { sfx.click(); UI.close('result'); res(); };
+    bindLearning(el); $('#r-go', el).onclick = () => { sfx.click(); UI.close('result'); res(); };
   });
 }
 export function flashMeter(k: string) {

@@ -8,7 +8,7 @@ import type { Choice, GameState } from './types';
 
 export interface PendingView {
   kind: 'beat' | 'event'; id: string; title: string; speaker: string; lines: string[]; realData: boolean;
-  choices: { id: string; label: string; hint?: string; disabled: boolean }[];
+  choices: { id: string; label: string; hint?: string; disabled: boolean }[]; learnId?: string;
 }
 
 // Beats first (scripted story), otherwise nothing. Events are rolled once each morning in rollEvent().
@@ -45,7 +45,7 @@ export function describePending(s: GameState): PendingView | null {
   }
   const e = eventById(s.pending.id);
   if (!e) return null;
-  return { kind: 'event', id: e.id, title: e.title, speaker: e.speaker, lines: [e.text(s, env)], realData: e.journal.realData,
+  return { kind: 'event', id: e.id, title: e.title, speaker: e.speaker, lines: [e.text(s, env)], realData: e.journal.realData, learnId: e.journal.learnId,
     choices: e.choices.map(c => ({ id: c.id, label: c.label, hint: c.hint, disabled: c.requires ? !c.requires(s) : false })) };
 }
 
@@ -75,7 +75,7 @@ export function resolve(s: GameState, choiceId = 'continue'): boolean {
     s.lastEventSol = s.sol;
     const src = e.journal.sourceId === '@flare' ? env.flare?.id : e.journal.sourceId;
     s.journal.push({ id: `${e.id}@${s.sol}`, sol: s.sol, title: e.title, happened: e.text(s, env).replace(/^[^:"]{1,48}: /, ''),
-      decision: choice.label, why: e.journal.why, science: e.journal.science, sourceId: src, realData: e.journal.realData, kind: 'event' });
+      decision: choice.label, why: e.journal.why, science: e.journal.science, sourceId: src, learnId: e.journal.learnId, realData: e.journal.realData, kind: 'event' });
     addLog(s, 'EVENT', `${e.title}: ${choice.label}`);
   }
   s.pending = null;

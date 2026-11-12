@@ -1,5 +1,5 @@
 import { ICON } from './icons';
-import { $, UI, clamp, chip, esc, head, journalHtml, optCard, overlay, pips, vbar, levelClass } from './ui';
+import { $, UI, bindLearning, clamp, chip, esc, head, journalHtml, optCard, overlay, pips, vbar, levelClass } from './ui';
 import { sfx } from './audio';
 import { arrows } from './hud';
 import { ACTION_ENERGY, BUILDINGS, CAVE_MAX, CROPS, FARM, LS } from '../core/constants';
@@ -24,6 +24,7 @@ function panel(id: string, host: Host, draw: Draw, onDo: (cmd: string[]) => void
     el.innerHTML = draw();
     el.querySelectorAll('[data-close]').forEach(b => ((b as HTMLElement).onclick = () => { sfx.click(); UI.close(id); }));
     el.querySelectorAll('[data-do]').forEach(b => ((b as HTMLElement).onclick = () => { sfx.click(); onDo((b as HTMLElement).dataset.do!.split('|')); render(); }));
+    bindLearning(el);
   };
   render();
 }

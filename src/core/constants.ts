@@ -48,10 +48,10 @@ export const CAVERN_NEEDED = 8;  // total verb levels (each verb >= 1) to open t
 export const SELF_SUFFICIENT_GOAL = 10; // Sols without an Earth shipment to finish the campaign
 
 export const STAGES = [
-  { id: 1, title: 'First Days on Mars', objective: 'Keep air, water, food and power up. Plant and harvest your first crop.' },
-  { id: 2, title: 'The Greenhouse', objective: 'Grow more food than you eat. Build the Greenhouse Annex.' },
-  { id: 3, title: 'Power and Infrastructure', objective: 'Build a Second Solar Array and a Water Recycler.' },
-  { id: 4, title: 'Surface Exploration', objective: 'Build the Rover Bay and make two rover trips.' },
-  { id: 5, title: 'The Cave', objective: 'Explore, excavate, pressurize and shield the candidate cave.' },
-  { id: 6, title: 'A Sustainable Colony', objective: `Go ${SELF_SUFFICIENT_GOAL} Sols without an Earth shipment.` },
+  { id: 1, title: 'First Days on Mars', objective: 'Keep air, water, food and power up. Plant and harvest your first crop.', learnId: 'space_crops' },
+  { id: 2, title: 'The Greenhouse', objective: 'Grow more food than you eat. Build the Greenhouse Annex.', learnId: 'space_crops' },
+  { id: 3, title: 'Power and Infrastructure', objective: 'Build a Second Solar Array and a Water Recycler.', learnId: 'mars_dust' },
+  { id: 4, title: 'Surface Exploration', objective: 'Build the Rover Bay and make two rover trips.', learnId: 'mars_resources' },
+  { id: 5, title: 'The Cave', objective: 'Explore, excavate, pressurize and shield the candidate cave.', learnId: 'mars_caves' },
+  { id: 6, title: 'A Sustainable Colony', objective: `Go ${SELF_SUFFICIENT_GOAL} Sols without an Earth shipment.`, learnId: 'mars_resources' },
 ];

@@ -1,5 +1,5 @@
 import { ICON } from './icons';
-import { $, clamp, levelClass } from './ui';
+import { $, bindLearning, clamp, learnButton, levelClass } from './ui';
 import { rates, solarEfficiency } from '../core/sim';
 import { envForSol } from '../core/env';
 import { STAGES, CROPS } from '../core/constants';
@@ -44,5 +44,6 @@ export function refreshHud(s: GameState) {
   const planted = s.plots.filter(p => p.crop).length, ready = s.plots.filter(p => p.crop && p.growth >= CROPS[p.crop].sols).length;
   const chips: [string, string, boolean][] = [['farm', 'Farm', planted > 0 && ready === 0], ['ls', 'Air & Water', r.o2 >= -0.05 && r.water >= -0.5], ['dish', 'Comms', s.solsSinceShipment >= 0], ['panel', 'Solar', solarEfficiency(s, env) > 0.4]];
   $('#chips').innerHTML = chips.map(([ic, n, ok]) => `<span class="sys ${ok ? 'ok' : ''}"><i></i>${ICON[ic]}${n}</span>`).join('');
-  $('#obj-hint').innerHTML = `${ICON.bulb}<span>${s.campaignComplete ? 'Keep every system healthy. Nothing is ever free.' : st.objective}</span>`;
+  $('#obj-hint').innerHTML = `${ICON.bulb}<span>${s.campaignComplete ? 'Keep every system healthy. Nothing is ever free.' : st.objective}</span>${learnButton(st.learnId)}`;
+  bindLearning($('#obj-hint'));
 }

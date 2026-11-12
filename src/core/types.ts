@@ -14,7 +14,7 @@ export interface Decision { sol: number; sourceId: string; optionId: string; lab
 export interface JournalEntry {
   id: string; sol: number; title: string;
   happened: string; decision: string; why: string; science: string;
-  sourceId?: string; realData: boolean; kind: 'event' | 'discovery';
+  sourceId?: string; learnId?: string; realData: boolean; kind: 'event' | 'discovery' | 'mission' | 'lesson';
 }
 export interface LogEntry { sol: number; who: string; text: string }
 export interface SolSummary { sol: number; res: Resources; decisions: string[]; note: string }
@@ -71,5 +71,5 @@ export interface EventDef {
   weight: (s: GameState, env: Env) => number;
   text: (s: GameState, env: Env) => string;
   choices: Choice[];
-  journal: { why: string; science: string; sourceId?: string; realData: boolean };
+  journal: { why: string; science: string; sourceId?: string; learnId?: string; realData: boolean };
 }
