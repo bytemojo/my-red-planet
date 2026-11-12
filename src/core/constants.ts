@@ -36,7 +36,7 @@ export const ACTION_ENERGY = {
 export type ActionName = keyof typeof ACTION_ENERGY;
 
 export const BUILDINGS: Record<string, { name: string; stage: number; cost: Partial<Record<ResKey, number>>; why: string }> = {
-  greenhouse_2: { name: 'Greenhouse Annex', stage: 2, cost: { power: 8, water: 8 }, why: 'Two more plots for crops.' },
+  greenhouse_2: { name: 'Greenhouse Annex', stage: 2, cost: { power: 8, water: 8 }, why: 'One more grow bed for crops.' },
   solar_2: { name: 'Second Solar Array', stage: 3, cost: { power: 6 }, why: 'More electricity from the same sunshine.' },
   recycler: { name: 'Water Recycler', stage: 3, cost: { power: 8 }, why: 'Cleans used water so less is wasted.' },
   shelter: { name: 'Radiation Shelter', stage: 3, cost: { power: 8 }, why: 'Thick walls to hide behind during solar storms.' },

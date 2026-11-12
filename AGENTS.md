@@ -41,8 +41,12 @@ legacy/      The original single-file prototype. Reference only. Do not edit.
 ```
 Rules: game logic goes in `core/`, never in `game/`. Content goes in `story/` as data. Phaser code only reads state and calls `act()`/`resolve()`.
 
-## Art
-Stardew-style pixel art: 16x16 tiles, 16x32 characters, 3/4 top-down view, outlined sprites, locked palette. Right now the art is generated placeholders. Real art must keep the frame names in docs/ART_SPEC.md so it drops in without code changes. Never draw art in canvas code. See docs/ART_SPEC.md.
+## Look and feel (locked by the owner)
+The game must keep the look of the original prototype in `legacy/Junior_Mars_Commander.html`: the holographic home menu over a starfield with a glowing Mars, the cyan/amber HUD, dialogue with a portrait panel, option cards, the Control Module, and the world's rooms (indoor farm with glowing grow-beds, sick bay with sleeping crew, control module with holo-Mars, comms console, life-support machines, solar farm with dust, rover bay). **Do not redesign these.**
+- UI styling: `src/ui/holo.css` (copied from the prototype) and `src/ui/icons.ts`. Fonts: Orbitron and Rajdhani (Google Fonts, with system fallbacks, so it still works offline).
+- World drawing: `src/game/world.ts`. Ported from the prototype's `buildWorld`; it draws with Phaser graphics at 32px tiles. It is `// @ts-nocheck` on purpose (verbatim legacy drawing). Farm beds, bunks, rover, buildings and the cave mouth are rewritten to read the new game state. Keep it working; type it gradually.
+- Intro briefing text is owner-written (see `beats.ts`, beat `intro`). Keep its wording.
+- The owner also wants a Stardew-Valley-style pixel-art feel eventually. That is **not decided against the prototype's look yet**: ask before replacing the procedural drawing with sprite art. If you do, introduce a sprite atlas with fixed frame names and keep the existing UI.
 
 ## How to work
 1. Read HANDOFF.md, then docs/ROADMAP.md. Do **one phase** at a time.

@@ -1,92 +1,128 @@
-import { CROPS, FARM, LS, STAGES } from '../core/constants';
-import type { GameState } from '../core/types';
+import { ICON } from './icons';
+import { sfx } from './audio';
 import type { PendingView } from '../core/director';
+import type { GameState } from '../core/types';
 import { CREW } from '../story/crew';
+import { STAGES } from '../core/constants';
 
-export interface ChoiceItem { id: string; label: string; hint?: string; disabled?: boolean }
-const $ = (id: string) => document.getElementById(id)!;
-let openCount = 0;
-export const isBlocking = () => openCount > 0;
+export const $ = (s: string, r: ParentNode = document) => r.querySelector(s) as HTMLElement;
+export const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+export const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
-function el(tag: string, cls = '', html = ''): HTMLElement { const e = document.createElement(tag); if (cls) e.className = cls; if (html) e.innerHTML = html; return e; }
-const esc = (t: string) => t.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]!));
-
-function modal(build: (box: HTMLElement, close: (v?: unknown) => void) => void): Promise<unknown> {
-  return new Promise(res => {
-    openCount++;
-    const wrap = el('div', 'modal'), box = el('div', 'box');
-    wrap.appendChild(box); $('overlay').appendChild(wrap);
-    const close = (v?: unknown) => { wrap.remove(); openCount--; res(v); };
-    build(box, close);
-  });
-}
-const btn = (label: string, cb: () => void, cls = 'btn', hint?: string, disabled = false) => {
-  const b = el('button', cls, esc(label) + (hint ? `<small>${esc(hint)}</small>` : '')) as HTMLButtonElement;
-  b.disabled = disabled; b.onclick = cb; return b;
+// ---------- overlay stack (same pattern as the legacy prototype) ----------
+export const UI = {
+  stack: [] as string[],
+  open(id: string) { if (!this.stack.includes(id)) this.stack.push(id); },
+  close(id: string) { this.stack = this.stack.filter(x => x !== id); document.getElementById(id)?.remove(); },
+  blocking() { return this.stack.length > 0; },
 };
+export const isBlocking = () => UI.blocking();
+export function overlay(id: string, html: string, cls = ''): HTMLElement {
+  UI.close(id);
+  const el = document.createElement('div');
+  el.id = id; el.className = 'overlay ' + cls; el.innerHTML = html;
+  $('#overlays').appendChild(el); UI.open(id);
+  el.querySelectorAll('[data-close]').forEach(b => ((b as HTMLElement).onclick = () => { sfx.click(); UI.close(id); }));
+  return el;
+}
+export function toast(html: string, o: { kind?: string; ms?: number } = {}) {
+  const el = document.createElement('div'); el.className = 'toast ' + (o.kind || ''); el.innerHTML = html;
+  $('#toasts').appendChild(el); setTimeout(() => el.remove(), o.ms ?? 2800);
+}
+export const head = (ic: string, title: string, close = true) =>
+  `<div class="panel-head"><span class="hico">${ICON[ic] ?? ''}</span><h2>${esc(title)}</h2>${close ? '<button class="close-x" data-close aria-label="Close">×</button>' : ''}</div>`;
 
-export const toast = (msg: string) => { const t = el('div', 'toast', esc(msg)); $('toasts').appendChild(t); setTimeout(() => t.remove(), 2600); };
+// ---------- small visual helpers ----------
+export const pips = (v: number, max: number, cls: string, total = 5) => {
+  const n = clamp(Math.round((v / max) * total), v > 0 ? 1 : 0, total);
+  return `<span class="pips ${cls}">${Array.from({ length: total }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
+};
+export const chip = (ic: string, text: string, cls = 'n') => `<span class="fxc ${cls}"><span class="fi">${ICON[ic] ?? ''}</span><span>${esc(text)}</span></span>`;
+export const vbar = (ic: string, frac: number, cls: string, right = '') =>
+  `<div class="vrow"><span class="vi">${ICON[ic] ?? ''}</span><div class="bigbar"><i class="${cls}" style="width:${clamp(frac, 0, 1) * 100}%"></i></div><b>${right}</b></div>`;
+export const optCard = (key: string, ic: string, name: string, active: boolean, fx: string, disabled = false, why = '') =>
+  `<button class="opt big ${active ? 'active' : ''}" data-do="${esc(key)}" ${disabled ? 'disabled' : ''}><span class="oico">${ICON[ic] ?? ''}</span><span class="obody"><span class="opt-top"><b>${esc(name)}</b>${active ? '<span class="badge">ON</span>' : ''}</span>${why ? `<span class="why">${esc(why)}</span>` : ''}<span class="fx">${fx}</span></span></button>`;
+export const levelClass = (v: number) => (v < 20 ? 'crit' : v < 40 ? 'warn' : '');
 
-export async function showPending(v: PendingView): Promise<string> {
-  const who = v.speaker === 'system' ? 'Mission' : CREW[v.speaker as keyof typeof CREW].name;
-  let i = 0;
-  const r = await modal((box, close) => {
-    const head = el('div', 'who', esc(who) + (v.realData ? ' <span class="badge">REAL DATA</span>' : ''));
-    const title = v.title ? el('h3', '', esc(v.title)) : null;
-    const text = el('p', 'line'); const actions = el('div', 'actions');
-    box.append(head); if (title) box.append(title); box.append(text, actions);
-    const render = () => {
-      text.textContent = v.lines[i]; actions.innerHTML = '';
-      if (i < v.lines.length - 1) actions.append(btn('Next', () => { i++; render(); }));
-      else if (v.choices.length) v.choices.forEach(c => actions.append(btn(c.label, () => close(c.id), 'btn choice', c.hint, c.disabled)));
-      else actions.append(btn('OK', () => close('continue')));
+// ---------- dialogue with portrait (beats and events) ----------
+const COLORS: Record<string, string> = { reyes: '#ff8d9a', aiko: '#7de8e0', david: '#ffd96a', sofia: '#c9a6ff', system: '#8ceaff' };
+const NAMES: Record<string, string> = { reyes: 'CAPT. REYES', aiko: 'AIKO TANAKA', david: 'DAVID OKAFOR', sofia: 'DR. SILVA', system: 'MISSION CONTROL' };
+export const speakerName = (id: string) => NAMES[id] ?? id.toUpperCase();
+
+export function runPending(v: PendingView): Promise<string> {
+  return new Promise(resolve => {
+    const col = COLORS[v.speaker] ?? COLORS.system;
+    const place = v.speaker === 'reyes' ? 'QUARANTINE BAY' : v.speaker === 'system' ? '' : 'SICK BAY';
+    const el = overlay('dlg', `<div class="holo-panel dlg-box" style="max-height:none;flex-direction:row">
+      <div class="portrait" aria-hidden="true"><svg viewBox="0 0 90 120" fill="${col}22" stroke="${col}" stroke-width="1.6"><path d="M8 120c0-26 14-38 37-40 23 2 37 14 37 40z"/><rect x="38" y="62" width="14" height="18" rx="4"/><ellipse cx="45" cy="42" rx="19" ry="23"/><path d="M26 38c2-16 12-22 19-22s17 6 19 22c-6-8-12-11-19-11s-13 3-19 11z"/></svg></div>
+      <div class="dlg-main"><div class="dlg-name" id="dlg-name"></div><div class="dlg-text" id="dlg-text" aria-live="polite"></div><div class="dlg-actions" id="dlg-actions"></div></div></div>`);
+    const name = $('#dlg-name', el), tx = $('#dlg-text', el), actions = $('#dlg-actions', el);
+    name.innerHTML = `${esc(speakerName(v.speaker))}${place ? ' · ' + place : ''}${v.title ? ' · ' + esc(v.title) : ''}${v.realData ? ' <span class="tag emb">REAL DATA</span>' : ''}`;
+    let i = 0, timer = 0, full = '';
+    const finish = (id: string) => { clearInterval(timer); UI.close('dlg'); runPending.next = null; resolve(id); };
+    const show = () => {
+      full = v.lines[i]; tx.textContent = ''; let n = 0; clearInterval(timer);
+      timer = window.setInterval(() => { n += 2; tx.textContent = full.slice(0, n); if (n % 8 === 0) sfx.blip(); if (n >= full.length) { clearInterval(timer); tx.textContent = full; } }, 22);
+      const last = i >= v.lines.length - 1;
+      actions.innerHTML = '';
+      if (!last) actions.innerHTML = `<button class="skip" id="dlg-skip">Skip</button><button class="holo-btn small amber" id="dlg-next">NEXT ▸</button>`;
+      else if (v.choices.length) actions.innerHTML = `<div class="optlist" style="width:100%">${v.choices.map(c => `<button class="opt" data-choice="${esc(c.id)}" ${c.disabled ? 'disabled' : ''}><span class="opt-top"><b>${esc(c.label)}</b></span>${c.hint ? `<span class="why">${esc(c.hint)}</span>` : ''}</button>`).join('')}</div>`;
+      else actions.innerHTML = `<span></span><button class="holo-btn small amber" id="dlg-next">GOT IT ▸</button>`;
+      actions.querySelectorAll('[data-choice]').forEach(b => ((b as HTMLElement).onclick = () => { sfx.ok(); finish((b as HTMLElement).dataset.choice!); }));
+      const nx = actions.querySelector('#dlg-next') as HTMLElement | null; if (nx) nx.onclick = next;
+      const sk = actions.querySelector('#dlg-skip') as HTMLElement | null; if (sk) sk.onclick = () => { i = v.lines.length - 1; clearInterval(timer); show(); tx.textContent = full; };
     };
-    render();
+    const next = () => {
+      if (tx.textContent!.length < full.length) { clearInterval(timer); tx.textContent = full; return; }
+      sfx.click(); i++;
+      if (i >= v.lines.length) finish('continue'); else show();
+    };
+    runPending.next = () => { if (!v.choices.length || i < v.lines.length - 1) next(); };
+    show();
   });
-  return r as string;
 }
+runPending.next = null as null | (() => void);
 
-export function showMessage(title: string, lines: string[], ok = 'OK'): Promise<unknown> {
-  return modal((box, close) => { box.append(el('h3', '', esc(title))); lines.forEach(l => box.append(el('p', 'line', esc(l)))); box.append(btn(ok, () => close(), 'btn')); });
-}
-export function showMenu(title: string, items: ChoiceItem[], cancel = 'Close'): Promise<string | null> {
-  return modal((box, close) => {
-    box.append(el('h3', '', esc(title)));
-    items.forEach(c => box.append(btn(c.label, () => close(c.id), 'btn choice', c.hint, c.disabled)));
-    box.append(btn(cancel, () => close(null), 'btn ghost'));
-  }) as Promise<string | null>;
-}
-export function showReport(s: GameState): Promise<unknown> {
+// ---------- report, journal, result ----------
+export function showReport(s: GameState): Promise<void> {
   const r = s.lastReport; if (!r) return Promise.resolve();
-  return showMessage(`MY RED PLANET: SOL ${String(r.sol).padStart(3, '0')}`, ['Good morning, Commander.', ...r.lines.map(l => '• ' + l), `Today's mission: ${r.mission}`], 'Start the day');
-}
-export function showJournal(s: GameState): Promise<unknown> {
-  return modal((box, close) => {
-    box.append(el('h3', '', 'Mission Journal'));
-    if (!s.journal.length) box.append(el('p', 'line', 'Nothing yet. Decisions and discoveries will be written here.'));
-    [...s.journal].reverse().forEach(j => {
-      const d = el('div', 'entry', `<b>Sol ${j.sol}: ${esc(j.title)}</b> ${j.realData ? '<span class="badge">REAL DATA</span>' : '<span class="badge dev">GAME</span>'}
-        <p>${esc(j.happened)}</p><p><i>You:</i> ${esc(j.decision)}</p><p><i>Why it mattered:</i> ${esc(j.why)}</p>
-        <p><i>The science:</i> ${esc(j.science)}</p>${j.sourceId ? `<p class="src">Source: ${esc(j.sourceId)}</p>` : ''}`);
-      box.append(d);
-    });
-    box.append(btn('Close', () => close(), 'btn ghost'));
+  return new Promise(res => {
+    const el = overlay('report', `<div class="holo-panel">${head('sun', `MY RED PLANET · SOL ${String(r.sol).padStart(3, '0')}`, false)}<div class="panel-body">
+      <p class="line" style="margin:0;font-size:20px">Good morning, Commander.</p>
+      <div class="optlist">${r.lines.map(l => `<div class="msg2"><span class="face">${ICON.ping}</span><span>${esc(l)}</span></div>`).join('')}</div>
+      <div class="fact">${ICON.bulb}<span><b>Today's mission:</b> ${esc(r.mission)}</span></div>
+      <div class="row" style="justify-content:flex-end"><button class="holo-btn small amber" id="rep-go">START THE DAY ▸</button></div></div></div>`);
+    $('#rep-go', el).onclick = () => { sfx.ok(); UI.close('report'); res(); };
   });
 }
-
-// ---------- HUD ----------
-const bar = (cls: string, label: string, v: number, extra = '') => `<div class="meter ${cls}"><span>${label}</span><i style="width:${Math.round(v)}%"></i><em>${Math.round(v)}${extra}</em></div>`;
-export function updateHud(s: GameState): void {
-  const hh = Math.floor(s.hour), mm = Math.floor((s.hour - hh) * 60 / 10) * 10;
-  const st = STAGES[s.stage - 1];
-  $('hud').innerHTML = `
-    <div class="top">
-      <div class="meters">${bar('o2', 'Air', s.res.o2)}${bar('water', 'Water', s.res.water)}${bar('food', 'Food', s.res.food)}${bar('power', 'Power', s.res.power)}
-        ${bar('energy', 'Energy', s.energy)}${s.outside ? bar('suit', 'Suit', s.suit) : ''}${bar('rad', 'Safe', s.rad)}</div>
-      <div class="clock">Sol ${s.sol} · ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}<br/><small>Self-sufficient: ${s.solsSinceShipment} Sols</small></div>
-    </div>
-    <div class="mission"><b>${esc(st.title)}</b>: ${esc(st.objective)}</div>
-    <div class="hint">Move: WASD / arrows · Act: E · Menu: M</div>`;
+export function journalHtml(s: GameState): string {
+  if (!s.journal.length) return '<p class="why">Nothing yet. Decisions and discoveries are written here as you play.</p>';
+  return [...s.journal].reverse().map(j => `<div class="card"><h3>Sol ${j.sol} · ${esc(j.title)} <span class="tag ${j.realData ? 'emb' : 'arch'}">${j.realData ? 'REAL DATA' : 'GAME'}</span></h3>
+    <p>${esc(j.happened)}</p><p><b>You:</b> ${esc(j.decision)}</p><p><b>Why it mattered:</b> ${esc(j.why)}</p><p><b>The science:</b> ${esc(j.science)}</p>${j.sourceId ? `<p class="src-line">Source: ${esc(j.sourceId)}</p>` : ''}</div>`).join('');
 }
-export const settingsLabel = (s: GameState) => `${FARM[s.farm].name} · ${LS[s.ls].name}`;
-export const cropName = (id: string) => CROPS[id as keyof typeof CROPS].name;
+export function stageScore(s: GameState) {
+  const avg = (s.res.o2 + s.res.food + s.res.water + s.res.power) / 4;
+  const friends = Object.values(s.crew).reduce((a, c) => a + c.friendship, 0);
+  const tows = Number(s.flags.blackouts || 0), ships = Number(s.flags.shipments || 0);
+  const score = Math.max(100, 600 + Math.round(avg * 4) + Math.round(s.rad * 2) + friends * 10 + s.solsSinceShipment * 20 - tows * 100 - ships * 100);
+  return { avg, friends, tows, ships, score, stars: score >= 1400 ? 3 : score >= 1100 ? 2 : 1 };
+}
+export function showStageResult(s: GameState, finished: number): Promise<void> {
+  const r = stageScore(s), st = STAGES[finished - 1], last = s.campaignComplete;
+  sfx.win();
+  return new Promise(res => {
+    const el = overlay('result', `<div class="holo-panel"><div class="panel-head"><h2>Stage ${finished} complete</h2></div><div class="panel-body">
+      <p class="res-title">${esc(st.title.toUpperCase())}</p>
+      <div class="stars" aria-label="${r.stars} of 3 stars">${'★'.repeat(r.stars)}<span style="opacity:.25">${'★'.repeat(3 - r.stars)}</span></div><div class="score">${r.score}</div>
+      <div><div class="bd"><span>Average supplies left</span><span>${Math.round(r.avg)}%</span></div><div class="bd"><span>Radiation allowance left</span><span>${Math.round(s.rad)}%</span></div>
+      <div class="bd"><span>Sols without an Earth shipment</span><span>${s.solsSinceShipment}</span></div><div class="bd"><span>Crew friendship</span><span>${r.friends}</span></div><div class="bd"><span>Suit blackouts</span><span>${r.tows}</span></div></div>
+      ${last ? '<div class="card won"><h3>Campaign complete</h3><p>The colony is yours. Keep building in sandbox mode.</p></div>' : `<div class="card"><h3>Next: ${esc(STAGES[finished].title)}</h3><p>${esc(STAGES[finished].objective)}</p></div>`}
+      <div class="row" style="justify-content:flex-end"><button class="holo-btn small amber" id="r-go">KEEP EXPLORING ▸</button></div></div></div>`);
+    $('#r-go', el).onclick = () => { sfx.click(); UI.close('result'); res(); };
+  });
+}
+export function flashMeter(k: string) {
+  const el = document.querySelector(`.meter[data-m="${k}"]`); if (!el) return;
+  el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 400);
+}
+export const showSimple = (ic: string, title: string, bodyHtml: string): HTMLElement => overlay('simple', `<div class="holo-panel">${head(ic, title)}<div class="panel-body">${bodyHtml}</div></div>`);

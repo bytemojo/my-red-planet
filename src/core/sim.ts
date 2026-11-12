@@ -208,7 +208,7 @@ export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?
       for (const [k, v] of Object.entries(b.cost)) if (s.res[k as ResKey] < (v ?? 0)) return fail(`Not enough ${k === 'o2' ? 'air' : k}.`);
       for (const [k, v] of Object.entries(b.cost)) s.res[k as ResKey] -= v ?? 0;
       s.buildings.push(arg.building);
-      if (arg.building === 'greenhouse_2') ['p4', 'p5'].forEach(id => s.plots.push({ id, crop: null, growth: 0, watered: false }));
+      if (arg.building === 'greenhouse_2') s.plots.push({ id: 'p4', crop: null, growth: 0, watered: false });
       spend(); checkProgress(s); return done(`Built: ${b.name}.`);
     }
     case 'explore': {

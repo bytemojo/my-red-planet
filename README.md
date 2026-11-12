@@ -7,4 +7,4 @@ npm install
 npm run dev      # play
 npm run check    # tests + type-check + build
 ```
-AI agents: read **AGENTS.md** first, then **HANDOFF.md**. Controls: WASD/arrows to move, E to act, M for the menu.
+AI agents: read **AGENTS.md** first, then **HANDOFF.md**. Controls: WASD/arrows to walk, E to use, C for the Control Module. Touch: drag to walk, tap the orange button.

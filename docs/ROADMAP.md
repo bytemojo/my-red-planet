@@ -4,21 +4,22 @@ Legend: [x] done and tested · [~] exists but not fully verified · [ ] not star
 
 ## Phase 0: Scaffold
 - [x] Vite + TS + Phaser project, tests, build (`npm run check` passes)
-- [x] Docs for agents: AGENTS.md, HANDOFF.md, DESIGN.md, ART_SPEC.md, DATA_MANIFEST.md
-- [x] Placeholder atlas generator
+- [x] Docs for agents: AGENTS.md, HANDOFF.md, DESIGN.md, DATA_MANIFEST.md
+- [x] Look ported from the legacy prototype: home menu, HUD, panels, rooms (see AGENTS.md)
 
 ## Phase 1: Port from legacy (legacy/Junior_Mars_Commander.html)
 - [x] Power vs air/water/farm trade-off, sun curve, dust effect on solar
 - [x] Suit air, radiation allowance, X-class flare multiplier (2.0)
 - [ ] Live DONKI fetch with archived fallback (legacy had it). Replace with preprocessed JSON per DATA_MANIFEST.md; no live dependency
-- [ ] Sound effects, awards, leaderboard, settings (reduced motion), intro cinematic
+- [x] Sound effects, awards, leaderboard (device-local), settings (sound, reduce motion, callsign), starfield menu, touch joystick
+- [ ] Intro cinematic
 - [ ] Original 12-second comms delay interaction as a playable mini-mechanic
 
 ## Phase 2: One excellent Sol (the playable core)
 - [x] Simulation, energy per action, crops, buildings, sustainability, rewind, save (unit-tested)
-- [~] Phaser world: movement, interaction, HUD, menus. Type-checks and builds; NOT yet played in a browser
+- [~] Phaser world, zone panels, HUD, menu, dialogue, results. Type-checks and builds; NOT yet played in a browser
 - [ ] Playtest in browser, fix bugs, tune HOURS_PER_SEC and balance
-- [ ] Collapse HUD to three headline meters
+- [x] HUD is the prototype's layout: objective line, four meters in a popover, energy bar, suit/radiation when outside
 
 ## Phase 3: Crew and construction
 - [x] 4 crew with dialogue by stage, friendship, quarantine arc
@@ -39,6 +40,6 @@ Legend: [x] done and tested · [~] exists but not fully verified · [ ] not star
 ## Phase 6: Cave, polish, test
 - [x] Cave verbs and ending logic (unit-level)
 - [ ] Cave underground map/scene (currently a menu from the cave mouth)
-- [ ] Real Stardew-style art swap per ART_SPEC.md
+- [ ] Decide with the owner: keep the prototype's look, or move characters/crops to Stardew-style sprites
 - [ ] Touch controls / tablet pass
 - [ ] Test as a 9-year-old and as a NASA judge; write README for judges

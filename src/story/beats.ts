@@ -6,11 +6,12 @@ const seen = (s: GameState, id: string) => s.seenBeats.includes(id);
 // SCRIPTED STORY BEATS. First match in this array fires. Add new beats here; keep `when` cheap and pure.
 export const BEATS: Beat[] = [
   { id: 'intro', speaker: 'reyes', when: s => s.sol === 1,
-    lines: ['Rookie! The whole crew has the flu. We are in quarantine.',
-      'Our mission: explore a cave on Mars and turn it into a home.',
-      'Three possible lava tubes were spotted near Hadriacus Mons, in Hellas Planitia, using orbital photos.',
-      'But everyone is sick. You are the only one on your feet!',
-      'Use the console to set the lights and air. Check the plants. Sleep in your bunk when you are tired.'],
+    lines: ["I'm sure you remember our mission, rookie: to explore the Martian lava tubes near Hadriacus Mons, in Hellas Planitia.",
+      'Orbiters have spotted three candidate caves there. Nobody has been inside to confirm them. That is what we came to find out.',
+      "But now, rookie... you're the only one who is not sick.",
+      'The whole crew is quarantined with the flu. Earth is more than 33 million miles away, and help is not coming soon.',
+      'The mission\'s success depends on you.',
+      'Start by checking the farm, the air and water, comms and solar power. The solar farm is outside, so use the airlock and watch your suit air.'],
     effects: { flag: { intro_done: true }, friend: { crew: 'reyes', n: 1 } } },
   { id: 'aiko_seeds', speaker: 'aiko', when: s => seen(s, 'intro') && s.sol >= 2,
     lines: ['Hi from the sick bay window! Take my seed packets. Pick one to plant first.'],
