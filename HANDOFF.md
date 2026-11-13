@@ -12,6 +12,7 @@ The whole front end: `src/game/WorldScene.ts`, `src/game/world.ts`, `src/ui/*`, 
 - Private GitHub repository: https://github.com/bytemojo/my-red-planet (branch: `master`).
 - Production deployment: https://myredplanet.vercel.app.
 - The deployed page response was checked; gameplay interactions were not browser-tested in this session.
+- Social sharing now uses `public/og-image.png` with absolute canonical, Open Graph, and Twitter URLs. `npm run check` passes, and Vite copies the preview image into `dist/`.
 
 ### Look and feel
 The owner wants the prototype's look (menu, HUD, rooms, plants, sick bay, control module, result screen) kept as is. It was ported, not redesigned. The earlier placeholder-sprite atlas was removed. The Stardew-style art question is open (see AGENTS.md).
