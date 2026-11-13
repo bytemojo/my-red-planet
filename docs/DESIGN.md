@@ -7,7 +7,9 @@
 - Cave = four verbs (explore, excavate, pressurize, shield), 3 levels each. Total 8 levels, at least 1 of each, opens a huge cavern with water. Then endless play.
 - Suit blackout: towed in, -30 energy, -8 power, +3 hours lost.
 - Science facts only as earned discoveries/journal entries.
-- Stardew-style art. Placeholders now, real art later.
+- Stardew-style art, original only. Decided 2026-11-14: characters are generated pixel art from a `CharSpec` (`src/game/pixelart.ts`), 16x26 art pixels at 2x, three directions plus poses. Rooms are still drawn procedurally in `world.ts` and `quarters.ts` in the same style.
+- Crew care (owner note): crew have morale (face over the head) and hunger (food thought bubble). Chats cheer them up; meals come through the hatch and cost the player's energy and the shared food. Nobody dies; a hungry or lonely crew only gets sad. Numbers in `CREW_LIFE` (`core/constants.ts`).
+- Night on Mars is blue-violet; dusk is blue (real Martian sunsets look blue near the Sun). Indoors stays lit. `src/game/skytint.ts`.
 
 ## Merged from the ChatGPT brief
 Data honesty rules, manifest, "check don't assume", kid-safe retention, must-have vs defer lists, offline-first, never copy Stardew assets, caves are candidates, small REAL DATA badge.

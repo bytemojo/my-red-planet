@@ -21,6 +21,18 @@ Legend: [x] done and tested · [~] exists but not fully verified · [ ] not star
 - [ ] Playtest in browser, fix bugs, tune HOURS_PER_SEC and balance
 - [x] HUD is the prototype's layout: objective line, four meters in a popover, energy bar, suit/radiation when outside
 
+## Visual Pass A (owner's "visuals first" note, 2026-11-14)
+- [x] Original generated pixel characters (player, EVA, 4 crew), 3 directions, walk cycle, poses (screenshot-checked)
+- [x] Crew quarters with thin dividers, bed, desk, lamp, chair, personal items
+- [x] Crew animated: wander, stand at window, lie down, nap, write at desk; evening reading by lamplight; night sleep with zzz
+- [x] Morale faces over heads; hunger thought bubble; heart reaction to chats and meals
+- [x] Meal hatch: serve food by hand (tray animation), costs energy and food, morale effects (unit-tested)
+- [x] Farm beds: water-drop bubble when dry, star bubble when ready
+- [x] Day/night tint, outdoor and indoor lights at night, dust dimming (pure maths unit-tested)
+- [x] Intercom zone moved to the corridor (was unreachable inside the sealed bay)
+- [~] Touch controls with the taller sprite; post-quarantine crew placement: not human-tested
+- [ ] Visual Pass B: kitchen with electric heater, cooking, on-screen animations for watering, panel cleaning, repairs
+
 ## Phase 3: Crew and construction
 - [x] 4 crew with dialogue by stage, friendship, quarantine arc
 - [ ] One full personal storyline per crew member (Reyes and one other first)

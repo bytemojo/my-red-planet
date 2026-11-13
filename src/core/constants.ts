@@ -31,8 +31,26 @@ export const CROPS: Record<CropId, { name: string; sols: number; food: number }>
 // Every action costs player energy (Stardew-style). Energy refills when you sleep.
 export const ACTION_ENERGY = {
   plant: 3, water: 4, harvest: 3, clean_panels: 12, talk: 1, build: 15, explore: 20,
-  cave_explore: 20, cave_excavate: 25, cave_pressurize: 15, cave_shield: 15, request_shipment: 5,
+  cave_explore: 20, cave_excavate: 25, cave_pressurize: 15, cave_shield: 15, request_shipment: 5, feed: 6,
 } as const;
+
+// Crew wellbeing while they are quarantined. Simplified game units, tuned for feel, not real nutrition data.
+// Meals come out of the shared food store (already counted in K.FOOD_USE), so feeding costs the player's energy, not extra food.
+export const CREW_LIFE = {
+  MORALE_START: 50, HUNGER_START: 20,
+  TALK_FIRST: 15,      // first chat with someone each Sol
+  TALK_AGAIN: 4,       // later chats the same Sol
+  NO_TALK_DROP: 8,     // morale lost overnight if you never talked to them that Sol
+  HUNGER_RATE: 5,      // hunger per awake in-game hour (hungry about 6 hours after a meal)
+  HUNGRY_AT: 50,       // shows the food thought bubble
+  PECKISH_AT: 25,      // the meal hatch only works if someone is at least this hungry
+  OVERNIGHT_HUNGER: 30,
+  FED_BOOST: 6,        // morale for feeding someone who was hungry
+  WENT_HUNGRY_DROP: 6, // morale lost overnight if they went to bed hungry
+  STARVING_DROP: 2,    // morale lost per hour at hunger 100
+  FOOD_NEEDED: 5,      // the food store must hold at least this much to serve a meal
+  SAD_BELOW: 35, HAPPY_FROM: 65,
+};
 export type ActionName = keyof typeof ACTION_ENERGY;
 
 export const BUILDINGS: Record<string, { name: string; stage: number; cost: Partial<Record<ResKey, number>>; why: string }> = {

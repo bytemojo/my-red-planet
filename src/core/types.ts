@@ -8,6 +8,8 @@ export type FlagValue = boolean | number | string;
 
 export interface Resources { o2: number; water: number; food: number; power: number }
 export interface Plot { id: string; crop: CropId | null; growth: number; watered: boolean }
+// morale 0-100 (shown as a face over the crew member's head). hunger 0-100 (>= CREW_LIFE.HUNGRY_AT shows a food bubble).
+export interface CrewState { friendship: number; met: boolean; morale: number; hunger: number }
 export interface CaveProgress { explore: number; excavate: number; pressurize: number; shield: number }
 
 export interface Decision { sol: number; sourceId: string; optionId: string; label: string }
@@ -28,7 +30,7 @@ export interface GameState {
   farm: FarmLight; ls: LsMode;
   panelDust: number;
   plots: Plot[]; buildings: string[]; stage: number;
-  crew: Record<CrewId, { friendship: number; met: boolean }>;
+  crew: Record<CrewId, CrewState>;
   flags: Record<string, FlagValue>;            // flags starting with "tmp_" are cleared every Sol
   seenBeats: string[]; discovered: string[];
   pending: Pending | null;                      // one decision waiting for the player

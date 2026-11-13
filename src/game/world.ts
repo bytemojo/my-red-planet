@@ -3,6 +3,8 @@
 // Farm beds, bunks, rover and buildings are rewritten to read the new game state. The rest is verbatim.
 import { CROPS } from '../core/constants';
 import { createPixelSprites } from './sprites';
+import { buildQuarters } from './quarters';
+import { buildDayNight } from './daynight';
 export const T = 32, W = 44, H = 30;
 export const world: any = { ready: false };
 export function buildWorld(scene: any, ctx: any) {
@@ -23,7 +25,6 @@ const { clamp } = ctx; const S = ctx.S;
  // objects footprints
  const farmBeds=[[6,3],[9,3],[12,3],[5,7],[12,7]];farmBeds.forEach(([x,y])=>block(x,y,2,2));
  block(19,3,3,2);block(24,3,3,2);block(20,16,6,1);block(15,3,2,1);
- const bunks=[[6,14],[10,14],[6,16],[10,16]];bunks.forEach(([x,y])=>block(x,y,2,1));
  const panelsPos=[];for(const py of[22,26])for(let px=10;px<=26;px+=4){panelsPos.push([px,py]);block(px,py,3,2)}
  block(33,21,3,2);block(31,8,2,2);
  // rocks
@@ -36,7 +37,7 @@ const { clamp } = ctx; const S = ctx.S;
  const GR=[0xb4532d,0xa94b2a,0xbb5a33,0x9f4527];
  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const px=x*T,py=y*T;
   if(inside[y][x]){const cor=(x===15||x===16||y===10||y===11);let c=cor?0x2a4067:0x1c2c4a;
-   if(!cor){if(x<=13&&y<=9)c=0x1e3a36;else if(x>=18&&y<=9)c=0x1b3157;else if(x<=13&&y>=12)c=0x3a2a40;else c=0x1d2a52}
+   if(!cor){if(x<=13&&y<=9)c=0x1e3a36;else if(x>=18&&y<=9)c=0x1b3157;else if(x<=13&&y>=12)c=0x2e2a44;else c=0x1d2a52}
    gg.fillStyle(c,1);gg.fillRect(px,py,T,T);gg.lineStyle(1,0x000000,.28);gg.strokeRect(px+.5,py+.5,T-1,T-1);
    gg.fillStyle(0x4a6a9a,.5);[[3,3],[T-4,3],[3,T-4],[T-4,T-4]].forEach(([a,b])=>gg.fillRect(px+a,py+b,2,2));
    if(((x+y)&1)===0){gg.fillStyle(0xffffff,.03);gg.fillRect(px,py,T,T)}
@@ -80,14 +81,16 @@ const { clamp } = ctx; const S = ctx.S;
  farmBeds.forEach(([x,y],bi)=>{const px=x*T,py=y*T,g=obj((y+2)*T);box(g,px,py,2*T,2*T,12,0x3a2416,0x5d6f8f);g.fillStyle(0xff4fd8,.9);g.fillRect(px+4,py+2*T-8,2*T-8,3);bedGfx.push(g);
   const d=obj((y+2)*T+1);bedGfx.push(d);
   const sprouts=Array.from({length:6},(_,i)=>scene.add.image(px+10+(i%3)*22,py+27+Math.floor(i/3)*21,'crop_lettuce_0').setOrigin(.5,1).setDepth((y+2)*T+2).setVisible(false));
+  const bub=scene.add.image(px+T,py-6,'icons','bubble_water').setOrigin(.5,1).setDepth(9600).setVisible(false);
   dyn.push(t=>{d.clear();const st=ctx.state();const plot=st.plots[bi];const vis=!!plot;g.setVisible(vis);d.setVisible(vis);if(!vis)return;
-   sprouts.forEach(s=>s.setVisible(false));
+   sprouts.forEach(s=>s.setVisible(false));bub.setVisible(false);
    const hg=12;const lit=st.farm==='bright'?1:.5;d.fillStyle(0xff4fd8,(.06+.05*Math.sin(t/500+bi))*lit);d.fillRect(px,py-hg,2*T,2*T);
    if(plot.watered){d.fillStyle(0x4aa3df,.28);d.fillRect(px+3,py-hg+3,2*T-6,2*T-6)}
    if(!plot.crop)return;
    const need=CROPS[plot.crop].sols,gr=Math.min(1,plot.growth/need),ready=plot.growth>=need,stage=Math.min(3,Math.floor(gr*3.01));
    sprouts.forEach((sprout,i)=>sprout.setTexture(`crop_${plot.crop}_${stage}`).setVisible(true).setY(py-hg+39+Math.floor(i/3)*21+Math.sin(t/650+i+bi)*.7));
-   if(ready){d.lineStyle(2,0xffb340,.5+.4*Math.sin(t/200));d.strokeRect(px+1,py-hg+1,2*T-2,2*T-2)}})});
+   if(ready){d.lineStyle(2,0xffb340,.5+.4*Math.sin(t/200));d.strokeRect(px+1,py-hg+1,2*T-2,2*T-2)}
+   const bk=ready?'bubble_ready':(!plot.watered&&st.hour<21?'bubble_water':null);if(bk)bub.setFrame(bk).setVisible(true).setY(py-8+Math.sin(t/380+bi)*1.5)})});
  world.bedGfx=bedGfx;
  // life support
  {let g=obj(5*T);box(g,19*T,3*T,3*T,2*T,26,0xaebbd3,0x3d4f75);g.fillStyle(0x1b2a47,1);g.fillCircle(19*T+T+16,3*T-26+T,18);g.fillStyle(0x39d9ff,.6);g.fillCircle(19*T+T+16,3*T-26+T,12);g.fillStyle(0x93a8cc,1);g.fillRect(19*T+8,5*T-20,80,8);
@@ -106,14 +109,15 @@ const { clamp } = ctx; const S = ctx.S;
  // dish outside
  {const g=obj(10*T);box(g,31*T,8*T,2*T,2*T,6,0x6a7a99,0x3a4a6c);g.fillStyle(0x2a3550,1);g.fillRect(32*T-3,8*T-24,6,22);const d=obj(10*T+1);dyn.push(t=>{d.clear();const a=Math.sin(t/1800)*.5;d.fillStyle(0xe9f0ff,1);d.fillEllipse(32*T+a*18,8*T-30,46-Math.abs(a)*14,34);d.fillStyle(0x93a8cc,1);d.fillEllipse(32*T+a*18+3,8*T-28,30,22);d.fillStyle(0xff5a6e,Math.sin(t/260)>0?1:.2);d.fillCircle(32*T+a*18+10,8*T-44,3);d.lineStyle(1,0x8ceaff,.5);d.lineBetween(32*T,8*T-44,32*T+30,8*T-110)})}
 
- // ---- sick bay: bunks with sleeping crew (patients leave when quarantine ends)
- const patients=[],zs=[];
- [[6,14,0x4a6fa5],[10,14,0x5a8f6a],[6,16,0xa56a4a],[10,16,0x8a5aa5]].forEach(([x,y,c],i)=>{const g=obj((y+1)*T);box(g,x*T,y*T,2*T,T,10,c,0x2a3550);
-  const pg=obj((y+1)*T+1);pg.fillStyle(0xffffff,1);pg.fillRect(x*T+3,y*T-10+5,16,T-10);pg.fillStyle(0xb8d89a,1);pg.fillCircle(x*T+11,y*T-10+T/2,6);pg.fillStyle(0x2b1a12,1);pg.fillRect(x*T+6,y*T-10+T/2-7,10,4);patients.push(pg);
-  const z=scene.add.text(x*T+14,y*T-18,'z',{fontFamily:'Rajdhani, sans-serif',fontSize:'14px',fontStyle:'700',color:'#bfe8ff'}).setDepth(9000).setResolution(2);scene.tweens.add({targets:z,y:y*T-40,alpha:{from:1,to:0},duration:2400,repeat:-1,delay:i*600});zs.push(z)});
- const bayLabel=label('QUARANTINE · KEEP OUT',9.5*T,13.4*T,'#ff9fb2',10);
- const intercom=obj(14*T);intercom.fillStyle(0x172841,1);intercom.fillRoundedRect(9*T+9,13*T+6,18,23,3);intercom.lineStyle(1,0x39d9ff,.85);intercom.strokeRoundedRect(9*T+9,13*T+6,18,23,3);intercom.fillStyle(0x39d9ff,.9);intercom.fillCircle(9*T+18,13*T+13,3);intercom.fillStyle(0xaebbd3,.8);for(let i=0;i<3;i++)intercom.fillRect(9*T+13+i*4,13*T+20,2,4);label('INTERCOM',9.5*T,14*T,'#8ceaff',8);
- world.setQuarantine=(over)=>{patients.forEach(p=>p.setVisible(!over));zs.forEach(z=>z.setVisible(!over));bayLabel.setText(over?'CREW QUARTERS':'QUARANTINE · KEEP OUT').setColor(over?'#9dffb0':'#ff9fb2')};
+ // ---- crew quarters (quarantined med bay): four small rooms behind the glass, see quarters.ts
+ world.crew=buildQuarters(scene);
+ // intercom and meal hatch are mounted on the corridor side of the glass wall
+ const intercom=obj(13*T+2);intercom.fillStyle(0x172841,1);intercom.fillRoundedRect(8.5*T-9,12*T+2,18,23,3);intercom.lineStyle(1,0x39d9ff,.85);intercom.strokeRoundedRect(8.5*T-9,12*T+2,18,23,3);intercom.fillStyle(0x39d9ff,.9);intercom.fillCircle(8.5*T,12*T+9,3);intercom.fillStyle(0xaebbd3,.8);for(let i=0;i<3;i++)intercom.fillRect(8.5*T-5+i*4,12*T+16,2,4);
+ const hatch=obj(13*T+2);hatch.fillStyle(0x24365a,1);hatch.fillRoundedRect(11.5*T-16,12*T,32,26,3);hatch.lineStyle(1,0xffd24a,.9);hatch.strokeRoundedRect(11.5*T-16,12*T,32,26,3);hatch.fillStyle(0x0a1a33,1);hatch.fillRect(11.5*T-12,12*T+4,24,12);hatch.fillStyle(0xffd24a,.9);hatch.fillRect(11.5*T-12,12*T+19,24,3);
+ const hatchLight=obj(13*T+3);dyn.push(t=>{hatchLight.clear();const st=ctx.state();if(!st)return;const hungry=!st.flags.quarantine_over&&Object.values(st.crew).some(c=>c.hunger>=50);hatchLight.fillStyle(hungry?0xffb340:0x4dffb0,hungry?.6+.4*Math.sin(t/180):1);hatchLight.fillRect(11.5*T+9,12*T+4,4,4)});
+ label('INTERCOM',8.5*T,11.55*T,'#8ceaff',8);label('MEAL HATCH',11.5*T,11.55*T,'#ffd79a',8);
+ const bayLabel=label('QUARANTINE · KEEP OUT',6.4*T,12.45*T,'#ff9fb2',9);
+ world.setQuarantine=(over)=>{bayLabel.setText(over?'CREW QUARTERS':'QUARANTINE · KEEP OUT').setColor(over?'#9dffb0':'#ff9fb2');hatch.setVisible(!over);hatchLight.setVisible(!over)};
  // solar panels
  const dustGs=[];panelsPos.forEach(([x,y],i)=>{const px=x*T,py=y*T,g=obj((y+2)*T);g.fillStyle(0x222b44,1);g.fillRect(px+6,py+2*T-6,6,6);g.fillRect(px+3*T-12,py+2*T-6,6,6);box(g,px,py,3*T,2*T,10,0x1f4f96,0x1a2442);
   g.fillStyle(0x9fb4d6,1);g.fillRect(px,py-10,3*T,2);g.fillRect(px,py+2*T-12,3*T,2);g.lineStyle(1,0x7fb4ff,.45);for(let c=1;c<6;c++)g.lineBetween(px+c*16,py-10,px+c*16,py+2*T-10);for(let r=1;r<4;r++)g.lineBetween(px,py-10+r*16,px+3*T,py-10+r*16);
@@ -134,10 +138,9 @@ const { clamp } = ctx; const S = ctx.S;
  label('INDOOR FARM',9.5*T,5.55*T,'#9dffb0',11);label('CONTROL MODULE',16*T,5.1*T,'#ffd79a',10);label('AIRLOCK',16*T,17.25*T,'#ffd24a',11);
  /* player */
  const sg=scene.make.graphics({x:0,y:0,add:false});sg.fillStyle(0,.35);sg.fillEllipse(10,4,18,7);sg.generateTexture('shadow',20,8);sg.destroy();
- const player=scene.add.sprite(16*T,14.5*T,'ah0').setOrigin(.5,1);const shadow=scene.add.image(0,0,'shadow');
+ const player=scene.add.sprite(16*T,14.5*T,'player','in_down_stand').setOrigin(.5,1);const shadow=scene.add.image(0,0,'shadow');
+ world.night=buildDayNight(scene,W,H);
 
- world.npcs={};for(const id of ['reyes','aiko','david','sofia'])world.npcs[id]=scene.add.sprite(0,0,'npc_'+id).setOrigin(.5,1).setVisible(false)
- world.placeNpcs=(over)=>{const spots={reyes:[19.5,6],aiko:[11.5,6.4],david:[22.5,11.5],sofia:[9.5,11]};for(const [id,sp] of Object.entries(world.npcs)){const [x,y]=spots[id];sp.setVisible(over).setPosition(x*T,y*T).setDepth(y*T)}};
  world.player=player;world.shadow=shadow;world.scene=scene;world.anim=0;
  const arrow=scene.add.graphics().setDepth(9990);world.arrow=arrow;
  const cam=scene.cameras.main;cam.setBounds(0,0,W*T,H*T);cam.startFollow(player,true,.14,.14);cam.roundPixels=true;

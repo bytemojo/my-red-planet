@@ -4,6 +4,11 @@ import { describePending, poll, resolve } from '../core/director';
 import { act, advance, emergencyShipment } from '../core/sim';
 import { rewind, rewindableSols, saveToStorage, sleep, type Session } from '../core/session';
 import { H, T, W, buildWorld, world } from './world';
+import { frameName } from './sprites';
+import { envForSol } from '../core/env';
+import { CREW_IDS } from '../core/crewlife';
+import { CREW_LIFE } from '../core/constants';
+import type { Dir } from './pixelart';
 import { clamp, $, UI, flashMeter, head, optCard, overlay, runPending, showReport, showSimple, showStageResult, stageScore, toast, journalHtml, esc, chip } from '../ui/ui';
 import { refreshHud, initHud } from '../ui/hud';
 import { openCave, openComms, openControl, openCrew, openFarm, openLs, openRover, openSolar, type Host } from '../ui/panels';
@@ -17,11 +22,12 @@ type Zone = { x0: number; y0: number; x1: number; y1: number; label: string; ins
 const ZONES: Record<string, Zone> = {
   farm: { x0: 5, y0: 3, x1: 13, y1: 8, label: 'Check Farm', inside: true }, ls: { x0: 18, y0: 3, x1: 28, y1: 8, label: 'Check Air & Water', inside: true },
   comms: { x0: 18, y0: 13, x1: 28, y1: 17, label: 'Check Comms', inside: true }, control: { x0: 14, y0: 3, x1: 17, y1: 7, label: 'Open Control', inside: true },
-  sick: { x0: 9, y0: 13, x1: 10, y1: 13, label: 'Use Sick Bay Intercom', inside: true },
+  sick: { x0: 8, y0: 11, x1: 9, y1: 11, label: 'Use Intercom', inside: true },
+  hatch: { x0: 11, y0: 11, x1: 12, y1: 11, label: 'Serve a Meal', inside: true },
   solar: { x0: 9, y0: 20, x1: 30, y1: 27, label: 'Check Solar', inside: false }, rover: { x0: 30, y0: 19, x1: 37, y1: 24, label: 'Use Rover', inside: false },
   cave: { x0: 32, y0: 3, x1: 38, y1: 7, label: 'Enter Cave', inside: false },
 };
-const MARKERS: Record<string, [number, number]> = { farm: [9.5, 5.6], ls: [22.5, 6], comms: [22.5, 14.6], solar: [19, 24.6], control: [16, 4.5], rover: [34.5, 23], cave: [35, 5.5], sick: [9.5, 13.5] };
+const MARKERS: Record<string, [number, number]> = { farm: [9.5, 5.6], ls: [22.5, 6], comms: [22.5, 14.6], solar: [19, 24.6], control: [16, 4.5], rover: [34.5, 23], cave: [35, 5.5], sick: [8.5, 11.7], hatch: [11.5, 11.7] };
 
 export const keys: Record<string, boolean> = {};
 export const joy = { id: null as number | null, ox: 0, oy: 0, x: 0, y: 0 };
@@ -29,6 +35,7 @@ export const joy = { id: null as number | null, ox: 0, oy: 0, x: 0, y: 0 };
 export class WorldScene extends Phaser.Scene {
   sess!: Session; curZone: string | null = null; busy = false; lastStage = 1; finalShown = false; hudT = 0; syncT = 0; anim = 0;
   moveTarget: Phaser.Math.Vector2 | null = null; autoActZone: string | null = null;
+  facing: Dir = 'down'; flip = false; acting: { frame: string; until: number; then?: () => void } | null = null;
   onMenu: () => void = () => {};
   constructor() { super('World'); }
 
@@ -49,7 +56,6 @@ export class WorldScene extends Phaser.Scene {
     this.lastStage = s.stage; this.finalShown = s.campaignComplete;
     UI.stack.slice().forEach(id => UI.close(id)); $('#toasts').innerHTML = '';
     this.resetPlayer(false); world.sync(); refreshHud(s);
-    world.placeNpcs(!!s.flags.quarantine_over);
     this.cameras.main.centerOn(world.player.x, world.player.y);
     this.time.delayedCall(250, () => void this.afterAction(true));
   }
@@ -68,13 +74,14 @@ export class WorldScene extends Phaser.Scene {
   };
 
   lastDust = -1;
-  refresh() { world.sync(); const pd = this.state().panelDust; if (pd !== this.lastDust) { this.lastDust = pd; world.dust(); } world.placeNpcs(!!this.state().flags.quarantine_over); refreshHud(this.state()); }
+  refresh() { world.sync(); const pd = this.state().panelDust; if (pd !== this.lastDust) { this.lastDust = pd; world.dust(); } refreshHud(this.state()); }
 
   async run(name: ActionName, arg?: Record<string, string>) {
     const s = this.state(), before = { ...s.res }, e0 = s.energy;
     const r = act(s, name, arg as never);
     const kind = r.ok ? 'good' : 'bad';
     if (r.ok && name === 'clean_panels') { world.clean(); this.lastDust = s.panelDust; }
+    if (r.ok && name === 'talk' && arg?.crew) world.crew.react(arg.crew, 'heart');
     if (r.ok) { ({ plant: sfx.plant, water: sfx.water, harvest: sfx.harvest, clean_panels: sfx.ok } as Record<string, () => void>)[name]?.() ?? sfx.ok(); world.pop(world.player.x, world.player.y - 40, r.msg.length < 24 ? r.msg : '✓', '#8cffc6'); }
     else sfx.warn();
     toast(esc(r.msg), { kind });
@@ -149,7 +156,15 @@ export class WorldScene extends Phaser.Scene {
   doAct() {
     const z = this.curZone; if (!z || UI.blocking() || this.busy) return; sfx.click();
     const h = this.host;
-    ({ farm: () => openFarm(h), ls: () => openLs(h), comms: () => openComms(h), solar: () => openSolar(h), control: () => openControl(h), sick: () => openCrew(h), rover: () => openRover(h), cave: () => openCave(h) } as Record<string, () => void>)[z]?.();
+    ({ farm: () => openFarm(h), ls: () => openLs(h), comms: () => openComms(h), solar: () => openSolar(h), control: () => openControl(h), sick: () => openCrew(h), hatch: () => this.serveMeal(), rover: () => openRover(h), cave: () => openCave(h) } as Record<string, () => void>)[z]?.();
+  }
+  // Serving a meal is done by hand: the explorer lifts the tray to the hatch, then the crew react.
+  serveMeal() {
+    const s = this.state(), p = world.player;
+    if (s.flags.quarantine_over || !CREW_IDS.some(id => s.crew[id].hunger >= CREW_LIFE.PECKISH_AT) || s.res.food < CREW_LIFE.FOOD_NEEDED || s.energy < ACTION_ENERGY.feed) { void this.run('feed'); return; }
+    p.x = 11.5 * T; this.facing = 'up';
+    const wasHungry = CREW_IDS.filter(id => s.crew[id].hunger >= CREW_LIFE.PECKISH_AT);
+    this.acting = { frame: 'in_tray', until: performance.now() + 1300, then: () => { void this.run('feed').then(() => { for (const id of wasHungry) if (s.crew[id].hunger === 0) world.crew.react(id, 'heart'); }); } };
   }
   // Called from the DOM stage so mouse, phone and tablet taps all share one
   // click-to-walk path. Tapping a marked station walks there, then opens it.
@@ -171,7 +186,7 @@ export class WorldScene extends Phaser.Scene {
   }
   zoneOk(k: string, s: GameState, ins: boolean) {
     const q = ZONES[k]; if (q.inside !== ins) return false;
-    if (k === 'rover') return s.buildings.includes('rover_bay'); if (k === 'cave') return !!s.flags.cave_unlocked; return true;
+    if (k === 'rover') return s.buildings.includes('rover_bay'); if (k === 'cave') return !!s.flags.cave_unlocked; if (k === 'hatch') return !s.flags.quarantine_over; return true;
   }
   setPrompt(z: string | null) {
     const act = $('#act') as HTMLButtonElement;
@@ -182,6 +197,7 @@ export class WorldScene extends Phaser.Scene {
   guide(s: GameState): string | null {
     if (s.plots.some(p => p.crop && p.growth >= CROPS[p.crop].sols)) return 'farm';
     if (!s.plots.some(p => p.crop)) return 'farm';
+    if (!s.flags.quarantine_over && CREW_IDS.some(id => s.crew[id].hunger >= CREW_LIFE.HUNGRY_AT) && s.res.food >= CREW_LIFE.FOOD_NEEDED) return 'hatch';
     if (s.panelDust > 0.6) return 'solar';
     if (s.buildings.includes('rover_bay') && Number(s.flags.trips || 0) < 2) return 'rover';
     if (s.flags.cave_unlocked && !s.flags.cavern_water) return 'cave';
@@ -193,7 +209,8 @@ export class WorldScene extends Phaser.Scene {
     if (!world.ready || !this.sess) return;
     const s = this.state(), dt = Math.min(dtms, 100) / 1000, p = world.player;
     world.dyn.forEach((f: (t: number) => void) => f(t));
-    const blocking = UI.blocking() || this.busy || !!s.failed;
+    if (this.acting && t >= this.acting.until) { const a = this.acting; this.acting = null; a.then?.(); }
+    const blocking = UI.blocking() || this.busy || !!s.failed || !!this.acting;
     let dx = 0, dy = 0;
     if (!blocking) {
       if (keys.a || keys.arrowleft) dx -= 1; if (keys.d || keys.arrowright) dx += 1; if (keys.w || keys.arrowup) dy -= 1; if (keys.s || keys.arrowdown) dy += 1;
@@ -205,7 +222,7 @@ export class WorldScene extends Phaser.Scene {
       }
       const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
       const sp = s.outside ? 86 : 100; const nx = p.x + dx * sp * dt; if (!this.hit(nx, p.y)) p.x = nx; const ny = p.y + dy * sp * dt; if (!this.hit(p.x, ny)) p.y = ny;
-      if (Math.hypot(dx, dy) > 0.1) { this.anim += dt * 8; if (dx) p.setFlipX(dx < 0); } else this.anim = 0;
+      if (Math.hypot(dx, dy) > 0.1) { this.anim += dt * 8; if (Math.abs(dx) > Math.abs(dy) * 1.2) { this.facing = 'side'; this.flip = dx < 0; } else this.facing = dy < 0 ? 'up' : 'down'; } else this.anim = 0;
       const r = advance(s, dt * HOURS_PER_SEC);
       if (r.blackout) { this.resetPlayer(true); sfx.warn(); this.refresh(); showSimple('suit', 'Suit blackout!', '<p class="line">Your suit ran out of air. You were towed back inside and lost time, energy and power.</p>'); }
       if (r.dayOver) { void this.sleepFlow(); return; }
@@ -214,7 +231,11 @@ export class WorldScene extends Phaser.Scene {
     const moving = Math.hypot(dx, dy) > 0.1, step = moving ? [1, 0, 2, 0][Math.floor(this.anim) % 4] : 0;
     const tx = Math.floor(p.x / T), ty = Math.floor(p.y / T), ins = !!(world.inside[ty] && world.inside[ty][tx]);
     if (s.outside === ins) { s.outside = !ins; if (s.outside) { toast('<b>Outside!</b> Watch suit air and radiation.', { kind: 'warn' }); sfx.warn(); } else { toast('<b>Inside.</b> Suit refilling.', { kind: 'good' }); sfx.ok(); } refreshHud(s); }
-    p.setTexture((s.outside ? 'as' : 'ah') + step); p.setDepth(p.y); world.shadow.setPosition(p.x, p.y - 1).setDepth(p.y - 0.5);
+    const pose = (['step1', 'stand', 'step2', 'stand'] as const)[step === 0 ? 1 : step === 1 ? 0 : 2];
+    if (this.acting) p.setFrame(this.acting.frame).setFlipX(false); else p.setFrame((s.outside ? 'ev_' : 'in_') + frameName(this.facing, pose)).setFlipX(this.facing === 'side' && this.flip);
+    p.setDepth(p.y); world.shadow.setPosition(p.x, p.y - 1).setDepth(p.y - 0.5);
+    world.crew.update(t, dt, s);
+    world.night.update(s.hour, envForSol(s.sol).dust, t, { playerOut: s.outside, px: p.x, py: p.y, roverBay: s.buildings.includes('rover_bay') });
     if (moving && s.outside && !blocking) { world.puff -= dt; if (world.puff <= 0) { world.puff = 0.14; const c = this.add.circle(p.x + (Math.random() * 6 - 3), p.y - 1, 2 + Math.random() * 2, 0xe6a67a, 0.6).setDepth(p.y - 1); this.tweens.add({ targets: c, y: c.y - 8, alpha: 0, scale: 2.2, duration: 600, onComplete: () => c.destroy() }); } }
     let z: string | null = null;
     if (!blocking) for (const k of Object.keys(ZONES)) { const q = ZONES[k]; if (tx >= q.x0 && tx <= q.x1 && ty >= q.y0 && ty <= q.y1 && this.zoneOk(k, s, ins)) { z = k; break; } }
@@ -224,7 +245,6 @@ export class WorldScene extends Phaser.Scene {
     if (g && !blocking) { let [mx, my] = MARKERS[g]; const needOut = !ZONES[g].inside; if (needOut === ins) { mx = 16; my = 17; } const bob = Math.sin(t / 220) * 5;
       a.fillStyle(0xffb340, 1); a.fillTriangle(mx * T - 9, my * T - 34 + bob, mx * T + 9, my * T - 34 + bob, mx * T, my * T - 18 + bob); a.lineStyle(2, 0xffb340, 0.7); const rr = 14 + ((t / 40) % 20); a.strokeCircle(mx * T, my * T, rr); a.lineStyle(2, 0xffb340, 0.25); a.strokeCircle(mx * T, my * T, rr + 8); }
     this.hudT += dt; if (this.hudT > 0.2) { this.hudT = 0; refreshHud(s); }
-    this.syncT += dt; if (this.syncT > 0.5) { this.syncT = 0; world.placeNpcs(!!s.flags.quarantine_over); }
   }
 }
 export { CREW };

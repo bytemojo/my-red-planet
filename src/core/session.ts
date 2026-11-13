@@ -1,6 +1,18 @@
 import { MAX_SNAPSHOTS } from './constants';
-import { endSol, newGame } from './sim';
+import { SAVE_VERSION, endSol, newGame } from './sim';
+import { CREW_IDS, newCrewState } from './crewlife';
 import type { DailyReport, Decision, GameState, SolSummary } from './types';
+
+// Upgrade an older state in place. Returns null if it cannot be read safely.
+export function migrateState(s: GameState | null | undefined): GameState | null {
+  if (!s || typeof s !== 'object' || typeof s.version !== 'number') return null;
+  if (s.version > SAVE_VERSION) return null;
+  if (s.version < 2) { // v1 -> v2: crew gained morale and hunger
+    for (const id of CREW_IDS) s.crew[id] = { ...newCrewState(), ...(s.crew?.[id] ?? {}) };
+    s.version = 2;
+  }
+  return s;
+}
 
 // A Session wraps the live state with the rewind timeline. Rewind restores the MORNING of an earlier Sol.
 // NASA-derived environment is a pure function of the Sol number (see env.ts), so it is never rewritten.
@@ -33,7 +45,7 @@ export function rewind(sess: Session, sol: number): boolean {
   const from = sess.state;
   sess.branches.push({ fromSol: from.sol, toSol: sol, history: from.history.filter(h => h.sol >= sol), decisions: from.decisions.filter(d => d.sol >= sol) });
   if (sess.branches.length > 12) sess.branches.shift();
-  sess.state = clone(JSON.parse(snap));
+  sess.state = migrateState(clone(JSON.parse(snap))) ?? sess.state;
   for (const k of Object.keys(sess.snapshots)) if (Number(k) > sol) delete sess.snapshots[Number(k)];
   return true;
 }
@@ -44,7 +56,13 @@ export const serialize = (sess: Session): string => JSON.stringify(sess);
 export function deserialize(raw: string): Session | null {
   try {
     const d = JSON.parse(raw);
-    if (!d?.state || d.state.version !== 1 || typeof d.snapshots !== 'object') return null;
+    if (!d?.state || typeof d.snapshots !== 'object' || !migrateState(d.state)) return null;
+    // Snapshots are stored as strings; upgrade each one so rewinding into an old Sol stays safe.
+    for (const k of Object.keys(d.snapshots)) {
+      const m = migrateState(JSON.parse(d.snapshots[k]));
+      if (m) d.snapshots[k] = JSON.stringify(m); else delete d.snapshots[k];
+    }
+    if (!Array.isArray(d.branches)) d.branches = [];
     return d as Session;
   } catch { return null; }
 }

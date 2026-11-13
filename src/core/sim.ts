@@ -4,15 +4,18 @@ import { clamp, caveTotal, flagNum, hasBuilding, addLog } from './util';
 import { poll, rollEvent } from './director';
 import { talkLine } from '../story/crew';
 import { unlockDiscovery } from '../story/discoveries';
-import { CAVERN_NEEDED } from './constants';
+import { CAVERN_NEEDED, CREW_LIFE } from './constants';
+import { CREW_IDS, crewNeedsCare, crewOvernight, crewTalked, crewTick, newCrewState, serveMeal } from './crewlife';
 import type { CropId, CrewId, DailyReport, Env, GameState, Plot, ResKey } from './types';
+
+export const SAVE_VERSION = 2; // bump when GameState changes shape; migrate in session.ts
 
 // NOTE: functions here MUTATE the GameState you pass in. State is plain JSON; clone with JSON.parse(JSON.stringify()).
 export function newGame(seed = 1): GameState {
   const plots: Plot[] = ['p0', 'p1', 'p2', 'p3'].map(id => ({ id, crop: null, growth: 0, watered: false }));
-  const crew = { reyes: { friendship: 0, met: false }, aiko: { friendship: 0, met: false }, david: { friendship: 0, met: false }, sofia: { friendship: 0, met: false } };
+  const crew = { reyes: newCrewState(), aiko: newCrewState(), david: newCrewState(), sofia: newCrewState() };
   const s: GameState = {
-    version: 1, seed, sol: 1, hour: DAY_START, energy: 100,
+    version: SAVE_VERSION, seed, sol: 1, hour: DAY_START, energy: 100,
     res: { o2: 78, food: 72, water: 66, power: 80 }, suit: 100, rad: 100, outside: false,
     farm: 'dim', ls: 'bal', panelDust: 0.1, plots, buildings: [], stage: 1, crew, flags: {},
     seenBeats: [], discovered: [], pending: null, lastEventSol: 0,
@@ -69,6 +72,7 @@ export function advance(s: GameState, dtHours: number): AdvanceResult {
     } else {
       s.suit = clamp(s.suit + K.SUIT_REFILL * step, 0, 100);
     }
+    crewTick(s, step);
     s.hour += step;
     if (!s.failed && !s.flags.tmp_failed_snooze) for (const k of ['o2', 'water', 'food'] as ResKey[]) if (s.res[k] <= 0) { s.failed = k; break; }
     if (s.hour >= DAY_END) { s.hour = DAY_END; out.dayOver = true; }
@@ -124,6 +128,7 @@ export function endSol(s: GameState): DailyReport {
   const todayEnv = envForSol(s.sol);
   s.panelDust = clamp(s.panelDust + 0.02 + todayEnv.dust * 0.12, 0, 1);
   s.history.push({ sol: s.sol, res: { ...s.res }, decisions: s.decisions.filter(d => d.sol === s.sol).map(d => d.label), note: `${grew} plants grew` });
+  crewOvernight(s); // must run before tmp_ flags are cleared below
   const slept = s.hour < 22;
   const arrived = s.shipmentArrivesSol === s.sol + 1;
   s.sol += 1; s.hour = DAY_START; s.outside = false; s.suit = 100;
@@ -199,7 +204,7 @@ export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?
       s.panelDust = 0; spend(); checkProgress(s); return done('Panels are clean and shiny.');
     case 'talk': {
       if (!arg?.crew) return fail('Who?');
-      const t = talkLine(s, arg.crew); spend(); checkProgress(s);
+      const t = talkLine(s, arg.crew); crewTalked(s, arg.crew, t.gained); spend(); checkProgress(s);
       return done(t.line);
     }
     case 'build': {
@@ -237,6 +242,13 @@ export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?
       if (caveTotal(s) >= CAVERN_NEEDED) unlockDiscovery(s, 'cave_ice');
       checkProgress(s);
       return done(`Cave work done: ${verb}.`);
+    }
+    case 'feed': {
+      if (!crewNeedsCare(s)) return fail('The crew cooks for themselves now.');
+      if (!CREW_IDS.some(id => s.crew[id].hunger >= CREW_LIFE.PECKISH_AT)) return fail('Nobody is hungry right now.');
+      if (s.res.food < CREW_LIFE.FOOD_NEEDED) return fail('The food store is almost empty. Harvest something first.');
+      const fed = serveMeal(s); spend(); checkProgress(s);
+      return done(fed.length === 1 ? 'Meal served.' : `Meals served to ${fed.length} crew.`);
     }
     case 'request_shipment':
       if (s.shipmentArrivesSol > s.sol) return fail('A shipment is already on its way.');

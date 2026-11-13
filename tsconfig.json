@@ -3,7 +3,7 @@
     "target": "ES2020", "module": "ESNext", "moduleResolution": "bundler",
     "lib": ["ES2020", "DOM"], "strict": true, "noUnusedLocals": false,
     "resolveJsonModule": true, "esModuleInterop": true, "skipLibCheck": true,
-    "types": ["node"], "isolatedModules": true
+    "types": ["node", "vite/client"], "isolatedModules": true
   },
   "include": ["src", "tests"]
 }

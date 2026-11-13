@@ -24,6 +24,7 @@ function start(sess: Session) {
     scene: [WorldScene],
   });
   game.registry.set('sess', sess);
+  if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game; // dev-only hook for automated playtests
   game.events.once('ready', () => { scene = game!.scene.getScene('World') as unknown as WorldScene; scene.onMenu = toMenu; });
   const wait = setInterval(() => { const sc = game?.scene.getScene('World') as unknown as WorldScene | undefined; if (sc) { scene = sc; scene.onMenu = toMenu; clearInterval(wait); } }, 50);
 }
