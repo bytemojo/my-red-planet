@@ -2,9 +2,9 @@ import Phaser from 'phaser';
 import './ui/holo.css';
 import { WorldScene, keys, joy } from './game/WorldScene';
 import { initMenu, menuControls } from './ui/menu';
-import { $, UI, toast } from './ui/ui';
-import { sfx } from './ui/audio';
-import { loadFromStorage, newSession, type Session } from './core/session';
+import { $, UI, head, overlay, toast } from './ui/ui';
+import { music, settings, sfx } from './ui/audio';
+import { loadFromStorage, newSession, saveToStorage, type Session } from './core/session';
 import { openControl } from './ui/panels';
 import { runPending } from './ui/ui';
 
@@ -15,6 +15,7 @@ if (coarse) document.body.classList.add('coarse');
 
 function start(sess: Session) {
   menuControls.hide();
+  refreshTopButton();
   $('#touch-hint').hidden = !coarse;
   if (game && scene) { game.loop.wake?.(); scene.loadSession(sess); return; }
   game = new Phaser.Game({
@@ -28,7 +29,7 @@ function start(sess: Session) {
 }
 function toMenu() {
   UI.stack.slice().forEach(id => UI.close(id)); $('#toasts').innerHTML = '';
-  game?.loop.sleep?.(); menuControls.show(!!loadFromStorage());
+  game?.loop.sleep?.(); menuControls.show(!!loadFromStorage()); refreshTopButton();
 }
 
 initMenu({
@@ -36,13 +37,36 @@ initMenu({
   cont: () => { const s = loadFromStorage(); start(s ?? newSession(1)); },
   hasSave: () => !!loadFromStorage(),
 });
+const soundToggle = $('#sound-toggle');
+const soundIcon = (muted: boolean) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M16 9.2c1.3 1.5 1.3 4.1 0 5.6M18.8 6.6c2.7 3 2.7 7.8 0 10.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" ${muted ? 'opacity=".28"' : ''}/>${muted ? '<path d="M4 4 20 20" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>' : ''}</svg>`;
+const pauseIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg>';
+const refreshTopButton = () => {
+  const playing = !$('#game').hidden;
+  soundToggle.setAttribute('aria-pressed', String(!settings.sound));
+  soundToggle.setAttribute('aria-label', playing ? 'Pause game' : settings.sound ? 'Mute all sound' : 'Turn sound on');
+  soundToggle.title = playing ? 'Pause' : settings.sound ? 'Mute sound' : 'Turn sound on';
+  soundToggle.innerHTML = playing ? pauseIcon : soundIcon(!settings.sound);
+};
+function openPause() {
+  if (UI.blocking()) return;
+  const el = overlay('pause', `<div class="holo-panel pause-panel">${head('clock', 'Paused', false)}<div class="panel-body"><p class="why">Take a breather. Mars will wait for you.</p><div class="optlist"><button class="holo-btn primary" data-pause="resume">RESUME MISSION</button><button class="holo-btn" data-pause="sound">${soundIcon(!settings.sound)}<span>${settings.sound ? 'SOUND: ON' : 'SOUND: OFF'}</span></button><button class="holo-btn" data-pause="save">SAVE GAME</button><button class="holo-btn amber" data-pause="menu">SAVE & RETURN TO MENU</button></div></div></div>`);
+  el.querySelectorAll('[data-pause]').forEach(button => ((button as HTMLElement).onclick = () => {
+    const action = (button as HTMLElement).dataset.pause;
+    if (action === 'resume') { sfx.click(); UI.close('pause'); }
+    if (action === 'sound') { music.toggle(); if (settings.sound) sfx.ok(); openPause(); refreshTopButton(); }
+    if (action === 'save' && scene) { sfx.ok(); saveToStorage(scene.sess); toast('Game saved.', { kind: 'good' }); }
+    if (action === 'menu' && scene) { sfx.click(); saveToStorage(scene.sess); UI.close('pause'); toMenu(); }
+  }));
+}
+refreshTopButton();
+soundToggle.onclick = () => { if ($('#game').hidden) { music.toggle(); if (settings.sound) sfx.ok(); refreshTopButton(); } else openPause(); };
 
 // ----- input -----
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase(); if ($('#game').hidden) return;
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k) && !(e.target && (e.target as HTMLElement).tagName === 'INPUT')) e.preventDefault();
   if (UI.stack.includes('dlg')) { if (['e', ' ', 'enter'].includes(k)) { e.preventDefault(); runPending.next?.(); } return; }
-  if (k === 'escape') { for (const id of ['inspect', 'control', 'simple', 'result']) if (UI.stack.includes(id)) { UI.close(id); break; } return; }
+  if (k === 'escape') { if (UI.stack.includes('pause')) UI.close('pause'); else if (!UI.blocking()) openPause(); else for (const id of ['inspect', 'control', 'simple', 'result']) if (UI.stack.includes(id)) { UI.close(id); break; } return; }
   if (UI.blocking()) return;
   if (k === 'e' || k === 'enter' || k === ' ') scene?.doAct(); else if (k === 'c' && scene) openControl(scene.host);
   keys[k] = true;
@@ -57,8 +81,9 @@ document.addEventListener('pointerdown', e => { if (!$('#hud-panel').hidden && !
 $('#ctrl-btn').onclick = () => { if (!UI.blocking() && scene) { sfx.click(); openControl(scene.host); } };
 $('#act').onclick = () => scene?.doAct();
 const stage = $('#stage'), jb = $('#joy-base'), jk = $('#joy-knob');
-stage.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' || (e.target as HTMLElement).closest('button') || UI.blocking()) return; joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY; joy.x = joy.y = 0; const r = stage.getBoundingClientRect(); jb.style.left = jk.style.left = e.clientX - r.left + 'px'; jb.style.top = jk.style.top = e.clientY - r.top + 'px'; jb.style.display = jk.style.display = 'block'; $('#touch-hint').hidden = true; try { stage.setPointerCapture(e.pointerId); } catch { /* ignore */ } });
-stage.addEventListener('pointermove', e => { if (e.pointerId !== joy.id) return; let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy; const m = Math.hypot(dx, dy), R = 46; if (m > R) { dx *= R / m; dy *= R / m; } joy.x = dx / R; joy.y = dy / R; const r = stage.getBoundingClientRect(); jk.style.left = joy.ox - r.left + dx + 'px'; jk.style.top = joy.oy - r.top + dy + 'px'; });
-const joyEnd = (e: PointerEvent) => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; jb.style.display = jk.style.display = 'none'; };
+let tapX = 0, tapY = 0, dragged = false;
+stage.addEventListener('pointerdown', e => { if ((e.target as HTMLElement).closest('button') || UI.blocking()) return; tapX = e.clientX; tapY = e.clientY; dragged = false; if (e.pointerType === 'mouse') return; joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY; joy.x = joy.y = 0; const r = stage.getBoundingClientRect(); jb.style.left = jk.style.left = e.clientX - r.left + 'px'; jb.style.top = jk.style.top = e.clientY - r.top + 'px'; jb.style.display = jk.style.display = 'block'; $('#touch-hint').hidden = true; try { stage.setPointerCapture(e.pointerId); } catch { /* ignore */ } });
+stage.addEventListener('pointermove', e => { if (Math.hypot(e.clientX - tapX, e.clientY - tapY) > 12) dragged = true; if (e.pointerId !== joy.id) return; let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy; const m = Math.hypot(dx, dy), R = 46; if (m > R) { dx *= R / m; dy *= R / m; } joy.x = dx / R; joy.y = dy / R; const r = stage.getBoundingClientRect(); jk.style.left = joy.ox - r.left + dx + 'px'; jk.style.top = joy.oy - r.top + dy + 'px'; });
+const joyEnd = (e: PointerEvent) => { if (!dragged && !(e.target as HTMLElement).closest('button')) scene?.tapAt(e.clientX, e.clientY, stage.getBoundingClientRect()); if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; jb.style.display = jk.style.display = 'none'; };
 stage.addEventListener('pointerup', joyEnd); stage.addEventListener('pointercancel', joyEnd);
 void toast;

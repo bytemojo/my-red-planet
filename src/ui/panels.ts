@@ -1,5 +1,5 @@
 import { ICON } from './icons';
-import { $, UI, bindLearning, clamp, chip, esc, head, journalHtml, optCard, overlay, pips, vbar, levelClass } from './ui';
+import { $, UI, bindLearning, clamp, chip, esc, head, journalHtml, learnButton, optCard, overlay, pips, vbar, levelClass } from './ui';
 import { sfx } from './audio';
 import { arrows } from './hud';
 import { ACTION_ENERGY, BUILDINGS, CAVE_MAX, CROPS, FARM, LS } from '../core/constants';
@@ -118,14 +118,23 @@ export function openCave(host: Host) {
 
 // ---------- Crew (sick bay intercom / quarters) ----------
 export function openCrew(host: Host) {
+  let chat: CrewId | null = null, answer: 0 | 1 | null = null;
   panel('inspect', host, () => {
     const s = host.state(), over = !!s.flags.quarantine_over;
+    if (chat) {
+      const chatId = chat as CrewId, c = CREW[chatId], hearts = Array.from({ length: 5 }, (_, i) => `<span class="${i < Math.min(5, s.crew[chatId].friendship) ? '' : 'off'}">♥</span>`).join('');
+      const messages = answer === null
+        ? `<div class="chat-bubble them"><b>${esc(c.name)}</b><p>${esc(c.chat.prompt)}</p></div>`
+        : `<div class="chat-bubble them"><b>${esc(c.name)}</b><p>${esc(c.chat.prompt)}</p></div><div class="chat-bubble me"><p>${esc(c.chat.choices[answer])}</p></div><div class="chat-bubble them"><b>${esc(c.name)}</b><p>${esc(c.chat.replies[answer])}</p>${c.chat.fact ? `<div class="chat-fact">${esc(c.chat.fact)} ${c.chat.learnId ? learnButton(c.chat.learnId) : ''}</div>` : ''}</div>`;
+      const choices = answer === null ? `<div class="chat-choices"><button class="holo-btn" data-do="reply|0">${esc(c.chat.choices[0])}</button><button class="holo-btn" data-do="reply|1">${esc(c.chat.choices[1])}</button></div>` : `<button class="holo-btn amber" data-do="back">BACK TO INTERCOM</button>`;
+      return `<div class="holo-panel chat-panel">${head('crew', c.name)}<div class="panel-body"><div class="chat-profile"><span class="crew-avatar">${c.avatar}</span><span><b>${esc(c.role)}</b><div class="hearts">${hearts}</div></span></div><div class="chat-thread">${messages}</div>${choices}</div></div>`;
+    }
     const rows = (Object.keys(CREW) as CrewId[]).map(id => {
       const c = s.crew[id], hearts = Array.from({ length: 5 }, (_, i) => `<span class="${i < Math.min(5, c.friendship) ? '' : 'off'}">♥</span>`).join('');
-      return `<div class="crewrow"><span class="face">🧑‍🚀</span><span><div class="nm">${esc(CREW[id].name)}</div><div class="why">${esc(CREW[id].role)}. ${esc(CREW[id].blurb)}</div><div class="hearts">${hearts}</div></span><button class="holo-btn small" data-do="talk|${id}">Talk</button></div>`;
+      return `<div class="crewrow"><span class="crew-avatar">${CREW[id].avatar}</span><span><div class="nm">${esc(CREW[id].name)}</div><div class="why">${esc(CREW[id].role)}. ${esc(CREW[id].blurb)}</div><div class="hearts">${hearts}</div></span><button class="holo-btn small" data-do="talk|${id}">Message</button></div>`;
     }).join('');
-    return `<div class="holo-panel">${head('crew', over ? 'Crew Quarters' : 'Sick Bay Intercom')}<div class="panel-body"><p class="why">${over ? 'The crew is well again.' : 'Everyone is quarantined. You can talk over the intercom.'} Talking costs ${ACTION_ENERGY.talk} energy. Friends remember how you treat them.</p>${rows}</div></div>`;
-  }, c => { if (c[0] === 'talk') host.run('talk', { crew: c[1] }); });
+    return `<div class="holo-panel">${head('crew', over ? 'Crew Quarters' : 'Sick Bay Intercom')}<div class="panel-body"><p class="why">${over ? 'The crew is well again.' : 'Everyone is quarantined. Use the wall intercom to send a message.'} One meaningful chat costs ${ACTION_ENERGY.talk} energy; hearts show trust, not a score to grind.</p>${rows}</div></div>`;
+  }, c => { if (c[0] === 'talk') { chat = c[1] as CrewId; answer = null; } else if (c[0] === 'reply' && chat) { answer = Number(c[1]) as 0 | 1; host.run('talk', { crew: chat }); } else if (c[0] === 'back') { chat = null; answer = null; } });
 }
 
 // ---------- Control Module ----------

@@ -1,5 +1,5 @@
 import { ICON } from './icons';
-import { settings, saveSettings, sfx } from './audio';
+import { music, settings, saveSettings, sfx } from './audio';
 import { $, esc } from './ui';
 import manifest from '../data/manifest.json';
 import type { GameState } from '../core/types';
@@ -32,14 +32,15 @@ export function recordRun(score: number, sols: number) {
 // ---------- starfield (ported) ----------
 let starRAF = 0, starsOn = true, drawStars: (t: number) => void = () => {}, startFrame: () => void = () => {};
 function initStars() {
-  const c = $('#stars') as HTMLCanvasElement, x = c.getContext('2d')!; let w = 0, h = 0, stars: { x: number; y: number; r: number; p: number; s: number }[] = [];
+  const c = $('#stars') as HTMLCanvasElement, x = c.getContext('2d')!; let w = 0, h = 0, nextShooting = 0, stars: { x: number; y: number; r: number; p: number; s: number }[] = [];
   const size = () => { const r = Math.min(devicePixelRatio || 1, 2); w = c.clientWidth; h = c.clientHeight; c.width = w * r; c.height = h * r; x.setTransform(r, 0, 0, r, 0, 0);
     stars = Array.from({ length: Math.round((w * h) / 4200) }, () => ({ x: Math.random() * w, y: Math.random() * h, r: Math.random() * 1.4 + 0.2, p: Math.random() * 6.28, s: Math.random() * 0.7 + 0.2 })); };
   const draw = (t: number) => {
     x.clearRect(0, 0, w, h); const R = Math.min(w, h) * 0.75, cx = w * 0.8, cy = h + R * 0.42;
+    for (const s of stars) { const a = .68 + .25 * Math.sin((t / 1400) * s.s + s.p); x.globalAlpha = a; x.fillStyle = s.r > 1.1 ? '#cfeeff' : '#ffffff'; x.beginPath(); x.arc(s.x, s.y, s.r, 0, 6.283); x.fill(); }
+    if (t > nextShooting) { nextShooting = t + 25000 + Math.random() * 50000; const sx = Math.random() * w * .65, sy = 40 + Math.random() * h * .35; x.globalAlpha = .85; x.strokeStyle = '#e9f9ff'; x.lineWidth = 1.2; x.beginPath(); x.moveTo(sx, sy); x.lineTo(sx + 70, sy + 24); x.stroke(); }
     const g = x.createRadialGradient(cx - R * 0.3, cy - R * 0.45, R * 0.08, cx, cy, R); g.addColorStop(0, '#e5835a'); g.addColorStop(0.55, '#8c3a22'); g.addColorStop(1, '#1d0a08');
-    x.save(); x.beginPath(); x.arc(cx, cy, R, 0, 6.283); x.fillStyle = g; x.shadowColor = 'rgba(57,217,255,.8)'; x.shadowBlur = 34; x.fill(); x.lineWidth = 3; x.strokeStyle = 'rgba(57,217,255,.6)'; x.stroke(); x.restore();
-    for (const s of stars) { const a = 0.45 + 0.55 * Math.sin((t / 900) * s.s + s.p); x.globalAlpha = Math.max(0.1, a); x.fillStyle = s.r > 1.1 ? '#cfeeff' : '#ffffff'; x.beginPath(); x.arc(s.x, (s.y + t * 0.002 * s.s * 8) % h, s.r, 0, 6.283); x.fill(); }
+    x.save(); x.beginPath(); x.arc(cx, cy, R, 0, 6.283); x.fillStyle = '#3f130d'; x.fill(); x.fillStyle = g; x.fill(); x.shadowColor = 'rgba(57,217,255,.8)'; x.shadowBlur = 34; x.lineWidth = 3; x.strokeStyle = 'rgba(57,217,255,.6)'; x.stroke(); x.restore();
     x.globalAlpha = 1;
   };
   const frame = (t: number) => { if (!starsOn) { starRAF = 0; return; } draw(t); starRAF = settings.reduce ? 0 : requestAnimationFrame(frame); };
@@ -67,7 +68,7 @@ function showBoard() {
 function showHelp() {
   const tag = (k: string, v: boolean) => k === 'dev-fallback' ? '<span class="tag arch">DEV FALLBACK</span>' : `<span class="tag ${v ? 'live' : 'emb'}">${v ? 'VERIFIED' : 'NOT YET VERIFIED'}</span>`;
   menuModal('Help', `<div class="help"><h4>Your job</h4><p>The crew is sick, so you run the outpost. Keep air, water, food and power up. Grow food, build, explore and open the cave.</p>
-    <h4>Controls</h4><ul><li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows: walk</li><li><kbd>E</kbd>: use what is in front of you</li><li><kbd>C</kbd>: Control Module</li><li>Phone or tablet: drag to walk, tap the orange button</li></ul>
+    <h4>Controls</h4><ul><li>Click or tap the ground: walk there</li><li>Click or tap a station: walk over and use it</li><li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows: walk</li><li><kbd>E</kbd>: use the nearby station</li><li><kbd>C</kbd>: Control Module</li><li>Phone or tablet: drag to walk too</li></ul>
     <h4>Rules of Mars</h4><ul><li>Every action costs your energy. Sleep to refill.</li><li>Nothing is free. Every choice costs something.</li><li>Outside, watch suit air and radiation.</li><li>The Time Machine lets you rewind your choices, never the weather.</li></ul>
     <h4>Data sources</h4>${manifest.datasets.map(d => `<div class="src"><b>${esc(d.name)} ${tag(d.kind, d.verified)}</b><span>${esc(d.limitations)}</span></div>`).join('')}</div>`);
 }
@@ -85,7 +86,7 @@ export const applyMotion = () => { document.documentElement.dataset.reduce = set
 
 export function initMenu(h: { play(): void; cont(): void; hasSave(): boolean }) {
   document.querySelectorAll('[data-ic]').forEach(e => { (e as HTMLElement).innerHTML = ICON[(e as HTMLElement).dataset.ic!] ?? ''; });
-  initStars(); applyMotion(); startFrame();
+  initStars(); applyMotion(); startFrame(); music.set('menu');
   $('#btn-continue').hidden = !h.hasSave();
   document.querySelectorAll('.menu-list [data-act]').forEach(b => ((b as HTMLElement).onclick = () => {
     sfx.click(); const a = (b as HTMLElement).dataset.act;
@@ -93,7 +94,7 @@ export function initMenu(h: { play(): void; cont(): void; hasSave(): boolean }) 
   }));
 }
 export const menuControls = {
-  show(hasSave: boolean) { $('#menu').hidden = false; $('#game').hidden = true; $('#btn-continue').hidden = !hasSave; $('#modal-host').innerHTML = ''; startFrame(); },
-  hide() { starsOn = false; $('#menu').hidden = true; $('#game').hidden = false; },
+  show(hasSave: boolean) { $('#menu').hidden = false; $('#game').hidden = true; $('#btn-continue').hidden = !hasSave; $('#modal-host').innerHTML = ''; startFrame(); music.set('menu'); },
+  hide() { starsOn = false; $('#menu').hidden = true; $('#game').hidden = false; music.set('game'); },
   redraw() { drawStars(0); },
 };

@@ -17,17 +17,18 @@ type Zone = { x0: number; y0: number; x1: number; y1: number; label: string; ins
 const ZONES: Record<string, Zone> = {
   farm: { x0: 5, y0: 3, x1: 13, y1: 8, label: 'Check Farm', inside: true }, ls: { x0: 18, y0: 3, x1: 28, y1: 8, label: 'Check Air & Water', inside: true },
   comms: { x0: 18, y0: 13, x1: 28, y1: 17, label: 'Check Comms', inside: true }, control: { x0: 14, y0: 3, x1: 17, y1: 7, label: 'Open Control', inside: true },
-  sick: { x0: 5, y0: 10, x1: 13, y1: 11, label: 'Call the Crew', inside: true },
+  sick: { x0: 9, y0: 13, x1: 10, y1: 13, label: 'Use Sick Bay Intercom', inside: true },
   solar: { x0: 9, y0: 20, x1: 30, y1: 27, label: 'Check Solar', inside: false }, rover: { x0: 30, y0: 19, x1: 37, y1: 24, label: 'Use Rover', inside: false },
   cave: { x0: 32, y0: 3, x1: 38, y1: 7, label: 'Enter Cave', inside: false },
 };
-const MARKERS: Record<string, [number, number]> = { farm: [9.5, 5.6], ls: [22.5, 6], comms: [22.5, 14.6], solar: [19, 24.6], control: [16, 4.5], rover: [34.5, 23], cave: [35, 5.5], sick: [9.5, 10.5] };
+const MARKERS: Record<string, [number, number]> = { farm: [9.5, 5.6], ls: [22.5, 6], comms: [22.5, 14.6], solar: [19, 24.6], control: [16, 4.5], rover: [34.5, 23], cave: [35, 5.5], sick: [9.5, 13.5] };
 
 export const keys: Record<string, boolean> = {};
 export const joy = { id: null as number | null, ox: 0, oy: 0, x: 0, y: 0 };
 
 export class WorldScene extends Phaser.Scene {
   sess!: Session; curZone: string | null = null; busy = false; lastStage = 1; finalShown = false; hudT = 0; syncT = 0; anim = 0;
+  moveTarget: Phaser.Math.Vector2 | null = null; autoActZone: string | null = null;
   onMenu: () => void = () => {};
   constructor() { super('World'); }
 
@@ -150,6 +151,24 @@ export class WorldScene extends Phaser.Scene {
     const h = this.host;
     ({ farm: () => openFarm(h), ls: () => openLs(h), comms: () => openComms(h), solar: () => openSolar(h), control: () => openControl(h), sick: () => openCrew(h), rover: () => openRover(h), cave: () => openCave(h) } as Record<string, () => void>)[z]?.();
   }
+  // Called from the DOM stage so mouse, phone and tablet taps all share one
+  // click-to-walk path. Tapping a marked station walks there, then opens it.
+  tapAt(clientX: number, clientY: number, bounds: DOMRect) {
+    if (UI.blocking() || this.busy || !world.ready) return;
+    const cam = this.cameras.main;
+    const sx = (clientX - bounds.left) * cam.width / bounds.width;
+    const sy = (clientY - bounds.top) * cam.height / bounds.height;
+    const point = cam.getWorldPoint(sx, sy);
+    const tx = Math.floor(point.x / T), ty = Math.floor(point.y / T);
+    const s = this.state();
+    for (const k of Object.keys(ZONES)) {
+      const z = ZONES[k];
+      if (tx >= z.x0 && tx <= z.x1 && ty >= z.y0 && ty <= z.y1 && this.zoneOk(k, s, s.outside === false)) {
+        const [mx, my] = MARKERS[k]; this.moveTarget = new Phaser.Math.Vector2(mx * T, my * T); this.autoActZone = k; sfx.click(); return;
+      }
+    }
+    this.moveTarget = new Phaser.Math.Vector2(point.x, point.y); this.autoActZone = null; sfx.click();
+  }
   zoneOk(k: string, s: GameState, ins: boolean) {
     const q = ZONES[k]; if (q.inside !== ins) return false;
     if (k === 'rover') return s.buildings.includes('rover_bay'); if (k === 'cave') return !!s.flags.cave_unlocked; return true;
@@ -179,6 +198,11 @@ export class WorldScene extends Phaser.Scene {
     if (!blocking) {
       if (keys.a || keys.arrowleft) dx -= 1; if (keys.d || keys.arrowright) dx += 1; if (keys.w || keys.arrowup) dy -= 1; if (keys.s || keys.arrowdown) dy += 1;
       if (joy.id !== null && Math.hypot(joy.x, joy.y) > 0.15) { dx += joy.x; dy += joy.y; }
+      if (this.moveTarget) {
+        const ddx = this.moveTarget.x - p.x, ddy = this.moveTarget.y - p.y;
+        if (Math.hypot(ddx, ddy) < 10) { this.moveTarget = null; }
+        else { dx += ddx; dy += ddy; }
+      }
       const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
       const sp = s.outside ? 86 : 100; const nx = p.x + dx * sp * dt; if (!this.hit(nx, p.y)) p.x = nx; const ny = p.y + dy * sp * dt; if (!this.hit(p.x, ny)) p.y = ny;
       if (Math.hypot(dx, dy) > 0.1) { this.anim += dt * 8; if (dx) p.setFlipX(dx < 0); } else this.anim = 0;
@@ -195,6 +219,7 @@ export class WorldScene extends Phaser.Scene {
     let z: string | null = null;
     if (!blocking) for (const k of Object.keys(ZONES)) { const q = ZONES[k]; if (tx >= q.x0 && tx <= q.x1 && ty >= q.y0 && ty <= q.y1 && this.zoneOk(k, s, ins)) { z = k; break; } }
     this.setPrompt(z);
+    if (z && z === this.autoActZone && !this.moveTarget && !blocking) { this.autoActZone = null; this.doAct(); }
     const a = world.arrow; a.clear(); const g = this.guide(s);
     if (g && !blocking) { let [mx, my] = MARKERS[g]; const needOut = !ZONES[g].inside; if (needOut === ins) { mx = 16; my = 17; } const bob = Math.sin(t / 220) * 5;
       a.fillStyle(0xffb340, 1); a.fillTriangle(mx * T - 9, my * T - 34 + bob, mx * T + 9, my * T - 34 + bob, mx * T, my * T - 18 + bob); a.lineStyle(2, 0xffb340, 0.7); const rr = 14 + ((t / 40) % 20); a.strokeCircle(mx * T, my * T, rr); a.lineStyle(2, 0xffb340, 0.25); a.strokeCircle(mx * T, my * T, rr + 8); }

@@ -112,6 +112,7 @@ const { clamp } = ctx; const S = ctx.S;
   const pg=obj((y+1)*T+1);pg.fillStyle(0xffffff,1);pg.fillRect(x*T+3,y*T-10+5,16,T-10);pg.fillStyle(0xb8d89a,1);pg.fillCircle(x*T+11,y*T-10+T/2,6);pg.fillStyle(0x2b1a12,1);pg.fillRect(x*T+6,y*T-10+T/2-7,10,4);patients.push(pg);
   const z=scene.add.text(x*T+14,y*T-18,'z',{fontFamily:'Rajdhani, sans-serif',fontSize:'14px',fontStyle:'700',color:'#bfe8ff'}).setDepth(9000).setResolution(2);scene.tweens.add({targets:z,y:y*T-40,alpha:{from:1,to:0},duration:2400,repeat:-1,delay:i*600});zs.push(z)});
  const bayLabel=label('QUARANTINE · KEEP OUT',9.5*T,13.4*T,'#ff9fb2',10);
+ const intercom=obj(14*T);intercom.fillStyle(0x172841,1);intercom.fillRoundedRect(9*T+9,13*T+6,18,23,3);intercom.lineStyle(1,0x39d9ff,.85);intercom.strokeRoundedRect(9*T+9,13*T+6,18,23,3);intercom.fillStyle(0x39d9ff,.9);intercom.fillCircle(9*T+18,13*T+13,3);intercom.fillStyle(0xaebbd3,.8);for(let i=0;i<3;i++)intercom.fillRect(9*T+13+i*4,13*T+20,2,4);label('INTERCOM',9.5*T,14*T,'#8ceaff',8);
  world.setQuarantine=(over)=>{patients.forEach(p=>p.setVisible(!over));zs.forEach(z=>z.setVisible(!over));bayLabel.setText(over?'CREW QUARTERS':'QUARANTINE · KEEP OUT').setColor(over?'#9dffb0':'#ff9fb2')};
  // solar panels
  const dustGs=[];panelsPos.forEach(([x,y],i)=>{const px=x*T,py=y*T,g=obj((y+2)*T);g.fillStyle(0x222b44,1);g.fillRect(px+6,py+2*T-6,6,6);g.fillRect(px+3*T-12,py+2*T-6,6,6);box(g,px,py,3*T,2*T,10,0x1f4f96,0x1a2442);

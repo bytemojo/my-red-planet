@@ -6,18 +6,34 @@ export const settings = (() => {
 export const saveSettings = () => { try { localStorage.setItem('mrp.settings', JSON.stringify(settings)); } catch { /* ignore */ } };
 
 let AC: AudioContext | undefined;
+let musicTimer: number | undefined, musicMode: 'menu' | 'game' | null = null, musicStep = 0;
+const ensureAudio = () => { const W = window as unknown as { webkitAudioContext?: typeof AudioContext }; AC = AC || new (window.AudioContext || W.webkitAudioContext!)(); if (AC.state === 'suspended') void AC.resume(); return AC; };
 function beep(f = 660, d = 0.09, type: OscillatorType = 'sine', v = 0.05, delay = 0) {
   if (!settings.sound) return;
   try {
-    const W = window as unknown as { webkitAudioContext?: typeof AudioContext };
-    AC = AC || new (window.AudioContext || W.webkitAudioContext!)();
-    const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+    const ac = ensureAudio();
+    const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
     o.type = type; o.frequency.value = f; g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
-    o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d + 0.02);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + d + 0.02);
   } catch { /* audio is optional */ }
 }
+function musicTick() {
+  if (!settings.sound || !AC || !musicMode) return;
+  // A tiny generated lo-fi loop: no downloaded audio, and it starts only after
+  // a player gesture (the browser's autoplay rule).
+  const menu = musicMode === 'menu', notes = menu ? [220, 277, 330, 415, 330, 277] : [196, 247, 294, 370, 330, 294];
+  const n = notes[musicStep++ % notes.length];
+  beep(n, menu ? .42 : .3, 'triangle', .018);
+  beep(n * 1.5, .16, 'sine', .008, .07);
+  if (musicStep % 3 === 0) beep(n / 2, .28, 'sine', .014, .03);
+}
+export const music = {
+  set(mode: 'menu' | 'game' | null) { musicMode = mode; if (musicTimer) { clearInterval(musicTimer); musicTimer = undefined; } if (mode && settings.sound && AC) { musicTick(); musicTimer = window.setInterval(musicTick, mode === 'menu' ? 620 : 460); } },
+  wake() { if (!musicMode || !settings.sound || musicTimer) return; ensureAudio(); musicTick(); musicTimer = window.setInterval(musicTick, musicMode === 'menu' ? 620 : 460); },
+  toggle() { settings.sound = !settings.sound; saveSettings(); if (!settings.sound && musicTimer) { clearInterval(musicTimer); musicTimer = undefined; } if (settings.sound) this.wake(); return settings.sound; },
+};
 export const sfx = {
-  click: () => beep(520, 0.06, 'square', 0.03),
+  click: () => { ensureAudio(); music.wake(); beep(520, 0.06, 'square', 0.03); },
   ok: () => { beep(660, 0.1, 'triangle', 0.06); beep(990, 0.16, 'triangle', 0.06, 0.1); },
   warn: () => { beep(300, 0.18, 'sawtooth', 0.05); beep(240, 0.22, 'sawtooth', 0.05, 0.18); },
   blip: () => beep(880, 0.03, 'square', 0.015),
