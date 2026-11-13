@@ -1,12 +1,17 @@
 # HANDOFF (update at the end of every session)
 
-## State: Phase 0 done, Phase 2 partly done; original pixel-sprite pass started. Last updated by Codex.
+## State: Phase 0 done, Phase 2 partly done; original pixel-sprite pass started. Last updated by GitHub Copilot.
 
 ### Done and tested (npm test: 16 passing)
 Simulation (power/air/water/food, dust, flares), energy per action, farming, 5 buildings, cave verbs + cavern + campaign end, sustainability streak, events + scripted beats + memory flags, rewind to any Sol, save/load, data-integrity tests, daily report generation.
 
 ### Built but NOT yet played through in a browser
-The whole front end: `src/game/WorldScene.ts`, `src/game/world.ts`, `src/ui/*`, `src/main.ts`. The menu title was browser-checked at desktop and narrow mobile widths. The 16 unit tests and TypeScript check pass; the agent runner has not returned a completed Vite production-build line or a browser playthrough. **First job: play Sol 1-3**, checking the new player/EVA walk frames, crew sprites after quarantine, crop stages in the farm, zone prompts, click/tap routing, the pause panel, and the `E` key.
+The whole front end: `src/game/WorldScene.ts`, `src/game/world.ts`, `src/ui/*`, `src/main.ts`. The menu title was browser-checked at desktop and narrow mobile widths. `npm run check` passes all 16 tests, TypeScript, and the Vite production build. The production URL responds with the game screen, but a full browser playthrough is still outstanding. **First job: play Sol 1-3**, checking the new player/EVA walk frames, crew sprites after quarantine, crop stages in the farm, zone prompts, click/tap routing, the pause panel, and the `E` key.
+
+### Latest publish
+- Private GitHub repository: https://github.com/bytemojo/my-red-planet (branch: `master`).
+- Production deployment: https://myredplanet.vercel.app.
+- The deployed page response was checked; gameplay interactions were not browser-tested in this session.
 
 ### Look and feel
 The owner wants the prototype's look (menu, HUD, rooms, plants, sick bay, control module, result screen) kept as is. It was ported, not redesigned. The earlier placeholder-sprite atlas was removed. The Stardew-style art question is open (see AGENTS.md).
