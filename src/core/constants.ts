@@ -14,6 +14,7 @@ export const K = {
 export const FARM: Record<FarmLight, { name: string; power: number; water: number; growth: number; why: string }> = {
   bright: { name: 'Bright grow-lights', power: 1.4, water: 0.6, growth: 1.0, why: 'Plants grow faster, but lights are hungry for electricity.' },
   dim: { name: 'Dim grow-lights', power: 0.6, water: 0.3, growth: 0.6, why: 'Plants grow slower, but the battery lasts longer.' },
+  off: { name: 'Lights off', power: 0, water: 0, growth: 0, why: 'Saves the most power. Plants stop growing and slowly get weaker.' },
 };
 export const LS: Record<LsMode, { name: string; ox: number; why: string }> = {
   oxy: { name: 'Oxygen first', ox: 0.9, why: 'Most power makes air. Water gets only a trickle.' },
@@ -32,7 +33,23 @@ export const CROPS: Record<CropId, { name: string; sols: number; food: number }>
 export const ACTION_ENERGY = {
   plant: 3, water: 4, harvest: 3, clean_panels: 12, talk: 1, build: 15, explore: 20,
   cave_explore: 20, cave_excavate: 25, cave_pressurize: 15, cave_shield: 15, request_shipment: 5, feed: 6,
+  check: 1, suit: 1, answer: 0, panels: 4, repair_watering: 12, fix_panels: 18,
 } as const;
+
+// Episode 1 "The Storm". Simplified game units (a game model, not engineering data), tuned so that
+// no choice is free: stowing panels saves them but drains the battery; leaving them out keeps some power but risks burial.
+export const EP = {
+  START_HOUR: 8, STORM_CALL_HOUR: 19, STORM_SOLS: [2, 3, 4], AFTER_SOL: 5,
+  CALL_SECONDS: 12,              // the Storm Call countdown
+  CHATS_PER_SOL: 2,              // intercom chats per Sol (the crew is sick and needs rest)
+  POWER_SCALE: 0.3,              // the base battery is large: power % moves at 30% of the campaign rate
+  SCAR: 0.4,                     // share of burial damage that stays after the panels are dug out (scratched for good)
+  BURY: { 2: 0.45, 3: 0.15, 4: 0.05 } as Record<number, number>, // panel damage per storm night if left out
+  HEALTH_DRAIN: { low: 0, elevated: 2, high: 9, storm: 16 } as Record<string, number>, // per hour outside
+  HEALTH_NIGHT: 15,              // recovered while sleeping
+  WATER_WALL: { water: 15, power: 6 },
+  DRY_PLANT: 20, LIGHTS_OFF_PLANT: 6, GROW_PLANT: 5,
+};
 
 // Crew wellbeing while they are quarantined. Simplified game units, tuned for feel, not real nutrition data.
 // Meals come out of the shared food store (already counted in K.FOOD_USE), so feeding costs the player's energy, not extra food.

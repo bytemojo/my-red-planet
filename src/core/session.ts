@@ -1,5 +1,5 @@
 import { MAX_SNAPSHOTS } from './constants';
-import { SAVE_VERSION, endSol, newGame } from './sim';
+import { SAVE_VERSION, endSol, newGame, type NewGameOpts } from './sim';
 import { CREW_IDS, newCrewState } from './crewlife';
 import type { DailyReport, Decision, GameState, SolSummary } from './types';
 
@@ -11,13 +11,17 @@ export function migrateState(s: GameState | null | undefined): GameState | null 
     for (const id of CREW_IDS) s.crew[id] = { ...newCrewState(), ...(s.crew?.[id] ?? {}) };
     s.version = 2;
   }
+  if (s.version < 3) { // v2 -> v3: Episode 1, suit rack, player health
+    s.ep = s.ep ?? null; s.suitOn = s.suitOn ?? false; s.health = s.health ?? 100;
+    s.version = 3;
+  }
   return s;
 }
 
 // A Session wraps the live state with the rewind timeline. Rewind restores the MORNING of an earlier Sol.
 // NASA-derived environment is a pure function of the Sol number (see env.ts), so it is never rewritten.
 export interface Branch { fromSol: number; toSol: number; history: SolSummary[]; decisions: Decision[] }
-export interface Session { state: GameState; snapshots: Record<number, string>; branches: Branch[] }
+export interface Session { state: GameState; snapshots: Record<number, string>; branches: Branch[]; checkpoint?: string }
 
 const clone = (s: GameState): GameState => JSON.parse(JSON.stringify(s));
 
@@ -26,14 +30,23 @@ export function snapshot(sess: Session): void {
   const sols = Object.keys(sess.snapshots).map(Number).sort((a, b) => a - b);
   while (sols.length > MAX_SNAPSHOTS) delete sess.snapshots[sols.shift()!];
 }
-export function newSession(seed = 1): Session {
-  const sess: Session = { state: newGame(seed), snapshots: {}, branches: [] };
-  snapshot(sess);
+export function newSession(seed = 1, opts: NewGameOpts = {}): Session {
+  const sess: Session = { state: newGame(seed, opts), snapshots: {}, branches: [] };
+  snapshot(sess); saveCheckpoint(sess);
   return sess;
+}
+// Checkpoint: saved at the start of every Sol and after each objective. Passing out reloads it.
+export function saveCheckpoint(sess: Session): void { sess.checkpoint = JSON.stringify(sess.state); }
+export function reloadCheckpoint(sess: Session): boolean {
+  if (!sess.checkpoint) return false;
+  const passOuts = (sess.state.ep?.passOuts ?? 0) + 1;
+  const st = migrateState(JSON.parse(sess.checkpoint)); if (!st) return false;
+  sess.state = st; if (st.ep) st.ep.passOuts = passOuts; st.outside = false; st.suit = 100;
+  return true;
 }
 export function sleep(sess: Session): DailyReport {
   const report = endSol(sess.state);
-  snapshot(sess);
+  snapshot(sess); saveCheckpoint(sess);
   return report;
 }
 export const rewindableSols = (sess: Session): number[] =>

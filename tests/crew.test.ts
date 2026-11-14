@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { act, advance, endSol, newGame } from '../src/core/sim';
+import { SAVE_VERSION, act, advance, endSol, newGame } from '../src/core/sim';
 import { describePending, resolve } from '../src/core/director';
 import { CREW_IDS, activityWeights, isHungry, lampOn, mood, pickActivity, teamMorale } from '../src/core/crewlife';
 import { CREW_LIFE } from '../src/core/constants';
@@ -101,7 +101,7 @@ describe('save migration', () => {
     for (const k of Object.keys(old.snapshots)) old.snapshots[k] = JSON.stringify(strip(JSON.parse(old.snapshots[k])));
     const back = deserialize(JSON.stringify(old))!;
     expect(back).not.toBeNull();
-    expect(back.state.version).toBe(2);
+    expect(back.state.version).toBe(SAVE_VERSION);
     expect(back.state.crew.reyes).toEqual({ friendship: 2, met: true, morale: CREW_LIFE.MORALE_START, hunger: CREW_LIFE.HUNGER_START });
     expect(rewind(back, 1)).toBe(true);
     expect(back.state.crew.aiko.morale).toBe(CREW_LIFE.MORALE_START);
