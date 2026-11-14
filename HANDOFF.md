@@ -69,6 +69,7 @@ Still worth doing from `docs/PROMPT_PACK.md`: Step 1 (playtest; partly automated
 - **Day/night:** `src/game/skytint.ts` (pure, tested) + `src/game/daynight.ts` (Phaser): blue dusk, blue-violet night, dim orange dust days, indoor tint 40%, outdoor/indoor lights at night, helmet glow.
 - **Bug fixed:** the intercom zone used to sit inside the sealed bay (unreachable). Zones `sick` (tiles x 8-9, y 11) and `hatch` (x 11-12, y 11) are now in the corridor.
 - **Save version 2** + `migrateState` (v1 saves and their rewind snapshots upgrade safely; newer-than-known saves are rejected). `SAVE_VERSION` is exported from `src/core/sim.ts`.
+- **Crew portraits (owner, commit c6a6cb4):** transparent cutouts in `public/crew/<id>.png`, used as the large speaker cutout in dialogue (`runPending`, `src/ui/ui.ts`) and as thumbnails via `crewPortrait(id)` in the intercom and Control Module crew tab. Hover styles are limited to fine pointers. Not checked at a physical phone viewport.
 - **Tests:** `tests/sim.test.ts` (16), `tests/crew.test.ts` (14), `tests/art.test.ts` (7). Screenshots: `docs/playtest/`.
 
 ## Code map and gotchas
