@@ -5,6 +5,9 @@ import type { CrewId, GameState } from '../core/types';
 import { CREW } from '../story/crew';
 import { STAGES } from '../core/constants';
 import { LEARNING } from '../story/learning';
+import { settings } from './audio';
+
+const withName = (t: string) => t.replace(/\{name\}/g, settings.name || 'Rookie');
 
 export const $ = (s: string, r: ParentNode = document) => r.querySelector(s) as HTMLElement;
 export const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
@@ -64,17 +67,32 @@ export function runPending(v: PendingView): Promise<string> {
       <div class="${boxClass}"><div class="dlg-main"><div class="dlg-name" id="dlg-name"></div><div class="dlg-text" id="dlg-text" aria-live="polite"></div><div class="dlg-actions" id="dlg-actions"></div></div></div></div>`, 'dialogue-overlay');
     const name = $('#dlg-name', el), tx = $('#dlg-text', el), actions = $('#dlg-actions', el);
     name.innerHTML = `${esc(speakerName(v.speaker))}${place ? ' · ' + place : ''}${v.title ? ' · ' + esc(v.title) : ''}${v.realData ? ' <span class="tag emb">REAL DATA</span>' : ''}${learnButton(v.learnId)}`; bindLearning(el);
-    let i = 0, timer = 0, full = '';
-    const finish = (id: string) => { clearInterval(timer); UI.close('dlg'); runPending.next = null; resolve(id); };
+    let i = 0, timer = 0, full = '', countdown = 0;
+    const finish = (id: string) => { clearInterval(timer); clearInterval(countdown); UI.close('dlg'); runPending.next = null; resolve(id); };
+    // A timed decision (the Storm Call): countdown bar, a pause for young players, timeout = the default choice.
+    const startTimer = () => {
+      const tm = v.timer!; let left = tm.seconds, paused = false;
+      const box = document.createElement('div'); box.className = 'tcount'; box.innerHTML = `<span id="tc-n">${left}</span><div class="tbar"><i style="width:100%"></i></div><button id="tc-pause" type="button">TAKE YOUR TIME</button>`;
+      actions.parentElement!.insertBefore(box, actions);
+      const bar = box.querySelector('.tbar i') as HTMLElement, n = box.querySelector('#tc-n') as HTMLElement;
+      (box.querySelector('#tc-pause') as HTMLElement).onclick = () => { paused = !paused; box.classList.toggle('paused', paused); (box.querySelector('#tc-pause') as HTMLElement).textContent = paused ? 'RESUME TIMER' : 'TAKE YOUR TIME'; };
+      countdown = window.setInterval(() => { if (paused) return; left -= 0.1; if (left <= 3.05 && Math.abs(left % 1) < 0.1) sfx.tick(); n.textContent = String(Math.max(0, Math.ceil(left))); bar.style.width = `${Math.max(0, left / tm.seconds) * 100}%`; if (left <= 0) { sfx.warn(); finish(tm.timeoutChoice); } }, 100);
+    };
     const show = () => {
-      full = v.lines[i]; tx.textContent = ''; let n = 0; clearInterval(timer);
+      full = withName(v.lines[i]); tx.textContent = ''; let n = 0; clearInterval(timer);
       timer = window.setInterval(() => { n += 2; tx.textContent = full.slice(0, n); if (n % 8 === 0) sfx.blip(); if (n >= full.length) { clearInterval(timer); tx.textContent = full; } }, 22);
       const last = i >= v.lines.length - 1;
       actions.innerHTML = '';
       if (!last) actions.innerHTML = `<button class="skip" id="dlg-skip">Skip</button><button class="holo-btn small amber" id="dlg-next">NEXT ▸</button>`;
-      else if (v.choices.length) actions.innerHTML = `<div class="optlist" style="width:100%">${v.choices.map(c => `<button class="opt" data-choice="${esc(c.id)}" ${c.disabled ? 'disabled' : ''}><span class="opt-top"><b>${esc(c.label)}</b></span>${c.hint ? `<span class="why">${esc(c.hint)}</span>` : ''}</button>`).join('')}</div>`;
+      else if (v.choices.length) { actions.innerHTML = `<div class="optlist" style="width:100%">${v.choices.filter(c => c.id !== v.timer?.timeoutChoice).map(c => `<button class="opt" data-choice="${esc(c.id)}" ${c.disabled ? 'disabled' : ''}><span class="opt-top"><b>${esc(c.label)}</b></span>${c.hint ? `<span class="why">${esc(c.hint)}</span>` : ''}</button>`).join('')}</div>`; if (v.timer && !countdown) startTimer(); }
       else actions.innerHTML = `<span></span><button class="holo-btn small amber" id="dlg-next">GOT IT ▸</button>`;
-      actions.querySelectorAll('[data-choice]').forEach(b => ((b as HTMLElement).onclick = () => { sfx.ok(); finish((b as HTMLElement).dataset.choice!); }));
+      actions.querySelectorAll('[data-choice]').forEach(b => ((b as HTMLElement).onclick = () => {
+        const id = (b as HTMLElement).dataset.choice!;
+        if (v.timer && id === v.timer.askChoice) { // Ask Earth: the message goes out, the clock keeps running, no answer comes in time
+          sfx.click(); (b as HTMLElement).setAttribute('disabled', ''); (b as HTMLElement).insertAdjacentHTML('beforeend', '<span class="sent">Message sent. A reply takes 3 to 22 minutes each way…</span>');
+          const tm = v.timer; v.timer = { ...tm, timeoutChoice: id }; return;
+        }
+        sfx.ok(); finish(id); }));
       const nx = actions.querySelector('#dlg-next') as HTMLElement | null; if (nx) nx.onclick = next;
       const sk = actions.querySelector('#dlg-skip') as HTMLElement | null; if (sk) sk.onclick = () => { i = v.lines.length - 1; clearInterval(timer); show(); tx.textContent = full; };
     };

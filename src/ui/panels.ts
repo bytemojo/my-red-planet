@@ -7,6 +7,19 @@ import { rates, solarEfficiency } from '../core/sim';
 import { envForSol } from '../core/env';
 import { CREW } from '../story/crew';
 import { isHungry, mood } from '../core/crewlife';
+import { SYSTEM_NAME, lockedIn } from '../core/episode';
+import { openWiki, staticText } from './episode';
+import { ACTION_ENERGY as AE, EP } from '../core/constants';
+import type { SystemId } from '../core/types';
+
+// Episode 1: a "check this system" button until it has been checked.
+const checkBtn = (s: GameState, sys: SystemId) => {
+  if (!s.ep) return '';
+  if (s.ep.checked.includes(sys)) return `<span class="badge">${esc(SYSTEM_NAME[sys].toUpperCase())} CHECKED ✓</span>`;
+  return ['call', 'check', 'prep'].includes(s.ep.phase) ? `<button class="holo-btn small amber" data-do="check|${sys}">✓ CHECK ${esc(SYSTEM_NAME[sys].toUpperCase())}</button>` : '';
+};
+// Earth is about 6 months away by ship: 182.6 days / 1.0275 days per sol (a sol is 24 h 39 min) = about 178 sols.
+const SHIP_SOLS = Math.round(182.6 / 1.0275);
 import type { ActionName } from '../core/constants';
 import type { CrewId, CropId, GameState } from '../core/types';
 
@@ -48,17 +61,22 @@ export function openFarm(host: Host) {
       if (!p.crop) return `<div class="srow"><span class="vi">${ICON.farm}</span><b>Bed ${i + 1}: empty</b><button class="holo-btn small" data-do="choose|${p.id}">Plant</button></div>`;
       const need = CROPS[p.crop].sols, ready = p.growth >= need;
       const btn = ready ? `<button class="holo-btn small amber" data-do="harvest|${p.id}">Harvest</button>` : p.watered ? `<span class="badge">WATERED</span>` : `<button class="holo-btn small" data-do="water|${p.id}">Water</button>`;
-      return `<div class="srow ${ready ? '' : ''}"><span class="vi">${ICON.farm}</span><span><b>Bed ${i + 1}: ${CROPS[p.crop].name}</b><div class="sbar"><i class="en ${ready ? 'g' : 'b'}" style="width:${clamp(p.growth / need, 0, 1) * 100}%"></i></div></span>${btn}</div>`;
+      const health = s.ep ? `<div class="sbar" title="plant health"><i class="en ${(p.health ?? 80) < 40 ? 'r' : 'g'}" style="width:${p.health ?? 80}%"></i></div>` : '';
+      return `<div class="srow"><span class="vi">${ICON.farm}</span><span><b>Bed ${i + 1}: ${CROPS[p.crop].name}</b>${s.ep ? ` <small>health ${Math.round(p.health ?? 80)}</small>` : ''}<div class="sbar"><i class="en ${ready ? 'g' : 'b'}" style="width:${clamp(p.growth / need, 0, 1) * 100}%"></i></div>${health}</span>${btn}</div>`;
     }).join('');
-    const lights = (['bright', 'dim'] as const).map(k => optCard(`lights|${k}`, k === 'bright' ? 'sun' : 'sundim', FARM[k].name, s.farm === k,
-      `${chip('power', `−${FARM[k].power}/h`, 'b')}${chip('water', `−${FARM[k].water}/h`, 'b')}${chip('farm', `grows ×${FARM[k].growth}`, 'g')}`, false, FARM[k].why)).join('');
-    return `<div class="holo-panel">${head('farm', 'Indoor Farm')}<div class="panel-body"><div class="legend">${cost(ACTION_ENERGY.plant)} plant · ${cost(ACTION_ENERGY.water)} water · ${cost(ACTION_ENERGY.harvest)} harvest · your energy</div>${beds}<h4>Grow-lights</h4><div class="optlist">${lights}</div></div></div>`;
+    const lightKeys = (s.ep ? ['bright', 'dim', 'off'] : ['bright', 'dim']) as (keyof typeof FARM)[];
+    const lights = lightKeys.map(k => optCard(`lights|${k}`, k === 'bright' ? 'sun' : k === 'dim' ? 'sundim' : 'moon', FARM[k].name, s.farm === k,
+      `${chip('power', `−${FARM[k].power}/h`, 'b')}${chip('water', `−${FARM[k].water}/h`, 'b')}${chip('farm', k === 'off' ? 'plants weaken' : `grows ×${FARM[k].growth}`, k === 'off' ? 'r' : 'g')}`, false, FARM[k].why)).join('');
+    const pump = s.ep ? (s.ep.wateringFixed ? `<div class="fact">${ICON.water}<span>Automatic watering is working again.</span></div>` : s.ep.phase === 'after' ? `<div class="optlist">${optCard('repairw', 'water', 'Repair the watering pump', false, `${cost(AE.repair_watering)}${chip('power', '−5', 'b')}`, false, 'Needs parts from outside, so it could only be fixed after the storm.')}</div>` : `<div class="fact">${ICON.water}<span>The automatic watering pump is broken. Water each bed by hand every Sol until it can be repaired after the storm.</span></div>`) : '';
+    return `<div class="holo-panel">${head('farm', 'Indoor Farm')}<div class="panel-body"><div class="row">${checkBtn(s, 'plants')}</div><div class="legend">${cost(ACTION_ENERGY.plant)} plant · ${cost(ACTION_ENERGY.water)} water · ${cost(ACTION_ENERGY.harvest)} harvest · your energy</div>${beds}${pump}<h4>Grow-lights</h4><div class="optlist">${lights}</div></div></div>`;
   }, c => {
     if (c[0] === 'choose') choosing = c[1]; else if (c[0] === 'cancel') choosing = null;
     else if (c[0] === 'plant') { host.run('plant', { plot: c[1], crop: c[2] }); choosing = null; }
     else if (c[0] === 'water') host.run('water', { plot: c[1] });
     else if (c[0] === 'harvest') host.run('harvest', { plot: c[1] });
     else if (c[0] === 'lights') host.set('farm', c[1]);
+    else if (c[0] === 'check') host.run('check', { system: c[1] });
+    else if (c[0] === 'repairw') host.run('repair_watering');
   });
 }
 
@@ -69,33 +87,46 @@ export function openLs(host: Host) {
     const cards = (Object.keys(LS) as (keyof typeof LS)[]).map(k => optCard(`ls|${k}`, 'ls', LS[k].name, s.ls === k,
       `${chip('o2', `air ${LS[k].ox >= 0.8 ? '▲▲' : LS[k].ox >= 0.4 ? '▲' : '▼'}`, LS[k].ox >= 0.4 ? 'g' : 'b')}${chip('water', `water ${LS[k].ox <= 0.2 ? '▲▲' : LS[k].ox <= 0.5 ? '▲' : '▼'}`, LS[k].ox <= 0.5 ? 'g' : 'b')}`, false, LS[k].why)).join('');
     const a1 = arrows(r.o2), a2 = arrows(r.water);
-    return `<div class="holo-panel">${head('ls', 'Air & Water Maker')}<div class="panel-body"><p class="why">All the power you have must be shared. Pick where it goes.</p>
+    return `<div class="holo-panel">${head('ls', 'Air & Water Maker')}<div class="panel-body"><div class="row">${checkBtn(s, 'air')}${checkBtn(s, 'water')}</div><p class="why">All the power you have must be shared. Pick where it goes.</p>
       ${vbar('o2', s.res.o2 / 100, levelClass(s.res.o2) === 'crit' ? 'r' : 'n', `<span class="rtrend ${a1.c}">${a1.t}</span>`)}${vbar('water', s.res.water / 100, levelClass(s.res.water) === 'crit' ? 'r' : 'n', `<span class="rtrend ${a2.c}">${a2.t}</span>`)}
       <div class="optlist cols3">${cards}</div>${s.buildings.includes('recycler') ? '<div class="fact">' + ICON.ls + '<span>The Water Recycler is saving you water.</span></div>' : ''}</div></div>`;
-  }, c => { if (c[0] === 'ls') host.set('ls', c[1]); });
+  }, c => { if (c[0] === 'ls') host.set('ls', c[1]); else if (c[0] === 'check') host.run('check', { system: c[1] }); });
 }
 
 // ---------- Comms / Earth ----------
 export function openComms(host: Host) {
   panel('inspect', host, () => {
     const s = host.state(), enRoute = s.shipmentArrivesSol > s.sol;
+    if (s.ep && lockedIn(s)) return `<div class="holo-panel">${head('dish', 'Comms Link')}<div class="panel-body"><p class="why">The storm is blocking the uplink to Earth. Only static gets through.</p><div class="static" id="static-box">${esc(staticText(s.sol))}</div><div class="row"><button class="holo-btn small amber" data-do="listen">LISTEN AGAIN</button></div><p class="why">Next supply ship from Earth: about ${SHIP_SOLS} sols away (a 6-month trip). ${learnButton('comms_delay')}</p></div></div>`;
+    if (s.ep) return `<div class="holo-panel">${head('dish', 'Comms Link')}<div class="panel-body"><div class="row">${checkBtn(s, 'comms')}</div>
+      <p class="why">A radio message takes between 3 and 22 minutes each way, so Earth cannot answer quickly. ${learnButton('comms_delay')}</p>
+      <div class="fact">${ICON.earth}<span>Next supply ship from Earth: about <b>${SHIP_SOLS} sols</b> away. A trip to Mars takes about six months, and a sol is 24 hours 39 minutes.</span></div></div></div>`;
     return `<div class="holo-panel">${head('dish', 'Comms Link')}<div class="panel-body">
       <div class="link"><span class="planet"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="#2f7be0"/><path d="M16 22c6-7 13-5 15 2s-6 8-8 14-10-2-7-16z" fill="#4dbb6a"/></svg></span><div class="track ${enRoute ? 'pend' : 'ok'}"><i style="width:100%"></i></div><span class="planet"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="#c1502e"/><circle cx="22" cy="24" r="5" fill="#9a3a20"/><circle cx="40" cy="40" r="7" fill="#9a3a20"/></svg></span></div>
       <p class="why">A radio message takes about 3 to 22 minutes each way. Supplies take a whole Sol. Earth cannot rescue you quickly.</p>
       ${vbar('earth', clamp(s.solsSinceShipment / 10, 0, 1), 'g', `${s.solsSinceShipment}/10 Sols`)}
       <div class="optlist">${optCard('ship', 'door', enRoute ? 'Shipment on its way' : 'Request supply shipment', false, `${cost(ACTION_ENERGY.request_shipment)}${chip('hourglass', 'lands tomorrow', 'n')}${chip('earth', 'resets your streak', 'r')}`, enRoute, 'A safety net. But the goal is to need Earth less.')}</div></div></div>`;
-  }, c => { if (c[0] === 'ship') host.run('request_shipment'); });
+  }, c => { if (c[0] === 'ship') host.run('request_shipment'); else if (c[0] === 'check') host.run('check', { system: c[1] }); else if (c[0] === 'listen') sfx.static(); });
 }
 
 // ---------- Solar ----------
 export function openSolar(host: Host) {
   panel('inspect', host, () => {
-    const s = host.state(), env = envForSol(s.sol), eff = solarEfficiency(s, env);
+    const s = host.state(), env = envForSol(s.sol), eff = solarEfficiency(s, env), ep = s.ep;
+    if (ep) {
+      const inStorm = ep.phase === 'storm' || (ep.phase === 'prep' && ep.stormCall);
+      const toggle = inStorm ? optCard('panels', 'panel', ep.panelsStowed ? 'Put the panels back out' : 'Stow the panels', false, `${cost(AE.panels)}${ep.panelsStowed ? chip('power', 'some power', 'g') + chip('rad', 'dust can bury them', 'r') : chip('power', 'no solar power', 'r') + chip('sparkle', 'panels stay safe', 'g')}`, false, ep.panelsStowed ? 'Deploying during the storm: power now, damage overnight.' : 'Stowing: safe, but the battery must carry everything.') : '';
+      const clean = ep.phase === 'after' && !ep.panelsCleaned ? optCard('clean', 'sparkle', ep.panelDamage > 0 ? 'Dig out and clean the panels' : 'Clean the panels', false, `${cost(ep.panelDamage > 0 ? AE.fix_panels : AE.clean_panels)}${chip('power', 'power comes back', 'g')}`, false, ep.panelDamage > 0 ? 'Buried panels take extra work, and some scratches will not come out.' : 'Wipe the dust off to get full sunshine.') : '';
+      return `<div class="holo-panel">${head('panel', 'Solar Farm')}<div class="panel-body"><div class="row">${checkBtn(s, 'solar')}</div>
+        ${vbar('dust', s.panelDust, s.panelDust > 0.6 ? 'r' : s.panelDust > 0.3 ? 'b' : 'g', `${Math.round(s.panelDust * 100)}% dusty`)}${vbar('panel', 1 - ep.panelDamage, ep.panelDamage > 0.3 ? 'r' : 'g', `${Math.round((1 - ep.panelDamage) * 100)}% panel health`)}${vbar('sun', clamp(eff, 0, 1), eff < 0.35 ? 'r' : 'g', ep.panelsStowed ? 'STOWED: 0% output' : `${Math.round(eff * 100)}% output`)}
+        <p class="why">${ep.phase === 'after' || ep.phase === 'done' ? 'The storm has passed. Dig out and clean the panels to get power back.' : inStorm ? 'The dust storm is here. Stowed panels are safe but make nothing; panels left out make some power and get buried a little more each night.' : 'The panels are dusty, but Reyes says to leave cleaning until after the storm. Decide tonight whether to stow them.'}</p>
+        <div class="optlist">${toggle}${clean}</div></div></div>`;
+    }
     return `<div class="holo-panel">${head('panel', 'Solar Farm')}<div class="panel-body">
       ${vbar('dust', s.panelDust, s.panelDust > 0.6 ? 'r' : s.panelDust > 0.3 ? 'b' : 'g', `${Math.round(s.panelDust * 100)}% dusty`)}${vbar('sun', clamp(eff, 0, 1), eff < 0.35 ? 'r' : 'g', `${Math.round(eff * 100)}% output`)}
       <p class="why">Dust blocks sunlight and builds up every Sol. Wipe the panels to get your power back.</p>
       <div class="optlist">${optCard('clean', 'sparkle', 'Wipe the panels', false, `${cost(ACTION_ENERGY.clean_panels)}${chip('power', 'more power', 'g')}`, false, 'Takes real effort, so choose when to do it.')}</div></div></div>`;
-  }, c => { if (c[0] === 'clean') host.run('clean_panels'); });
+  }, c => { if (c[0] === 'clean') host.run('clean_panels'); else if (c[0] === 'check') host.run('check', { system: c[1] }); else if (c[0] === 'panels') host.run('panels'); });
 }
 
 // ---------- Rover and cave ----------
@@ -124,6 +155,10 @@ export function openCrew(host: Host) {
   let chat: CrewId | null = null, answer: 0 | 1 | null = null;
   panel('inspect', host, () => {
     const s = host.state(), over = !!s.flags.quarantine_over;
+    if (s.ep && s.ep.call === 'ringing' && s.ep.phase === 'call') {
+      const rows = (Object.keys(CREW) as CrewId[]).map(id => `<div class="crewrow">${crewPortrait(id)}<span><div class="nm">${esc(CREW[id].name)}</div><div class="why">${esc(CREW[id].role)}</div></span><button class="holo-btn small ${id === 'reyes' ? 'amber' : ''}" data-do="answer|${id}">Answer</button></div>`).join('');
+      return `<div class="holo-panel">${head('crew', 'Incoming call')}<div class="panel-body"><p class="why">The intercom is ringing. Who is calling?</p>${rows}</div></div>`;
+    }
     if (chat) {
       const chatId = chat as CrewId, c = CREW[chatId], hearts = Array.from({ length: 5 }, (_, i) => `<span class="${i < Math.min(5, s.crew[chatId].friendship) ? '' : 'off'}">♥</span>`).join('');
       const messages = answer === null
@@ -136,8 +171,18 @@ export function openCrew(host: Host) {
       const c = s.crew[id], hearts = Array.from({ length: 5 }, (_, i) => `<span class="${i < Math.min(5, c.friendship) ? '' : 'off'}">♥</span>`).join('');
       return `<div class="crewrow">${crewPortrait(id)}<span><div class="nm">${esc(CREW[id].name)}</div><div class="why">${esc(CREW[id].role)}. ${esc(CREW[id].blurb)}</div><div class="hearts">${hearts}</div><div class="row">${moodChip(s, id)}</div></span><button class="holo-btn small" data-do="talk|${id}">Message</button></div>`;
     }).join('');
-    return `<div class="holo-panel">${head('crew', over ? 'Crew Quarters' : 'Sick Bay Intercom')}<div class="panel-body"><p class="why">${over ? 'The crew is well again.' : 'Everyone is quarantined. Use the wall intercom to send a message.'} A chat costs ${ACTION_ENERGY.talk} energy and cheers people up. Hungry crew need a meal from the hatch.</p>${rows}</div></div>`;
-  }, c => { if (c[0] === 'talk') { chat = c[1] as CrewId; answer = null; } else if (c[0] === 'reply' && chat) { answer = Number(c[1]) as 0 | 1; host.run('talk', { crew: chat }); } else if (c[0] === 'back') { chat = null; answer = null; } });
+    const left = s.ep ? ` Chats left today: <b>${Math.max(0, EP.CHATS_PER_SOL - Number(s.flags.tmp_chats || 0))}</b> of ${EP.CHATS_PER_SOL} (the crew needs rest).` : '';
+    return `<div class="holo-panel">${head('crew', over ? 'Crew Quarters' : 'Sick Bay Intercom')}<div class="panel-body"><p class="why">${over ? 'The crew is well again.' : 'Everyone is quarantined. Use the wall intercom to send a message.'} A chat costs ${ACTION_ENERGY.talk} energy and cheers people up. Hungry crew need a meal from the hatch.${left}</p>${rows}</div></div>`;
+  }, c => { if (c[0] === 'talk') { chat = c[1] as CrewId; answer = null; } else if (c[0] === 'reply' && chat) { answer = Number(c[1]) as 0 | 1; host.run('talk', { crew: chat }); } else if (c[0] === 'back') { chat = null; answer = null; } else if (c[0] === 'answer') { UI.close('inspect'); host.run('answer', { crew: c[1] }); } });
+}
+
+// ---------- Suit rack (Episode 1) ----------
+export function openSuit(host: Host) {
+  panel('inspect', host, () => {
+    const s = host.state();
+    return `<div class="holo-panel">${head('suit', 'Suit Rack')}<div class="panel-body"><p class="why">Mars air is far too thin to breathe. Always put the suit on before the airlock, and watch the space weather alert while you are outside.</p>
+      <div class="optlist">${optCard('suit', 'suit', s.suitOn ? 'Take the suit off' : 'Put the suit on', s.suitOn, `${cost(AE.suit)}${s.suitOn ? '' : chip('rad', 'outside allowed', 'g')}`, false, s.suitOn ? 'You are wearing the EVA suit.' : 'Needed for the solar farm and anything outside.')}</div></div></div>`;
+  }, c => { if (c[0] === 'suit') host.run('suit'); });
 }
 
 // ---------- Control Module ----------
@@ -160,7 +205,7 @@ export function openControl(host: Host, tab = 'meters') {
       if (s.buildings.length) body += `<h4>Built</h4><div class="row">${s.buildings.map(id => `<span class="tag emb">${esc(BUILDINGS[id].name)}</span>`).join('')}</div>`;
     } else if (tab === 'crew') {
       body = (Object.keys(CREW) as CrewId[]).map(id => { const c = s.crew[id]; return `<div class="crewrow">${crewPortrait(id)}<span><div class="nm">${esc(CREW[id].name)}</div><div class="hearts">${Array.from({ length: 5 }, (_, i) => `<span class="${i < Math.min(5, c.friendship) ? '' : 'off'}">♥</span>`).join('')}</div><div class="row">${moodChip(s, id)}</div></span><span></span></div>`; }).join('');
-    } else if (tab === 'journal') body = journalHtml(s);
+    } else if (tab === 'journal') body = `<div class="row"><button class="holo-btn small amber" data-do="wiki">${ICON.doc} LIVING IN SPACE: THE NASA WIKI</button></div>` + journalHtml(s);
     else {
       const sols = host.rewindable();
       body = `<div class="optlist">${optCard('rest', 'moon', 'Rest until morning', false, `${chip('moon', s.hour < 22 ? 'full energy' : 'less rest (late)', 'g')}`, false, 'Ends the Sol. Crops grow while you sleep.')}
@@ -168,7 +213,7 @@ export function openControl(host: Host, tab = 'meters') {
         <h4>Time Machine: go back to a morning</h4>${sols.length ? `<div class="row">${sols.slice(0, 24).map(n => `<button class="holo-btn small" data-do="rewind|${n}">Sol ${n}</button>`).join('')}</div>` : '<p class="why">No earlier Sols yet.</p>'}
         <p class="why">Rewinding changes your choices, not the weather or NASA events.</p>${host.branches() ? '<button class="holo-btn small amber" data-do="compare">Compare timelines</button>' : ''}`;
     }
-    const tabs = TABS.map(([k, ic, n]) => `<button data-do="tab|${k}" aria-selected="${k === tab}">${ICON[ic]}${n}</button>`).join('');
+    const tabs = TABS.filter(([k]) => !(s.ep && k === 'build')).map(([k, ic, n]) => `<button data-do="tab|${k}" aria-selected="${k === tab}">${ICON[ic]}${n}</button>`).join('');
     return `<div class="holo-panel">${head('gauge', 'Control Module')}<div class="panel-body"><div class="tabs">${tabs}</div>${body}</div></div>`;
   }, c => {
     if (c[0] === 'tab') tab = c[1];
@@ -178,6 +223,7 @@ export function openControl(host: Host, tab = 'meters') {
     else if (c[0] === 'menu') { UI.close('control'); host.menu(); }
     else if (c[0] === 'rewind') { UI.close('control'); host.rewind(Number(c[1])); }
     else if (c[0] === 'compare') { UI.close('control'); host.compare(); }
+    else if (c[0] === 'wiki') openWiki();
   });
 }
 export { $ };

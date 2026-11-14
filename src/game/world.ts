@@ -119,11 +119,13 @@ const { clamp } = ctx; const S = ctx.S;
  const bayLabel=label('QUARANTINE · KEEP OUT',6.4*T,12.45*T,'#ff9fb2',9);
  world.setQuarantine=(over)=>{bayLabel.setText(over?'CREW QUARTERS':'QUARANTINE · KEEP OUT').setColor(over?'#9dffb0':'#ff9fb2');hatch.setVisible(!over);hatchLight.setVisible(!over)};
  // solar panels
- const dustGs=[];panelsPos.forEach(([x,y],i)=>{const px=x*T,py=y*T,g=obj((y+2)*T);g.fillStyle(0x222b44,1);g.fillRect(px+6,py+2*T-6,6,6);g.fillRect(px+3*T-12,py+2*T-6,6,6);box(g,px,py,3*T,2*T,10,0x1f4f96,0x1a2442);
+ const dustGs=[],panelGs=[];panelsPos.forEach(([x,y],i)=>{const px=x*T,py=y*T,g=obj((y+2)*T);panelGs.push(g);g.fillStyle(0x222b44,1);g.fillRect(px+6,py+2*T-6,6,6);g.fillRect(px+3*T-12,py+2*T-6,6,6);box(g,px,py,3*T,2*T,10,0x1f4f96,0x1a2442);
   g.fillStyle(0x9fb4d6,1);g.fillRect(px,py-10,3*T,2);g.fillRect(px,py+2*T-12,3*T,2);g.lineStyle(1,0x7fb4ff,.45);for(let c=1;c<6;c++)g.lineBetween(px+c*16,py-10,px+c*16,py+2*T-10);for(let r=1;r<4;r++)g.lineBetween(px,py-10+r*16,px+3*T,py-10+r*16);
   const dg=obj((y+2)*T+.5);dg.fillStyle(0xd09a68,1);dg.fillRect(px,py-10,3*T,2*T);dg.fillStyle(0xa8703f,1);for(let k=0;k<14;k++)dg.fillRect(px+((k*37+i*11)%88),py-10+((k*23+i*7)%58),9,4);dustGs.push(dg);
   const gl=obj((y+2)*T+1);dyn.push(t=>{gl.clear();const p=((t/2200+i*.13)%1);gl.fillStyle(0xffffff,.28*(1-p)*(S&&S.eff>.9?1:.5));gl.fillRect(px+p*3*T-10,py-10,10,2*T)})});
- world.dust=()=>dustGs.forEach(d=>d.setAlpha(clamp((1-S.eff)*1.5,0,.75)));
+ world.dust=()=>dustGs.forEach(d=>d.setAlpha(world.stowed?0:clamp((1-S.eff)*1.5,0,.75)));
+ const stowLabel=label('PANELS STOWED',19*T,22.5*T,'#ffb340',12).setVisible(false);world.stowed=false;
+ world.stow=(on)=>{if(world.stowed===on)return;world.stowed=on;panelGs.forEach(g=>g.setAlpha(on?.3:1));stowLabel.setVisible(on);world.dust()};
  world.clean=()=>{dustGs.forEach((d,i)=>scene.tweens.add({targets:d,alpha:0,duration:1800,delay:i*120}));for(let i=0;i<24;i++){const [px,py]=panelsPos[i%panelsPos.length];const s=scene.add.circle(px*T+Math.random()*3*T,py*T-10+Math.random()*2*T,3,0xffffff,1).setDepth(9000);scene.tweens.add({targets:s,y:s.y-26,alpha:0,duration:1000,delay:i*70,onComplete:()=>s.destroy()})}};
  label('SOLAR FARM',19*T,24.6*T,'#ffd79a',12);
 
@@ -134,7 +136,9 @@ const { clamp } = ctx; const S = ctx.S;
  {const g=obj(18*T);box(g,31*T,16*T,2*T,2*T,18,0xaebbd3,0x3d4f75);g.fillStyle(0x39d9ff,.6);g.fillCircle(32*T,16*T-10,10);bld.recycler=[g,label('WATER RECYCLER',32*T,18.6*T,'#bfe8ff',10)]}
  {const g=obj(18*T);box(g,36*T,16*T,3*T,2*T,22,0x5d6f8f,0x2a3550);g.fillStyle(0x0a1a33,1);g.fillRect(36*T+34,16*T-22+14,28,30);bld.shelter=[g,label('RADIATION SHELTER',37.5*T,18.6*T,'#d9c0ff',10)]}
  const caveObjs=[];{const g=obj(6*T);g.fillStyle(0x3a1a10,1);g.fillEllipse(35*T,5*T+10,3*T,2*T);g.fillStyle(0x07040a,1);g.fillEllipse(35*T,5*T+14,2*T,1.4*T);g.lineStyle(2,0xffb340,.6);g.strokeEllipse(35*T,5*T+10,3*T,2*T);caveObjs.push(g,label('CANDIDATE CAVE',35*T,3.4*T,'#ffd79a',10))}
- world.sync=()=>{const st=ctx.state();if(!st)return;roverObjs.forEach(o=>o.setVisible(st.buildings.includes('rover_bay')));for(const k of Object.keys(bld))bld[k].forEach(o=>o.setVisible(st.buildings.includes(k)));caveObjs.forEach(o=>o.setVisible(!!st.flags.cave_unlocked));world.setQuarantine(!!st.flags.quarantine_over)};
+ world.sync=()=>{const st=ctx.state();if(!st)return;world.setSuit(!!st.suitOn&&!st.outside);world.stow(!!(st.ep&&st.ep.panelsStowed));roverObjs.forEach(o=>o.setVisible(st.buildings.includes('rover_bay')));for(const k of Object.keys(bld))bld[k].forEach(o=>o.setVisible(st.buildings.includes(k)));caveObjs.forEach(o=>o.setVisible(!!st.flags.cave_unlocked));world.setQuarantine(!!st.flags.quarantine_over)};
+ // suit rack on the hallway wall, on the way to the airlock
+ {const g=obj(17*T+1);g.fillStyle(0x24365a,1);g.fillRect(17*T-10,16*T-30,10,40);g.lineStyle(1,0x39d9ff,.6);g.strokeRect(17*T-10+.5,16*T-30+.5,9,39);const hang=obj(17*T+2);hang.fillStyle(0xeaf4ff,1);hang.fillRoundedRect(17*T-9,16*T-26,8,20,2);hang.fillStyle(0x203b67,1);hang.fillRoundedRect(17*T-8,16*T-27,6,5,2);hang.fillStyle(0x54d8f3,1);hang.fillRect(17*T-7,16*T-26,4,2);label('SUIT RACK',16*T,15.5*T,'#8ceaff',8);world.setSuit=(worn)=>hang.setVisible(!worn)}
  label('INDOOR FARM',9.5*T,5.55*T,'#9dffb0',11);label('CONTROL MODULE',16*T,5.1*T,'#ffd79a',10);label('AIRLOCK',16*T,17.25*T,'#ffd24a',11);
  /* player */
  const sg=scene.make.graphics({x:0,y:0,add:false});sg.fillStyle(0,.35);sg.fillEllipse(10,4,18,7);sg.generateTexture('shadow',20,8);sg.destroy();

@@ -35,12 +35,14 @@
       <p class="tagline">Lead the mission. Make Mars home.</p>
       <nav class="menu-list" aria-label="Main menu">
         <button class="holo-btn primary" data-act="continue" id="btn-continue" hidden><svg viewBox="0 0 20 20"><path d="M5 3l12 7-12 7z" fill="currentColor"/></svg>Continue</button>
-        <button class="holo-btn primary" data-act="play" id="btn-play"><svg viewBox="0 0 20 20"><path d="M5 3l12 7-12 7z" fill="currentColor"/></svg>Play game</button>
+        <button class="holo-btn primary" data-act="play" id="btn-play"><svg viewBox="0 0 20 20"><path d="M5 3l12 7-12 7z" fill="currentColor"/></svg>Episode 1: The Storm</button>
+        <button class="holo-btn" data-act="quick" id="btn-quick"><svg viewBox="0 0 20 20"><path d="M3 3l7 7-7 7zM10 3l7 7-7 7z" fill="currentColor"/></svg>Quick start: jump to the storm</button>
         <button class="holo-btn" data-act="awards"><svg viewBox="0 0 20 20"><path d="M10 2l2.4 5 5.4.7-4 3.7 1 5.4L10 14.2 5.2 16.8l1-5.4-4-3.7 5.4-.7z" fill="currentColor"/></svg>Your awards</button>
         <button class="holo-btn" data-act="board"><svg viewBox="0 0 20 20"><path d="M3 17V9h4v8zm5 0V3h4v14zm5 0v-6h4v6z" fill="currentColor"/></svg>Leaderboard</button>
         <button class="holo-btn" data-act="help"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7.6 8a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2.9-1.2 1.8M10 14.2v1.6" fill="none" stroke="currentColor" stroke-width="2"/></svg>Help</button>
         <button class="holo-btn" data-act="settings"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 1.5v3M10 15.5v3M1.5 10h3M15.5 10h3M4 4l2 2M14 14l2 2M16 4l-2 2M6 14l-2 2" stroke="currentColor" stroke-width="2"/></svg>Settings</button>
       </nav>
+      <div class="sun-card" id="sun-card" aria-live="polite">Checking today's Sun with NASA DONKI…</div>
     </div>
     <div id="modal-host"></div>
   </section>
@@ -80,6 +82,13 @@
       <div id="touch-hint" hidden>Tap to walk · tap a station to use it</div>
       <button id="act" hidden></button>
       <div id="toasts"></div>
+      <div class="ep-bar" id="ep-bar" hidden>
+        <div class="epm" id="epm-energy"><span class="epl">BASE ENERGY</span><div class="bar"><i></i></div><b>0</b></div>
+        <div class="epm" id="epm-health"><span class="epl">YOUR HEALTH</span><div class="bar"><i></i></div><b>0</b></div>
+        <div class="epm" id="epm-morale"><span class="epl">TEAM MORALE</span><div class="bar"><i></i></div><b>0</b></div>
+        <div class="sw" id="ep-alert" title="Space weather alert: a game model based on a real NASA DONKI solar flare">SPACE WEATHER · LOW</div>
+      </div>
+      <div class="ring" id="ring" hidden><button class="ring-ico" id="ring-btn" aria-label="Intercom is ringing: Captain Reyes is calling"><img src="/crew/reyes.png" alt=""><span>INTERCOM<br><b>CAPT. REYES</b></span></button><button class="ring-mute" id="ring-mute" aria-label="Mute the ringing">🔕</button></div>
     </div>
     <div id="overlays"></div>
   </section>

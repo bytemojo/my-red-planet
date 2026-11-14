@@ -4,6 +4,8 @@ import { rates, solarEfficiency } from '../core/sim';
 import { envForSol } from '../core/env';
 import { STAGES, CROPS } from '../core/constants';
 import type { GameState } from '../core/types';
+import { SYSTEMS, objective } from '../core/episode';
+import { refreshEpHud, ringUpdate } from './episode';
 
 export const arrows = (r: number) => { const a = Math.abs(r); if (a < 0.05) return { t: '▬', c: 'flat' }; const n = a > 1.2 ? 3 : a > 0.5 ? 2 : 1; return { t: (r > 0 ? '▲' : '▼').repeat(n), c: r > 0 ? 'up' : 'down' }; };
 const METERS = ['o2', 'food', 'water', 'power'] as const;
@@ -37,6 +39,16 @@ export function refreshHud(s: GameState) {
   if (s.outside) { setBar($('#suit-m'), s.suit, levelClass(s.suit)); $('#suit-v').textContent = String(Math.round(s.suit)); setBar($('#rad-m'), s.rad, levelClass(s.rad)); $('#rad-v').textContent = String(Math.round(s.rad)); }
   setBar($('#en-m'), s.energy, levelClass(s.energy)); $('#en-v').textContent = String(Math.round(s.energy));
 
+  refreshEpHud(s); ringUpdate(s);
+  if (s.ep) { // Episode 1: the objective comes from the episode rules
+    const o = objective(s);
+    $('.obj-title').textContent = o.title; $('#obj-count').textContent = `Sol ${s.sol}`;
+    const icon: Record<string, string> = { air: 'o2', water: 'water', plants: 'farm', comms: 'dish', solar: 'panel' };
+    $('#chips').innerHTML = SYSTEMS.map(k => `<span class="sys ${s.ep!.checked.includes(k) ? 'ok' : ''}"><i></i>${ICON[icon[k]]}${k}</span>`).join('');
+    $('#obj-hint').innerHTML = `${ICON.bulb}<span>${o.detail}</span>${learnButton('donki_live')}`;
+    bindLearning($('#obj-hint'));
+    return;
+  }
   // objective = current stage. Chips = quick status of the four systems.
   const st = STAGES[s.stage - 1];
   $('.obj-title').textContent = s.campaignComplete ? 'Sandbox: build your colony' : st.title;

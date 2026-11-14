@@ -41,4 +41,18 @@ export const sfx = {
   plant: () => beep(420, 0.08, 'triangle', 0.05),
   water: () => { beep(700, 0.05, 'sine', 0.04); beep(540, 0.08, 'sine', 0.04, 0.05); },
   harvest: () => { beep(600, 0.08, 'triangle', 0.06); beep(900, 0.12, 'triangle', 0.06, 0.08); },
+  ring: () => { for (let i = 0; i < 3; i++) { beep(880, 0.12, 'square', 0.035, i * 0.18); beep(660, 0.12, 'square', 0.03, i * 0.18 + 0.09); } },
+  alarm: () => { beep(980, 0.14, 'sawtooth', 0.04); beep(740, 0.14, 'sawtooth', 0.04, 0.16); },
+  tick: () => beep(1200, 0.025, 'square', 0.02),
+  // Radio static: a short burst of filtered noise (generated, no audio file).
+  static: (secs = 0.9) => {
+    if (!settings.sound) return;
+    try {
+      const ac = ensureAudio(), n = Math.floor(ac.sampleRate * secs), buf = ac.createBuffer(1, n, ac.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (0.5 + 0.5 * Math.sin(i / 900));
+      const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+      f.type = 'bandpass'; f.frequency.value = 1800; g.gain.value = 0.05;
+      src.buffer = buf; src.connect(f); f.connect(g); g.connect(ac.destination); src.start();
+    } catch { /* audio is optional */ }
+  },
 };

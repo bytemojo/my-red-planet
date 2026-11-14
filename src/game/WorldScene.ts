@@ -2,7 +2,9 @@ import Phaser from 'phaser';
 import { ACTION_ENERGY, CROPS, type ActionName } from '../core/constants';
 import { describePending, poll, resolve } from '../core/director';
 import { act, advance, emergencyShipment } from '../core/sim';
-import { rewind, rewindableSols, saveToStorage, sleep, type Session } from '../core/session';
+import { reloadCheckpoint, rewind, rewindableSols, saveCheckpoint, saveToStorage, sleep, type Session } from '../core/session';
+import { lockedIn, SYSTEMS } from '../core/episode';
+import { showDebrief } from '../ui/episode';
 import { H, T, W, buildWorld, world } from './world';
 import { frameName } from './sprites';
 import { envForSol } from '../core/env';
@@ -11,7 +13,7 @@ import { CREW_LIFE } from '../core/constants';
 import type { Dir } from './pixelart';
 import { clamp, $, UI, flashMeter, head, optCard, overlay, runPending, showReport, showSimple, showStageResult, stageScore, toast, journalHtml, esc, chip } from '../ui/ui';
 import { refreshHud, initHud } from '../ui/hud';
-import { openCave, openComms, openControl, openCrew, openFarm, openLs, openRover, openSolar, type Host } from '../ui/panels';
+import { openCave, openComms, openControl, openCrew, openFarm, openLs, openRover, openSolar, openSuit, type Host } from '../ui/panels';
 import { recordRun, updateAwards } from '../ui/menu';
 import { sfx } from '../ui/audio';
 import { CREW } from '../story/crew';
@@ -24,10 +26,11 @@ const ZONES: Record<string, Zone> = {
   comms: { x0: 18, y0: 13, x1: 28, y1: 17, label: 'Check Comms', inside: true }, control: { x0: 14, y0: 3, x1: 17, y1: 7, label: 'Open Control', inside: true },
   sick: { x0: 8, y0: 11, x1: 9, y1: 11, label: 'Use Intercom', inside: true },
   hatch: { x0: 11, y0: 11, x1: 12, y1: 11, label: 'Serve a Meal', inside: true },
+  suit: { x0: 15, y0: 16, x1: 16, y1: 16, label: 'Suit Rack', inside: true },
   solar: { x0: 9, y0: 20, x1: 30, y1: 27, label: 'Check Solar', inside: false }, rover: { x0: 30, y0: 19, x1: 37, y1: 24, label: 'Use Rover', inside: false },
   cave: { x0: 32, y0: 3, x1: 38, y1: 7, label: 'Enter Cave', inside: false },
 };
-const MARKERS: Record<string, [number, number]> = { farm: [9.5, 5.6], ls: [22.5, 6], comms: [22.5, 14.6], solar: [19, 24.6], control: [16, 4.5], rover: [34.5, 23], cave: [35, 5.5], sick: [8.5, 11.7], hatch: [11.5, 11.7] };
+const MARKERS: Record<string, [number, number]> = { farm: [9.5, 5.6], ls: [22.5, 6], comms: [22.5, 14.6], solar: [19, 24.6], control: [16, 4.5], rover: [34.5, 23], cave: [35, 5.5], sick: [8.5, 11.7], hatch: [11.5, 11.7], suit: [16, 16.6] };
 
 export const keys: Record<string, boolean> = {};
 export const joy = { id: null as number | null, ox: 0, oy: 0, x: 0, y: 0 };
@@ -37,6 +40,8 @@ export class WorldScene extends Phaser.Scene {
   moveTarget: Phaser.Math.Vector2 | null = null; autoActZone: string | null = null;
   facing: Dir = 'down'; flip = false; acting: { frame: string; until: number; then?: () => void } | null = null;
   onMenu: () => void = () => {};
+  onReplay: () => void = () => {};
+  sealT = 0;
   constructor() { super('World'); }
 
   state = () => this.sess.state;
@@ -53,15 +58,17 @@ export class WorldScene extends Phaser.Scene {
 
   loadSession(sess: Session) {
     this.sess = sess; const s = sess.state;
-    this.lastStage = s.stage; this.finalShown = s.campaignComplete;
-    UI.stack.slice().forEach(id => UI.close(id)); $('#toasts').innerHTML = '';
+    this.lastStage = s.stage; this.finalShown = s.ep ? s.ep.phase === 'done' : s.campaignComplete;
+    UI.stack.slice().forEach(id => { if (id !== 'opening') UI.close(id); }); $('#toasts').innerHTML = ''; // keep the backstory card if it is already up
     this.resetPlayer(false); world.sync(); refreshHud(s);
     this.cameras.main.centerOn(world.player.x, world.player.y);
     this.time.delayedCall(250, () => void this.afterAction(true));
   }
 
   resetPlayer(tow: boolean) { world.player.x = 16 * T; world.player.y = tow ? 17.2 * T : 14.5 * T; if (this.sess) this.sess.state.outside = false; }
-  blockedAt(px: number, py: number) { const tx = Math.floor(px / T), ty = Math.floor(py / T); if (tx < 0 || ty < 0 || tx >= W || ty >= H) return true; return world.blocked[ty][tx]; }
+  blockedAt(px: number, py: number) { const tx = Math.floor(px / T), ty = Math.floor(py / T); if (tx < 0 || ty < 0 || tx >= W || ty >= H) return true;
+    if (ty >= 18 && tx >= 15 && tx <= 16 && this.sess && lockedIn(this.state())) { if (performance.now() - this.sealT > 2500) { this.sealT = performance.now(); toast('<b>Airlock sealed.</b> It opens when the storm has passed.', { kind: 'warn' }); sfx.warn(); } return true; } // storm lock
+    return world.blocked[ty][tx]; }
   hit(x: number, y: number) { return this.blockedAt(x - 6, y - 3) || this.blockedAt(x + 6, y - 3) || this.blockedAt(x - 6, y + 1) || this.blockedAt(x + 6, y + 1); }
 
   // ----- Host: what panels can ask the game to do -----
@@ -78,7 +85,9 @@ export class WorldScene extends Phaser.Scene {
 
   async run(name: ActionName, arg?: Record<string, string>) {
     const s = this.state(), before = { ...s.res }, e0 = s.energy;
+    const epBefore = s.ep ? `${s.ep.phase}|${s.ep.checked.length}|${s.ep.wateringFixed}|${s.ep.panelsCleaned}` : '';
     const r = act(s, name, arg as never);
+    if (r.ok && s.ep && epBefore !== `${s.ep.phase}|${s.ep.checked.length}|${s.ep.wateringFixed}|${s.ep.panelsCleaned}`) saveCheckpoint(this.sess); // an objective moved on
     const kind = r.ok ? 'good' : 'bad';
     if (r.ok && name === 'clean_panels') { world.clean(); this.lastDust = s.panelDust; }
     if (r.ok && name === 'talk' && arg?.crew) world.crew.react(arg.crew, 'heart');
@@ -104,7 +113,9 @@ export class WorldScene extends Phaser.Scene {
         const v = describePending(s); if (!v) break;
         const choice = await runPending(v);
         resolve(s, choice); poll(s); this.refresh();
+        if (s.ep) saveCheckpoint(this.sess);
       }
+      if (s.ep?.phase === 'done' && !this.finalShown) { this.finalShown = true; saveToStorage(this.sess); recordRun(s.ep.result?.score ?? 0, s.sol); for (const n of updateAwards(s)) toast(`★ New award: <b>${esc(n)}</b>`, { kind: 'good', ms: 4500 }); showDebrief(s, () => this.onReplay(), () => this.host.menu()); return; }
       for (;;) {
         if (s.stage > this.lastStage) { const fin = this.lastStage; this.lastStage++; recordRun(stageScore(s).score, s.sol); await showStageResult(s, fin); }
         else if (s.campaignComplete && !this.finalShown) { this.finalShown = true; recordRun(stageScore(s).score, s.sol); await showStageResult(s, s.stage); }
@@ -140,6 +151,16 @@ export class WorldScene extends Phaser.Scene {
     showSimple('hourglass', 'Two timelines', `<div class="card"><h3>Old timeline (left at Sol ${b.fromSol})</h3>${list(b.decisions)}</div><div class="card won"><h3>This timeline so far</h3>${list(now)}</div>`);
   }
 
+  // Episode 1: passing out never kills you. The game reloads the last checkpoint (start of the Sol or last objective).
+  async passOut(kind: string) {
+    const s = this.state(); if (this.busy) return; this.busy = true; delete s.flags.tmp_passout; sfx.warn();
+    const why = kind === 'suit' ? 'You forgot your suit! Mars air is far too thin to breathe.' : kind === 'health' ? 'The radiation got to you. When the space weather alert is HIGH, run inside!' : 'Your suit ran out of air.';
+    const el = overlay('fail', `<div class="holo-panel">${head('suit', 'You passed out', false)}<div class="panel-body"><div class="failico">!</div><p class="line">${why}</p><p class="why">Captain Reyes talked you through getting back inside. You restart from your last checkpoint. Nobody dies on this crew.${kind === 'suit' ? ' Tip: the suit rack is in the hallway, right before the airlock.' : ''}</p><div class="row" style="justify-content:flex-end"><button class="holo-btn small amber" id="po-go">BACK TO THE CHECKPOINT ▸</button></div></div></div>`);
+    await new Promise<void>(res => { $('#po-go', el).onclick = () => { sfx.click(); UI.close('fail'); res(); }; });
+    reloadCheckpoint(this.sess); this.resetPlayer(false); this.busy = false; this.refresh(); saveToStorage(this.sess);
+    await this.afterAction(true);
+  }
+
   async failFlow() {
     const s = this.state(); if (this.busy || !s.failed) return; this.busy = true;
     const what = { o2: 'air', water: 'water', food: 'food', power: 'power' }[s.failed];
@@ -156,7 +177,7 @@ export class WorldScene extends Phaser.Scene {
   doAct() {
     const z = this.curZone; if (!z || UI.blocking() || this.busy) return; sfx.click();
     const h = this.host;
-    ({ farm: () => openFarm(h), ls: () => openLs(h), comms: () => openComms(h), solar: () => openSolar(h), control: () => openControl(h), sick: () => openCrew(h), hatch: () => this.serveMeal(), rover: () => openRover(h), cave: () => openCave(h) } as Record<string, () => void>)[z]?.();
+    ({ farm: () => openFarm(h), ls: () => openLs(h), comms: () => openComms(h), solar: () => openSolar(h), control: () => openControl(h), sick: () => openCrew(h), hatch: () => this.serveMeal(), suit: () => openSuit(h), rover: () => openRover(h), cave: () => openCave(h) } as Record<string, () => void>)[z]?.();
   }
   // Serving a meal is done by hand: the explorer lifts the tray to the hatch, then the crew react.
   serveMeal() {
@@ -186,7 +207,7 @@ export class WorldScene extends Phaser.Scene {
   }
   zoneOk(k: string, s: GameState, ins: boolean) {
     const q = ZONES[k]; if (q.inside !== ins) return false;
-    if (k === 'rover') return s.buildings.includes('rover_bay'); if (k === 'cave') return !!s.flags.cave_unlocked; if (k === 'hatch') return !s.flags.quarantine_over; return true;
+    if (k === 'rover') return s.buildings.includes('rover_bay'); if (k === 'cave') return !!s.flags.cave_unlocked; if (k === 'hatch') return !s.flags.quarantine_over; if (k === 'suit') return !!s.ep; return true;
   }
   setPrompt(z: string | null) {
     const act = $('#act') as HTMLButtonElement;
@@ -195,6 +216,15 @@ export class WorldScene extends Phaser.Scene {
     act.hidden = false; act.innerHTML = `<kbd>E</kbd><span>${ZONES[z].label}</span>`;
   }
   guide(s: GameState): string | null {
+    if (s.ep) {
+      const ep = s.ep, dry = s.plots.some(p => p.crop && !p.watered && s.hour < 21), hungry = CREW_IDS.some(id => s.crew[id].hunger >= CREW_LIFE.HUNGRY_AT) && s.res.food >= CREW_LIFE.FOOD_NEEDED;
+      const out = (z: string) => (s.suitOn || s.outside ? z : 'suit');
+      if (ep.phase === 'call') return 'sick';
+      if (ep.phase === 'check') { const nx = SYSTEMS.find(x => !ep.checked.includes(x)); return nx === 'air' || nx === 'water' ? 'ls' : nx === 'plants' ? 'farm' : nx === 'comms' ? 'comms' : nx === 'solar' ? out('solar') : null; }
+      if (ep.phase === 'after') return !ep.panelsCleaned ? out('solar') : !ep.wateringFixed ? 'farm' : null;
+      if (ep.phase === 'done') return null;
+      return hungry ? 'hatch' : dry ? 'farm' : null;
+    }
     if (s.plots.some(p => p.crop && p.growth >= CROPS[p.crop].sols)) return 'farm';
     if (!s.plots.some(p => p.crop)) return 'farm';
     if (!s.flags.quarantine_over && CREW_IDS.some(id => s.crew[id].hunger >= CREW_LIFE.HUNGRY_AT) && s.res.food >= CREW_LIFE.FOOD_NEEDED) return 'hatch';
@@ -224,6 +254,8 @@ export class WorldScene extends Phaser.Scene {
       const sp = s.outside ? 86 : 100; const nx = p.x + dx * sp * dt; if (!this.hit(nx, p.y)) p.x = nx; const ny = p.y + dy * sp * dt; if (!this.hit(p.x, ny)) p.y = ny;
       if (Math.hypot(dx, dy) > 0.1) { this.anim += dt * 8; if (Math.abs(dx) > Math.abs(dy) * 1.2) { this.facing = 'side'; this.flip = dx < 0; } else this.facing = dy < 0 ? 'up' : 'down'; } else this.anim = 0;
       const r = advance(s, dt * HOURS_PER_SEC);
+      if (s.flags.tmp_passout) { void this.passOut(String(s.flags.tmp_passout)); return; }
+      if (s.pending && !this.busy) { void this.afterAction(); return; }
       if (r.blackout) { this.resetPlayer(true); sfx.warn(); this.refresh(); showSimple('suit', 'Suit blackout!', '<p class="line">Your suit ran out of air. You were towed back inside and lost time, energy and power.</p>'); }
       if (r.dayOver) { void this.sleepFlow(); return; }
       if (s.failed) { void this.failFlow(); return; }
@@ -232,7 +264,8 @@ export class WorldScene extends Phaser.Scene {
     const tx = Math.floor(p.x / T), ty = Math.floor(p.y / T), ins = !!(world.inside[ty] && world.inside[ty][tx]);
     if (s.outside === ins) { s.outside = !ins; if (s.outside) { toast('<b>Outside!</b> Watch suit air and radiation.', { kind: 'warn' }); sfx.warn(); } else { toast('<b>Inside.</b> Suit refilling.', { kind: 'good' }); sfx.ok(); } refreshHud(s); }
     const pose = (['step1', 'stand', 'step2', 'stand'] as const)[step === 0 ? 1 : step === 1 ? 0 : 2];
-    if (this.acting) p.setFrame(this.acting.frame).setFlipX(false); else p.setFrame((s.outside ? 'ev_' : 'in_') + frameName(this.facing, pose)).setFlipX(this.facing === 'side' && this.flip);
+    const suited = s.outside && (s.suitOn || !s.ep);
+    if (this.acting) p.setFrame(this.acting.frame).setFlipX(false); else p.setFrame((suited ? 'ev_' : 'in_') + frameName(this.facing, pose)).setFlipX(this.facing === 'side' && this.flip);
     p.setDepth(p.y); world.shadow.setPosition(p.x, p.y - 1).setDepth(p.y - 0.5);
     world.crew.update(t, dt, s);
     world.night.update(s.hour, envForSol(s.sol).dust, t, { playerOut: s.outside, px: p.x, py: p.y, roverBay: s.buildings.includes('rover_bay') });

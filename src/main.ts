@@ -7,6 +7,7 @@ import { music, settings, sfx } from './ui/audio';
 import { loadFromStorage, newSession, saveToStorage, type Session } from './core/session';
 import { openControl } from './ui/panels';
 import { runPending } from './ui/ui';
+import { chosenSun, openWiki, showOpeningCard } from './ui/episode';
 
 let game: Phaser.Game | null = null;
 let scene: WorldScene | null = null;
@@ -25,8 +26,9 @@ function start(sess: Session) {
   });
   game.registry.set('sess', sess);
   if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game; // dev-only hook for automated playtests
-  game.events.once('ready', () => { scene = game!.scene.getScene('World') as unknown as WorldScene; scene.onMenu = toMenu; });
-  const wait = setInterval(() => { const sc = game?.scene.getScene('World') as unknown as WorldScene | undefined; if (sc) { scene = sc; scene.onMenu = toMenu; clearInterval(wait); } }, 50);
+  const hook = (sc: WorldScene) => { scene = sc; sc.onMenu = toMenu; sc.onReplay = () => { const sun = sc.sess.state.ep?.sun; start(newSession(Math.floor(Math.random() * 99999) + 1, { mode: 'storm', sun })); toast('<b>New run.</b> Same storm, your choices can change.', { kind: 'good', ms: 4000 }); }; };
+  game.events.once('ready', () => hook(game!.scene.getScene('World') as unknown as WorldScene));
+  const wait = setInterval(() => { const sc = game?.scene.getScene('World') as unknown as WorldScene | undefined; if (sc) { hook(sc); clearInterval(wait); } }, 50);
 }
 function toMenu() {
   UI.stack.slice().forEach(id => UI.close(id)); $('#toasts').innerHTML = '';
@@ -34,7 +36,9 @@ function toMenu() {
 }
 
 initMenu({
-  play: () => { try { localStorage.removeItem('mrp.save.v1'); } catch { /* ignore */ } start(newSession(Math.floor(Math.random() * 99999) + 1)); },
+  play: () => { try { localStorage.removeItem('mrp.save.v1'); } catch { /* ignore */ } start(newSession(Math.floor(Math.random() * 99999) + 1, { mode: 'storm', sun: chosenSun() })); void showOpeningCard(); }, // the card sits over the game and pauses the clock
+  // For judges and testers: systems already checked, clock at 6:36 PM on Sol 1, the Storm Call arrives at 7 PM.
+  quick: () => { try { localStorage.removeItem('mrp.save.v1'); } catch { /* ignore */ } start(newSession(Math.floor(Math.random() * 99999) + 1, { mode: 'storm', sun: chosenSun(), quick: true })); toast('<b>Quick start.</b> Systems checked. The storm arrives at 7 PM: walk around and wait for the call.', { kind: 'good', ms: 6000 }); },
   cont: () => { const s = loadFromStorage(); start(s ?? newSession(1)); },
   hasSave: () => !!loadFromStorage(),
 });
@@ -50,12 +54,13 @@ const refreshTopButton = () => {
 };
 function openPause() {
   if (UI.blocking()) return;
-  const el = overlay('pause', `<div class="holo-panel pause-panel">${head('clock', 'Paused', false)}<div class="panel-body"><p class="why">Take a breather. Mars will wait for you.</p><div class="optlist"><button class="holo-btn primary" data-pause="resume">RESUME MISSION</button><button class="holo-btn" data-pause="sound">${soundIcon(!settings.sound)}<span>${settings.sound ? 'SOUND: ON' : 'SOUND: OFF'}</span></button><button class="holo-btn" data-pause="save">SAVE GAME</button><button class="holo-btn amber" data-pause="menu">SAVE & RETURN TO MENU</button></div></div></div>`);
+  const el = overlay('pause', `<div class="holo-panel pause-panel">${head('clock', 'Paused', false)}<div class="panel-body"><p class="why">Take a breather. Mars will wait for you.</p><div class="optlist"><button class="holo-btn primary" data-pause="resume">RESUME MISSION</button><button class="holo-btn" data-pause="sound">${soundIcon(!settings.sound)}<span>${settings.sound ? 'SOUND: ON' : 'SOUND: OFF'}</span></button><button class="holo-btn" data-pause="save">SAVE GAME</button><button class="holo-btn" data-pause="wiki">LIVING IN SPACE: NASA WIKI</button><button class="holo-btn amber" data-pause="menu">SAVE & RETURN TO MENU</button></div></div></div>`);
   el.querySelectorAll('[data-pause]').forEach(button => ((button as HTMLElement).onclick = () => {
     const action = (button as HTMLElement).dataset.pause;
     if (action === 'resume') { sfx.click(); UI.close('pause'); }
     if (action === 'sound') { music.toggle(); if (settings.sound) sfx.ok(); openPause(); refreshTopButton(); }
     if (action === 'save' && scene) { sfx.ok(); saveToStorage(scene.sess); toast('Game saved.', { kind: 'good' }); }
+    if (action === 'wiki') { sfx.click(); openWiki(); }
     if (action === 'menu' && scene) { sfx.click(); saveToStorage(scene.sess); UI.close('pause'); toMenu(); }
   }));
 }
@@ -87,4 +92,3 @@ stage.addEventListener('pointerdown', e => { if ((e.target as HTMLElement).close
 stage.addEventListener('pointermove', e => { if (Math.hypot(e.clientX - tapX, e.clientY - tapY) > 12) dragged = true; if (e.pointerId !== joy.id) return; let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy; const m = Math.hypot(dx, dy), R = 46; if (m > R) { dx *= R / m; dy *= R / m; } joy.x = dx / R; joy.y = dy / R; const r = stage.getBoundingClientRect(); jk.style.left = joy.ox - r.left + dx + 'px'; jk.style.top = joy.oy - r.top + dy + 'px'; });
 const joyEnd = (e: PointerEvent) => { if (!dragged && !(e.target as HTMLElement).closest('button')) scene?.tapAt(e.clientX, e.clientY, stage.getBoundingClientRect()); if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; jb.style.display = jk.style.display = 'none'; };
 stage.addEventListener('pointerup', joyEnd); stage.addEventListener('pointercancel', joyEnd);
-void toast;
