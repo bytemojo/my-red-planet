@@ -30,7 +30,8 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .holo-btn::before,.holo-btn::after{content:"";position:absolute;width:10px;height:10px;border:2px solid var(--cyan);pointer-events:none}
 .holo-btn::before{top:-2px;left:-2px;border-right:0;border-bottom:0}
 .holo-btn::after{bottom:-2px;right:-2px;border-left:0;border-top:0}
-.holo-btn:hover,.holo-btn:focus-visible{background:linear-gradient(90deg,rgba(57,217,255,.36),rgba(57,217,255,.1));box-shadow:0 0 30px rgba(57,217,255,.5),inset 0 0 24px rgba(57,217,255,.15);transform:translateX(4px)}
+.holo-btn:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
+@media (hover:hover) and (pointer:fine){.holo-btn:hover:not(:active){background:linear-gradient(90deg,rgba(57,217,255,.36),rgba(57,217,255,.1));box-shadow:0 0 30px rgba(57,217,255,.5),inset 0 0 24px rgba(57,217,255,.15);transform:translateX(4px)}}
 .holo-btn:active{transform:translateX(2px) scale(.99)}
 .holo-btn svg{width:20px;height:20px;flex:none;color:var(--cyan)}
 .holo-btn.primary{min-height:50px;font-size:14px;background:linear-gradient(90deg,rgba(57,217,255,.5),rgba(57,217,255,.14));box-shadow:0 0 34px rgba(57,217,255,.4),inset 0 0 26px rgba(57,217,255,.2)}
@@ -39,7 +40,7 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .holo-btn.small{min-height:44px;width:auto;justify-content:center;padding:10px 18px;font-size:12px}
 .fine{margin:0;font-size:13px;color:#7fa3b8;text-align:center;max-width:380px}
 .pause-panel{width:min(400px,100%)}.pause-panel .holo-btn svg{width:20px;height:20px}
-.crew-avatar{width:44px;height:44px;display:grid;place-items:center;flex:none;border-radius:50%;border:1px solid rgba(57,217,255,.65);background:rgba(57,217,255,.13);font-size:24px;box-shadow:inset 0 0 12px rgba(57,217,255,.12)}
+.crew-avatar{width:44px;height:44px;display:block;flex:none;border-radius:50%;border:1px solid rgba(57,217,255,.65);background:radial-gradient(circle at 50% 30%,rgba(57,217,255,.22),rgba(5,12,29,.9));object-fit:cover;object-position:center top;box-shadow:inset 0 0 12px rgba(57,217,255,.12)}
 .chat-panel{width:min(560px,100%)}.chat-profile{display:flex;align-items:center;gap:10px;padding-bottom:10px;border-bottom:1px solid rgba(57,217,255,.22)}.chat-thread{display:flex;flex-direction:column;gap:9px;padding:14px 0;min-height:230px}.chat-bubble{max-width:88%;padding:10px 12px;border-radius:12px;font-size:17px}.chat-bubble p{margin:3px 0 0}.chat-bubble.them{align-self:flex-start;background:rgba(57,217,255,.13);border:1px solid rgba(57,217,255,.28);border-bottom-left-radius:2px}.chat-bubble.me{align-self:flex-end;background:rgba(255,179,64,.16);border:1px solid rgba(255,179,64,.32);border-bottom-right-radius:2px}.chat-choices{display:grid;grid-template-columns:1fr 1fr;gap:8px}.chat-fact{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:14px;color:var(--cyan)}
 /* Keep the pause control clear of the HUD's meter button. */
 #game #hud{padding-right:max(66px,calc(14px + env(safe-area-inset-right,0px)))}
@@ -148,13 +149,17 @@ kbd{font-family:var(--font-display);font-size:12px;border:1px solid var(--cyan);
 .overlay{position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:12px max(12px,env(safe-area-inset-right,0px)) 12px max(12px,env(safe-area-inset-left,0px));background:rgba(2,5,14,.74);backdrop-filter:blur(3px)}
 .overlay .holo-panel{width:min(720px,100%);max-height:100%;display:flex;flex-direction:column}
 .overlay .panel-body{flex:1;min-height:0}
-#dlg{align-items:flex-end;background:linear-gradient(0deg,rgba(2,5,14,.85),rgba(2,5,14,.35) 60%,transparent)}
-.dlg-box{display:flex;gap:14px;align-items:stretch;width:min(760px,100%);padding:14px;margin-bottom:max(6px,env(safe-area-inset-bottom,0px))}
-.portrait{flex:none;width:clamp(86px,22vw,150px);aspect-ratio:3/4;border:1px solid rgba(57,217,255,.6);background:radial-gradient(circle at 50% 30%,rgba(57,217,255,.28),rgba(57,217,255,.04));position:relative;overflow:hidden}
-.portrait svg{position:absolute;inset:0;width:100%;height:100%;filter:drop-shadow(0 0 6px rgba(57,217,255,.9));animation:flick 5s infinite}
-.portrait::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 1px,transparent 1px 3px)}
+#dlg.dialogue-overlay{align-items:stretch;justify-content:stretch;padding:0;overflow:hidden;background:linear-gradient(0deg,rgba(2,5,14,.62),rgba(2,5,14,.12) 68%,transparent);backdrop-filter:none}
+.dlg-stage{position:relative;width:100%;height:100%;min-height:0;overflow:hidden;pointer-events:none}
+.dlg-stage::before{content:"";position:absolute;z-index:1;inset:48% 0 0;pointer-events:none;background:linear-gradient(0deg,rgba(2,5,14,.48),transparent)}
+.dlg-cutout{position:absolute;z-index:0;right:0;bottom:0;height:77%;width:auto;max-width:76vw;object-fit:contain;object-position:right bottom;filter:drop-shadow(0 0 20px rgba(57,217,255,.18));pointer-events:none}
+.dlg-box{display:flex;gap:14px;align-items:stretch;width:min(760px,100%);padding:14px;margin:0}
+.dlg-box-character,.dlg-box-system{position:absolute;z-index:2;left:max(0px,env(safe-area-inset-left,0px));bottom:max(0px,env(safe-area-inset-bottom,0px))}
+.dlg-box-character{width:min(58vw,760px);padding:clamp(16px,2.4vw,30px);border:1px solid rgba(57,217,255,.52);border-left:0;border-bottom:0;border-radius:0 5px 0 0;background:linear-gradient(90deg,rgba(4,10,26,.98),rgba(4,10,26,.9));box-shadow:0 0 32px rgba(0,0,0,.45),inset 0 0 28px rgba(57,217,255,.06);backdrop-filter:blur(8px)}
+.dlg-box-system{width:min(760px,calc(100% - 24px));margin:12px}
+.dlg-box{pointer-events:auto}
 .dlg-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;position:relative}
-.dlg-name{font-family:var(--font-display);font-size:12px;letter-spacing:.22em;color:var(--amber);font-weight:700}
+.dlg-name{font-family:var(--font-display);font-size:12px;letter-spacing:.22em;color:var(--amber);font-weight:700;text-shadow:0 1px 8px #000}
 .dlg-text{font-size:clamp(18px,2.6vw,22px);line-height:1.3;flex:1;min-height:4.8em;color:var(--ice)}
 .dlg-actions{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .skip{font-size:15px;color:#8fb3c7;text-decoration:underline;min-height:40px;padding:0 8px}
@@ -196,7 +201,16 @@ kbd{font-family:var(--font-display);font-size:12px;border:1px solid var(--cyan);
 .res-title.bad{color:var(--red)}
 .bd{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed rgba(57,217,255,.2);font-size:18px}
 .bd span:last-child{font-variant-numeric:tabular-nums;font-weight:700}
-@media (max-width:520px){.grid2{grid-template-columns:1fr}.dlg-box{gap:10px;padding:10px}.holo-btn{font-size:13px}}
+@media (max-width:620px){
+ .grid2{grid-template-columns:1fr}
+ .dlg-cutout{height:75%;max-width:88vw;right:0;bottom:0}
+ .dlg-box-character{left:0;right:0;width:100%;max-height:58%;overflow:auto;gap:10px;padding:14px max(14px,env(safe-area-inset-right,0px)) max(14px,env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px));border-left:0;border-right:0;border-bottom:0;border-radius:0;background:linear-gradient(180deg,rgba(4,10,26,.86),rgba(4,10,26,.98))}
+ .dlg-text{min-height:0;max-height:19vh;overflow:auto}
+ .dlg-actions .optlist{max-height:25vh;overflow:auto}
+ .dlg-box-system{left:12px;right:12px;width:auto;margin:0}
+ .dlg-box{gap:10px;padding:10px}
+ .holo-btn{font-size:13px}
+}
 /* ================= visual dashboards (kid-friendly, minimal text) ================= */
 .fi{display:inline-block;width:22px;height:22px;flex:none}
 .fi svg,.vi svg,.si svg,.hico svg,.m-ico svg,.hi svg,.ti svg,.si2 svg,.mic svg{display:block;width:100%;height:100%}

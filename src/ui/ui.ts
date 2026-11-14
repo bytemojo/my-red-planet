@@ -1,7 +1,7 @@
 import { ICON } from './icons';
 import { sfx } from './audio';
 import type { PendingView } from '../core/director';
-import type { GameState } from '../core/types';
+import type { CrewId, GameState } from '../core/types';
 import { CREW } from '../story/crew';
 import { STAGES } from '../core/constants';
 import { LEARNING } from '../story/learning';
@@ -49,17 +49,19 @@ export function openLearning(id: string) { const l = LEARNING[id]; if (!l) retur
 export function bindLearning(root: ParentNode = document) { root.querySelectorAll('[data-learn]').forEach(el => ((el as HTMLElement).onclick = () => { sfx.click(); openLearning((el as HTMLElement).dataset.learn!); })); }
 
 // ---------- dialogue with portrait (beats and events) ----------
-const COLORS: Record<string, string> = { reyes: '#ff8d9a', aiko: '#7de8e0', david: '#ffd96a', sofia: '#c9a6ff', system: '#8ceaff' };
 const NAMES: Record<string, string> = { reyes: 'CAPT. REYES', aiko: 'AIKO TANAKA', david: 'DAVID OKAFOR', sofia: 'DR. SILVA', system: 'MISSION CONTROL' };
 export const speakerName = (id: string) => NAMES[id] ?? id.toUpperCase();
+export const crewPortrait = (id: CrewId, className = 'crew-avatar') =>
+  `<img class="${className}" src="/crew/${id}.png" alt="${esc(CREW[id].name)}">`;
 
 export function runPending(v: PendingView): Promise<string> {
   return new Promise(resolve => {
-    const col = COLORS[v.speaker] ?? COLORS.system;
+    const portraitId = Object.prototype.hasOwnProperty.call(CREW, v.speaker) ? v.speaker as CrewId : null;
     const place = v.speaker === 'reyes' ? 'QUARANTINE BAY' : v.speaker === 'system' ? '' : 'SICK BAY';
-    const el = overlay('dlg', `<div class="holo-panel dlg-box" style="max-height:none;flex-direction:row">
-      <div class="portrait" aria-hidden="true"><svg viewBox="0 0 90 120" fill="${col}22" stroke="${col}" stroke-width="1.6"><path d="M8 120c0-26 14-38 37-40 23 2 37 14 37 40z"/><rect x="38" y="62" width="14" height="18" rx="4"/><ellipse cx="45" cy="42" rx="19" ry="23"/><path d="M26 38c2-16 12-22 19-22s17 6 19 22c-6-8-12-11-19-11s-13 3-19 11z"/></svg></div>
-      <div class="dlg-main"><div class="dlg-name" id="dlg-name"></div><div class="dlg-text" id="dlg-text" aria-live="polite"></div><div class="dlg-actions" id="dlg-actions"></div></div></div>`);
+    const portrait = portraitId ? `<img class="dlg-cutout" src="/crew/${portraitId}.png" alt="">` : '';
+    const boxClass = portraitId ? 'dlg-box dlg-box-character' : 'holo-panel dlg-box dlg-box-system';
+    const el = overlay('dlg', `<div class="dlg-stage ${portraitId ? 'with-portrait' : ''}">${portrait}
+      <div class="${boxClass}"><div class="dlg-main"><div class="dlg-name" id="dlg-name"></div><div class="dlg-text" id="dlg-text" aria-live="polite"></div><div class="dlg-actions" id="dlg-actions"></div></div></div></div>`, 'dialogue-overlay');
     const name = $('#dlg-name', el), tx = $('#dlg-text', el), actions = $('#dlg-actions', el);
     name.innerHTML = `${esc(speakerName(v.speaker))}${place ? ' · ' + place : ''}${v.title ? ' · ' + esc(v.title) : ''}${v.realData ? ' <span class="tag emb">REAL DATA</span>' : ''}${learnButton(v.learnId)}`; bindLearning(el);
     let i = 0, timer = 0, full = '';

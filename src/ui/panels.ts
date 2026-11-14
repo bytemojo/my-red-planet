@@ -1,5 +1,5 @@
 import { ICON } from './icons';
-import { $, UI, bindLearning, clamp, chip, esc, head, journalHtml, learnButton, optCard, overlay, pips, vbar, levelClass } from './ui';
+import { $, UI, bindLearning, clamp, chip, crewPortrait, esc, head, journalHtml, learnButton, optCard, overlay, pips, vbar, levelClass } from './ui';
 import { sfx } from './audio';
 import { arrows } from './hud';
 import { ACTION_ENERGY, BUILDINGS, CAVE_MAX, CROPS, FARM, LS } from '../core/constants';
@@ -130,11 +130,11 @@ export function openCrew(host: Host) {
         ? `<div class="chat-bubble them"><b>${esc(c.name)}</b><p>${esc(c.chat.prompt)}</p></div>`
         : `<div class="chat-bubble them"><b>${esc(c.name)}</b><p>${esc(c.chat.prompt)}</p></div><div class="chat-bubble me"><p>${esc(c.chat.choices[answer])}</p></div><div class="chat-bubble them"><b>${esc(c.name)}</b><p>${esc(c.chat.replies[answer])}</p>${c.chat.fact ? `<div class="chat-fact">${esc(c.chat.fact)} ${c.chat.learnId ? learnButton(c.chat.learnId) : ''}</div>` : ''}</div>`;
       const choices = answer === null ? `<div class="chat-choices"><button class="holo-btn" data-do="reply|0">${esc(c.chat.choices[0])}</button><button class="holo-btn" data-do="reply|1">${esc(c.chat.choices[1])}</button></div>` : `<button class="holo-btn amber" data-do="back">BACK TO INTERCOM</button>`;
-      return `<div class="holo-panel chat-panel">${head('crew', c.name)}<div class="panel-body"><div class="chat-profile"><span class="crew-avatar">${c.avatar}</span><span><b>${esc(c.role)}</b><div class="hearts">${hearts}</div></span></div><div class="chat-thread">${messages}</div>${choices}</div></div>`;
+      return `<div class="holo-panel chat-panel">${head('crew', c.name)}<div class="panel-body"><div class="chat-profile">${crewPortrait(chatId)}<span><b>${esc(c.role)}</b><div class="hearts">${hearts}</div></span></div><div class="chat-thread">${messages}</div>${choices}</div></div>`;
     }
     const rows = (Object.keys(CREW) as CrewId[]).map(id => {
       const c = s.crew[id], hearts = Array.from({ length: 5 }, (_, i) => `<span class="${i < Math.min(5, c.friendship) ? '' : 'off'}">♥</span>`).join('');
-      return `<div class="crewrow"><span class="crew-avatar">${CREW[id].avatar}</span><span><div class="nm">${esc(CREW[id].name)}</div><div class="why">${esc(CREW[id].role)}. ${esc(CREW[id].blurb)}</div><div class="hearts">${hearts}</div><div class="row">${moodChip(s, id)}</div></span><button class="holo-btn small" data-do="talk|${id}">Message</button></div>`;
+      return `<div class="crewrow">${crewPortrait(id)}<span><div class="nm">${esc(CREW[id].name)}</div><div class="why">${esc(CREW[id].role)}. ${esc(CREW[id].blurb)}</div><div class="hearts">${hearts}</div><div class="row">${moodChip(s, id)}</div></span><button class="holo-btn small" data-do="talk|${id}">Message</button></div>`;
     }).join('');
     return `<div class="holo-panel">${head('crew', over ? 'Crew Quarters' : 'Sick Bay Intercom')}<div class="panel-body"><p class="why">${over ? 'The crew is well again.' : 'Everyone is quarantined. Use the wall intercom to send a message.'} A chat costs ${ACTION_ENERGY.talk} energy and cheers people up. Hungry crew need a meal from the hatch.</p>${rows}</div></div>`;
   }, c => { if (c[0] === 'talk') { chat = c[1] as CrewId; answer = null; } else if (c[0] === 'reply' && chat) { answer = Number(c[1]) as 0 | 1; host.run('talk', { crew: chat }); } else if (c[0] === 'back') { chat = null; answer = null; } });
@@ -159,7 +159,7 @@ export function openControl(host: Host, tab = 'meters') {
       body = avail.length ? `<div class="optlist">${avail.map(([id, b]) => optCard(`build|${id}`, 'base', b.name, false, `${cost(ACTION_ENERGY.build)}${costRes(b.cost)}`, false, b.why)).join('')}</div>` : '<p class="why">Nothing to build right now. Reach the next stage to unlock more.</p>';
       if (s.buildings.length) body += `<h4>Built</h4><div class="row">${s.buildings.map(id => `<span class="tag emb">${esc(BUILDINGS[id].name)}</span>`).join('')}</div>`;
     } else if (tab === 'crew') {
-      body = (Object.keys(CREW) as CrewId[]).map(id => { const c = s.crew[id]; return `<div class="crewrow"><span class="face">🧑‍🚀</span><span><div class="nm">${esc(CREW[id].name)}</div><div class="hearts">${Array.from({ length: 5 }, (_, i) => `<span class="${i < Math.min(5, c.friendship) ? '' : 'off'}">♥</span>`).join('')}</div><div class="row">${moodChip(s, id)}</div></span><span></span></div>`; }).join('');
+      body = (Object.keys(CREW) as CrewId[]).map(id => { const c = s.crew[id]; return `<div class="crewrow">${crewPortrait(id)}<span><div class="nm">${esc(CREW[id].name)}</div><div class="hearts">${Array.from({ length: 5 }, (_, i) => `<span class="${i < Math.min(5, c.friendship) ? '' : 'off'}">♥</span>`).join('')}</div><div class="row">${moodChip(s, id)}</div></span><span></span></div>`; }).join('');
     } else if (tab === 'journal') body = journalHtml(s);
     else {
       const sols = host.rewindable();
