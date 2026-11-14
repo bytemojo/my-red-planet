@@ -6,6 +6,7 @@ import { envForSol } from './env';
 import { hash01 } from './rng';
 import { clamp, addLog } from './util';
 import { teamMorale } from './crewlife';
+import { gymNight, outsideDrainFactor } from './gym';
 import type { Alert, Env, EpisodeResult, EpisodeState, GameState, SystemId, TreeNode } from './types';
 
 export const SYSTEMS: SystemId[] = ['air', 'water', 'plants', 'comms', 'solar'];
@@ -56,7 +57,7 @@ export function objective(s: GameState): { title: string; detail: string } {
     case 'call': return { title: 'TALK TO CAPTAIN REYES', detail: 'The intercom is ringing. Walk to it in the hallway outside the med bay and press E.' };
     case 'check': return { title: `CHECK ALL CORE SYSTEMS (${ep.checked.length}/5)`, detail: `Still to check: ${SYSTEMS.filter(x => !ep.checked.includes(x)).map(x => SYSTEM_NAME[x]).join(', ')}. The solar panels are outside: put on your suit at the rack first.` };
     case 'prep': return { title: 'GET READY FOR THE STORM', detail: 'Water the plants and feed the crew. The storm arrives this evening.' };
-    case 'storm': return { title: `SURVIVE THE STORM (SOL ${s.sol - 1} OF 3)`, detail: 'The airlock is sealed. Keep power up, water the plants and feed the crew.' };
+    case 'storm': return { title: `SURVIVE THE STORM (SOL ${s.sol - 1} OF 3)`, detail: 'The airlock is sealed. Keep power up, water the plants, feed the crew, and exercise once or twice in the gym.' };
     case 'after': return { title: 'AFTER THE STORM', detail: `${ep.panelsCleaned ? '✓' : '•'} Clean the solar panels (outside, suit on)   ${ep.wateringFixed ? '✓' : '•'} Repair the watering system (farm pump)` };
     default: return { title: 'MISSION COMPLETE', detail: 'See your results.' };
   }
@@ -77,7 +78,7 @@ export function episodeTick(s: GameState, hours: number): void {
   const ep = s.ep; if (!ep) return;
   if (s.outside) {
     if (!s.suitOn) { s.flags.tmp_passout = 'suit'; return; }
-    s.health = clamp(s.health - EP.HEALTH_DRAIN[alertFor(s)] * hours, 0, 100);
+    s.health = clamp(s.health - EP.HEALTH_DRAIN[alertFor(s)] * outsideDrainFactor(s.health) * hours, 0, 100);
     if (s.health <= 0) s.flags.tmp_passout = 'health';
   }
   if (s.pending) return;
@@ -132,6 +133,7 @@ export function togglePanels(s: GameState): string {
 // ---------- end of a Sol (called from endSol BEFORE crops grow and before the Sol number changes) ----------
 export function episodeNight(s: GameState): void {
   const ep = s.ep; if (!ep) return;
+  s.flags.ep_gym_msg = gymNight(s); // health from the day's workouts (core/gym.ts); shown in the morning report
   // plant health: water and light keep plants healthy
   for (const p of s.plots) {
     if (!p.crop) continue;
@@ -164,7 +166,6 @@ export function episodeNight(s: GameState): void {
 // ---------- start of a Sol (called from endSol AFTER the Sol number changes) ----------
 export function episodeMorning(s: GameState): void {
   const ep = s.ep; if (!ep) return;
-  s.health = clamp(s.health + EP.HEALTH_NIGHT, 0, 100);
   if (isStormSol(s.sol)) { ep.phase = 'storm'; s.suitOn = false; }
   else if (s.sol >= EP.AFTER_SOL && ep.phase === 'storm') {
     ep.phase = 'after';

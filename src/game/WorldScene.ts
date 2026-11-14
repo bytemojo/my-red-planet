@@ -14,7 +14,9 @@ import { CREW_LIFE } from '../core/constants';
 import type { Dir } from './pixelart';
 import { clamp, $, UI, flashMeter, head, optCard, overlay, runPending, showReport, showSimple, showStageResult, stageScore, toast, journalHtml, esc, chip } from '../ui/ui';
 import { refreshHud, initHud } from '../ui/hud';
-import { openCave, openComms, openControl, openCrew, openFarm, openLs, openRover, openSolar, openSuit, type Host } from '../ui/panels';
+import { openBath, openCave, openComms, openControl, openCrew, openFarm, openGym, openLab, openLs, openRover, openSolar, openSuit, type Host } from '../ui/panels';
+import { playWorkout } from '../ui/gym';
+import type { Machine } from '../core/gym';
 import { recordRun, updateAwards } from '../ui/menu';
 import { sfx } from '../ui/audio';
 import { CREW } from '../story/crew';
@@ -29,9 +31,14 @@ const ZONES: Record<string, Zone> = {
   hatch: { x0: 11, y0: 11, x1: 12, y1: 11, label: 'Serve a Meal', inside: true },
   suit: { x0: 15, y0: 16, x1: 16, y1: 16, label: 'Suit Rack', inside: true },
   solar: { x0: 9, y0: 20, x1: 30, y1: 27, label: 'Check Solar', inside: false }, rover: { x0: 30, y0: 19, x1: 37, y1: 24, label: 'Use Rover', inside: false },
-  cave: { x0: 32, y0: 3, x1: 38, y1: 7, label: 'Enter Cave', inside: false },
+  cave: { x0: 37, y0: 23, x1: 41, y1: 27, label: 'Enter Cave', inside: false },
+  bands: { x0: 30, y0: 4, x1: 31, y1: 5, label: 'Resistance Bands', inside: true },
+  bike: { x0: 33, y0: 5, x1: 34, y1: 6, label: 'Cycle Ergometer', inside: true },
+  rower: { x0: 36, y0: 4, x1: 38, y1: 6, label: 'Rowing Machine', inside: true },
+  lab: { x0: 30, y0: 14, x1: 34, y1: 15, label: 'Science Lab', inside: true },
+  bath: { x0: 36, y0: 13, x1: 38, y1: 15, label: 'Bathroom', inside: true },
 };
-const MARKERS: Record<string, [number, number]> = { farm: [9.5, 5.6], ls: [22.5, 6], comms: [22.5, 14.6], solar: [19, 24.6], control: [16, 4.5], rover: [34.5, 23], cave: [35, 5.5], sick: [8.5, 11.7], hatch: [11.5, 11.7], suit: [16, 16.6] };
+const MARKERS: Record<string, [number, number]> = { farm: [9.5, 5.6], ls: [22.5, 6], comms: [22.5, 14.6], solar: [19, 24.6], control: [16, 4.5], rover: [34.5, 23], cave: [39, 25.5], bands: [31, 5.3], bike: [33.9, 5.9], rower: [37, 5.9], lab: [32, 14.8], bath: [37.5, 14.8], sick: [8.5, 11.7], hatch: [11.5, 11.7], suit: [16, 16.6] };
 
 export const keys: Record<string, boolean> = {};
 export const joy = { id: null as number | null, ox: 0, oy: 0, x: 0, y: 0 };
@@ -39,7 +46,7 @@ export const joy = { id: null as number | null, ox: 0, oy: 0, x: 0, y: 0 };
 export class WorldScene extends Phaser.Scene {
   sess!: Session; curZone: string | null = null; busy = false; lastStage = 1; finalShown = false; hudT = 0; syncT = 0; anim = 0;
   moveTarget: Phaser.Math.Vector2 | null = null; autoActZone: string | null = null;
-  facing: Dir = 'down'; flip = false; acting: { frame: string; until: number; then?: () => void } | null = null;
+  facing: Dir = 'down'; flip = false; acting: { frame: string; frames?: string[]; until: number; then?: () => void } | null = null;
   onMenu: () => void = () => {};
   onReplay: () => void = () => {};
   sealT = 0; alarmT = 0;
@@ -80,6 +87,7 @@ export class WorldScene extends Phaser.Scene {
     set: (what, value) => { const s = this.state(); if (what === 'farm') s.farm = value as GameState['farm']; else s.ls = value as GameState['ls']; sfx.click(); this.refresh(); },
     rest: () => void this.sleepFlow(), rewind: sol => void this.doRewind(sol), compare: () => this.compare(), save: () => { toast(saveToStorage(this.sess) ? 'Game saved.' : 'Could not save.', { kind: saveToStorage(this.sess) ? 'good' : 'bad' }); },
     menu: () => { saveToStorage(this.sess); this.onMenu(); }, branches: () => this.sess.branches.length, rewindable: () => rewindableSols(this.sess),
+    workout: m => void this.doWorkout(m),
   };
 
   lastDust = -1;
@@ -179,7 +187,17 @@ export class WorldScene extends Phaser.Scene {
   doAct() {
     const z = this.curZone; if (!z || UI.blocking() || this.busy) return; sfx.click();
     const h = this.host;
-    ({ farm: () => openFarm(h), ls: () => openLs(h), comms: () => openComms(h), solar: () => openSolar(h), control: () => openControl(h), sick: () => openCrew(h), hatch: () => this.serveMeal(), suit: () => openSuit(h), rover: () => openRover(h), cave: () => openCave(h) } as Record<string, () => void>)[z]?.();
+    ({ farm: () => openFarm(h), ls: () => openLs(h), comms: () => openComms(h), solar: () => openSolar(h), control: () => openControl(h), sick: () => openCrew(h), hatch: () => this.serveMeal(), suit: () => openSuit(h), bands: () => openGym(h, 'bands'), bike: () => openGym(h, 'bike'), rower: () => openGym(h, 'rower'), lab: () => openLab(h), bath: () => openBath(h), rover: () => openRover(h), cave: () => openCave(h) } as Record<string, () => void>)[z]?.();
+  }
+  // A workout: the rhythm mini-game (skippable), then the explorer is shown on the machine, then the result.
+  async doWorkout(m: Machine) {
+    const s = this.state(); if (this.busy) return;
+    const done = await playWorkout(m); if (!done) return;
+    const spot: Record<Machine, [number, number]> = { bands: [31, 4.8], bike: [33.9, 5.5], rower: [37.2, 5.3] };
+    const p = world.player; p.x = spot[m][0] * T; p.y = spot[m][1] * T; this.facing = 'up';
+    if (m === 'rower') world.wing.setRower(true); if (m === 'bike') world.wing.spin(true); if (m === 'bands') world.wing.setBands(true);
+    this.acting = { frame: 'in_up_stand', frames: m === 'rower' ? ['in_side_step1', 'in_side_stand', 'in_side_step2', 'in_side_stand'] : ['in_up_step1', 'in_up_stand', 'in_up_step2', 'in_up_stand'], until: performance.now() + 1800,
+      then: () => { world.wing.setRower(false); world.wing.spin(false); world.wing.setBands(false); void this.run('workout', { machine: m }); void s; } };
   }
   // Serving a meal is done by hand: the explorer lifts the tray to the hatch, then the crew react.
   serveMeal() {
@@ -209,7 +227,7 @@ export class WorldScene extends Phaser.Scene {
   }
   zoneOk(k: string, s: GameState, ins: boolean) {
     const q = ZONES[k]; if (q.inside !== ins) return false;
-    if (k === 'rover') return s.buildings.includes('rover_bay'); if (k === 'cave') return !!s.flags.cave_unlocked; if (k === 'hatch') return !s.flags.quarantine_over; if (k === 'suit') return !!s.ep; return true;
+    if (k === 'rover') return s.buildings.includes('rover_bay'); if (k === 'cave') return !!s.flags.cave_unlocked; if (k === 'hatch') return !s.flags.quarantine_over; if (['suit', 'bands', 'bike', 'rower', 'lab', 'bath'].includes(k)) return !!s.ep; return true;
   }
   setPrompt(z: string | null) {
     const act = $('#act') as HTMLButtonElement;
@@ -267,7 +285,7 @@ export class WorldScene extends Phaser.Scene {
     if (s.outside === ins) { s.outside = !ins; if (s.outside) { toast('<b>Outside!</b> Watch suit air and radiation.', { kind: 'warn' }); sfx.warn(); } else { toast('<b>Inside.</b> Suit refilling.', { kind: 'good' }); sfx.ok(); } refreshHud(s); }
     const pose = (['step1', 'stand', 'step2', 'stand'] as const)[step === 0 ? 1 : step === 1 ? 0 : 2];
     const suited = s.outside && (s.suitOn || !s.ep);
-    if (this.acting) p.setFrame(this.acting.frame).setFlipX(false); else p.setFrame((suited ? 'ev_' : 'in_') + frameName(this.facing, pose)).setFlipX(this.facing === 'side' && this.flip);
+    if (this.acting) p.setFrame(this.acting.frames ? this.acting.frames[Math.floor(t / 160) % this.acting.frames.length] : this.acting.frame).setFlipX(false); else p.setFrame((suited ? 'ev_' : 'in_') + frameName(this.facing, pose)).setFlipX(this.facing === 'side' && this.flip);
     p.setDepth(p.y); world.shadow.setPosition(p.x, p.y - 1).setDepth(p.y - 0.5);
     world.crew.update(t, dt, s);
     world.night.update(s.hour, envForSol(s.sol).dust, t, { playerOut: s.outside, px: p.x, py: p.y, roverBay: s.buildings.includes('rover_bay') });

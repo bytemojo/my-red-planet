@@ -1,5 +1,6 @@
 import { ACTION_ENERGY, BUILDINGS, CAVE_MAX, CROPS, DAY_END, DAY_START, EP, FARM, K, LS, SELF_SUFFICIENT_GOAL, STAGES, ActionName } from './constants';
 import { forecastLabel } from './env';
+import { MACHINES, workout, type Machine } from './gym';
 import { ALERT_LABEL, SYSTEM_NAME, afterStormAction, alertFor, checkSystem, envFor, episodeMorning, episodeNight, episodeTick, lockedIn, maybeFinish, newEpisodeState, togglePanels } from './episode';
 import { clamp, caveTotal, flagNum, hasBuilding, addLog } from './util';
 import { poll, rollEvent } from './director';
@@ -178,6 +179,7 @@ export function endSol(s: GameState): DailyReport {
     if (grew) lines.push(`${grew} plant${grew > 1 ? 's' : ''} grew overnight.`);
     if (ready) lines.push(`${ready} crop${ready > 1 ? 's are' : ' is'} ready to harvest.`);
     for (const n of s.ep.tree.filter(n => n.sol === s.sol - 1 && n.kind === 'effect')) lines.push(n.text);
+    if (s.flags.ep_gym_msg) { lines.push(String(s.flags.ep_gym_msg)); delete s.flags.ep_gym_msg; }
     lines.push(`Space weather alert: ${ALERT_LABEL[alertFor({ ...s, hour: 12 })]}.`);
     if (s.ep.phase === 'storm') lines.push(s.ep.panelsStowed ? 'The solar panels are stowed: no solar power.' : 'The solar panels are out in the dust.');
   }
@@ -191,7 +193,8 @@ export interface ActionResult { ok: boolean; msg: string }
 const fail = (msg: string): ActionResult => ({ ok: false, msg });
 const done = (msg: string): ActionResult => ({ ok: true, msg });
 
-export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?: CropId; crew?: CrewId; building?: string; verb?: string; system?: SystemId }): ActionResult {
+const LAB_PLANT_BOOST = 8; // game model: catching plant disease early in the lab
+export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?: CropId; crew?: CrewId; building?: string; verb?: string; system?: SystemId; machine?: string }): ActionResult {
   const cost = ACTION_ENERGY[name];
   const env = envFor(s);
   if (s.pending) return fail('Finish the conversation first.');
@@ -257,6 +260,20 @@ export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?
     case 'panels':
       if (!s.ep || !s.ep.stormCall || s.ep.phase === 'after' || s.ep.phase === 'done') return fail('The panel controls are only needed during the storm.');
       spend(); return done(togglePanels(s));
+    case 'workout': {
+      if (!s.ep) return fail('The gym is part of Episode 1.');
+      const m = arg?.machine as Machine | undefined;
+      if (!m || !MACHINES[m]) return fail('Pick a machine.');
+      const r = workout(s, m); return r.ok ? done(r.msg) : fail(r.msg);
+    }
+    case 'study_plants': {
+      if (!s.ep) return fail('The lab is part of Episode 1.');
+      if (s.flags.tmp_studied) return fail('You already studied the plants today.');
+      if (!s.plots.some(p => p.crop)) return fail('There are no plants to study.');
+      s.flags.tmp_studied = true; spend();
+      for (const p of s.plots) if (p.crop) p.health = clamp((p.health ?? 80) + LAB_PLANT_BOOST, 0, 100);
+      return done(`Under the microscope you spotted early leaf spots and treated them (+${LAB_PLANT_BOOST} plant health).`);
+    }
     case 'repair_watering':
       if (!s.ep) return fail('Nothing to repair.');
       if (s.ep.phase !== 'after') return fail('The pump needs parts from outside. It can only be fixed after the storm.');

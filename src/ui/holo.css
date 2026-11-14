@@ -473,3 +473,9 @@ kbd{font-family:var(--font-display);font-size:12px;border:1px solid var(--cyan);
 .cr-hex{width:96px;font:inherit;padding:4px 6px;background:#02060f;color:var(--ice);border:1px solid rgba(57,217,255,.5);user-select:text;-webkit-user-select:text}
 .cr-go{align-self:flex-end}.cr-go:disabled{opacity:.4;cursor:not-allowed}
 @media (max-width:640px){.cr-body{grid-template-columns:1fr}.cr-preview{position:static}}
+/* workout mini-game */
+.wo-track{position:relative;height:26px;margin:14px 0;background:rgba(57,217,255,.12);border:1px solid rgba(57,217,255,.45)}
+.wo-zone{position:absolute;left:38%;width:24%;top:0;bottom:0;background:rgba(77,255,176,.35);border-left:2px solid var(--green);border-right:2px solid var(--green)}
+.wo-mark{position:absolute;top:-4px;width:12px;height:34px;background:var(--amber);box-shadow:0 0 10px var(--amber)}
+.wo-reps{font-size:26px;letter-spacing:.3em;text-align:center;color:var(--green);margin-bottom:12px}
+.wo-reps.miss{animation:shake .3s}

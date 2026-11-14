@@ -4,6 +4,7 @@
 import { CROPS } from '../core/constants';
 import { createPixelSprites } from './sprites';
 import { buildQuarters } from './quarters';
+import { WING_BLOCKS, buildWing } from './wing';
 import { buildDayNight } from './daynight';
 export const T = 32, W = 44, H = 30;
 export const world: any = { ready: false };
@@ -13,8 +14,12 @@ const { clamp } = ctx; const S = ctx.S;
  const rng=(seed=>()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296})(214);
  const grid=v=>Array.from({length:H},()=>Array(W).fill(v));
  const inside=grid(false),blocked=grid(false),kind=grid('ground');
- for(let y=2;y<=18;y++)for(let x=4;x<=29;x++){inside[y][x]=true;kind[y][x]='floor';if(x===4||x===29||y===2||y===18){kind[y][x]='wall';blocked[y][x]=true}}
+ for(let y=2;y<=18;y++)for(let x=4;x<=39;x++){inside[y][x]=true;kind[y][x]='floor';if(x===4||x===39||y===2||y===18){kind[y][x]='wall';blocked[y][x]=true}}
  const wall=(x,y,k='wall')=>{kind[y][x]=k;blocked[y][x]=true};
+ // east wing (gym north; lab and bathroom south), through a door in the old east wall at y 10-11
+ for(let y=3;y<=17;y++)if(y<10||y>11)wall(29,y);
+ for(let x=30;x<=38;x++){if(x<33||x>35)wall(x,9);if(x!==31&&x!==32&&x!==37)wall(x,12)}
+ for(let y=13;y<=17;y++)wall(35,y);
  for(let y=3;y<=17;y++){for(const x of[14,17]){if(y>=10&&y<=11)continue;wall(x,y,(x===14&&y>=13)?'glass':'wall')}}
  for(let x=5;x<=13;x++){if(x<8||x>10)wall(x,9);wall(x,12,'glass')}
  for(let x=18;x<=28;x++){if(x<21||x>24)wall(x,9);if(x<21||x>24)wall(x,12)}
@@ -26,9 +31,9 @@ const { clamp } = ctx; const S = ctx.S;
  const farmBeds=[[6,3],[9,3],[12,3],[5,7],[12,7]];farmBeds.forEach(([x,y])=>block(x,y,2,2));
  block(19,3,3,2);block(24,3,3,2);block(20,16,6,1);block(15,3,2,1);
  const panelsPos=[];for(const py of[22,26])for(let px=10;px<=26;px+=4){panelsPos.push([px,py]);block(px,py,3,2)}
- block(33,21,3,2);block(31,8,2,2);
+ block(33,21,3,2);block(40,8,2,2);WING_BLOCKS.forEach(([x,y,w,h])=>block(x,y,w,h));
  // rocks
- const rocks=[];const avoid=(x,y)=>(x>=3&&x<=31&&y>=1&&y<=20)||(x>=8&&x<=30&&y>=20&&y<=28)||(x>=13&&x<=18&&y>=18&&y<=24)||(x>=30&&x<=37&&y>=19&&y<=24)||(x>=30&&x<=34&&y>=7&&y<=10);
+ const rocks=[];const avoid=(x,y)=>(x>=3&&x<=41&&y>=1&&y<=20)||(x>=8&&x<=30&&y>=20&&y<=28)||(x>=13&&x<=18&&y>=18&&y<=24)||(x>=30&&x<=37&&y>=19&&y<=24)||(x>=36&&x<=41&&y>=22&&y<=27);
  for(let i=0;i<260&&rocks.length<42;i++){const x=2+Math.floor(rng()*40),y=2+Math.floor(rng()*26);if(avoid(x,y)||blocked[y][x])continue;const wide=rng()<.3&&!blocked[y][x+1]&&!avoid(x+1,y)&&x<41;rocks.push([x,y,wide?2:1,rng()]);block(x,y,wide?2:1,1)}
  world.inside=inside;world.blocked=blocked;
 
@@ -37,7 +42,7 @@ const { clamp } = ctx; const S = ctx.S;
  const GR=[0xb4532d,0xa94b2a,0xbb5a33,0x9f4527];
  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const px=x*T,py=y*T;
   if(inside[y][x]){const cor=(x===15||x===16||y===10||y===11);let c=cor?0x2a4067:0x1c2c4a;
-   if(!cor){if(x<=13&&y<=9)c=0x1e3a36;else if(x>=18&&y<=9)c=0x1b3157;else if(x<=13&&y>=12)c=0x2e2a44;else c=0x1d2a52}
+   if(!cor){if(x>=30&&y<=8)c=0x262a40;else if(x>=30&&x<=34&&y>=13)c=0x233a4c;else if(x>=36&&y>=13)c=0x22424a;else if(x<=13&&y<=9)c=0x1e3a36;else if(x>=18&&y<=9)c=0x1b3157;else if(x<=13&&y>=12)c=0x2e2a44;else c=0x1d2a52}
    gg.fillStyle(c,1);gg.fillRect(px,py,T,T);gg.lineStyle(1,0x000000,.28);gg.strokeRect(px+.5,py+.5,T-1,T-1);
    gg.fillStyle(0x4a6a9a,.5);[[3,3],[T-4,3],[3,T-4],[T-4,T-4]].forEach(([a,b])=>gg.fillRect(px+a,py+b,2,2));
    if(((x+y)&1)===0){gg.fillStyle(0xffffff,.03);gg.fillRect(px,py,T,T)}
@@ -54,7 +59,7 @@ const { clamp } = ctx; const S = ctx.S;
  // craters
  for(let i=0;i<22;i++){const x=(2+rng()*40)*T,y=(2+rng()*26)*T;if(avoid(Math.floor(x/T),Math.floor(y/T)))continue;gg.fillStyle(0x6b2f1c,.35);gg.fillEllipse(x,y,46,22);gg.fillStyle(0xe28a5c,.22);gg.fillEllipse(x-2,y-3,38,16)}
  // corridor guide line
- gg.fillStyle(0xe2b93b,.55);for(let y=3;y<=17;y++)if(y%2===0)gg.fillRect(16*T-1,y*T+8,2,14);for(let x=5;x<=28;x++)if(x%2===0)gg.fillRect(x*T+8,11*T-1,14,2);
+ gg.fillStyle(0xe2b93b,.55);for(let y=3;y<=17;y++)if(y%2===0)gg.fillRect(16*T-1,y*T+8,2,14);for(let x=5;x<=38;x++)if(x%2===0)gg.fillRect(x*T+8,11*T-1,14,2);
  // pipes between life support machines
  gg.lineStyle(4,0x6b7fa6,1);gg.lineBetween(22*T,4*T+10,24*T,4*T+10);gg.lineBetween(23*T,4*T,23*T,5*T+10);gg.lineStyle(2,0x39d9ff,.7);gg.lineBetween(23*T,4*T,23*T,5*T+10);
  // ground shadows
@@ -107,7 +112,7 @@ const { clamp } = ctx; const S = ctx.S;
   const d=obj(17*T+1);dyn.push(t=>{d.clear();d.lineStyle(2,0x8ceaff,1);d.beginPath();for(let i=0;i<=40;i++){const x=20*T+20+i*(6*T-40)/40,y=16*T-18-11+Math.sin(i*.6+t/200)*5*Math.sin(i/6+t/900);i?d.lineTo(x,y):d.moveTo(x,y)}d.strokePath();d.fillStyle(Math.sin(t/300)>0?0x4dffb0:0x14402f,1);d.fillRect(20*T+6,16*T-18+4,5,5)});
   label('COMMS LINK',23*T,14.3*T,'#8ceaff',11)}
  // dish outside
- {const g=obj(10*T);box(g,31*T,8*T,2*T,2*T,6,0x6a7a99,0x3a4a6c);g.fillStyle(0x2a3550,1);g.fillRect(32*T-3,8*T-24,6,22);const d=obj(10*T+1);dyn.push(t=>{d.clear();const a=Math.sin(t/1800)*.5;d.fillStyle(0xe9f0ff,1);d.fillEllipse(32*T+a*18,8*T-30,46-Math.abs(a)*14,34);d.fillStyle(0x93a8cc,1);d.fillEllipse(32*T+a*18+3,8*T-28,30,22);d.fillStyle(0xff5a6e,Math.sin(t/260)>0?1:.2);d.fillCircle(32*T+a*18+10,8*T-44,3);d.lineStyle(1,0x8ceaff,.5);d.lineBetween(32*T,8*T-44,32*T+30,8*T-110)})}
+ {const g=obj(10*T);box(g,40*T,8*T,2*T,2*T,6,0x6a7a99,0x3a4a6c);g.fillStyle(0x2a3550,1);g.fillRect(41*T-3,8*T-24,6,22);const d=obj(10*T+1);dyn.push(t=>{d.clear();const a=Math.sin(t/1800)*.5;d.fillStyle(0xe9f0ff,1);d.fillEllipse(41*T+a*18,8*T-30,46-Math.abs(a)*14,34);d.fillStyle(0x93a8cc,1);d.fillEllipse(41*T+a*18+3,8*T-28,30,22);d.fillStyle(0xff5a6e,Math.sin(t/260)>0?1:.2);d.fillCircle(41*T+a*18+10,8*T-44,3);d.lineStyle(1,0x8ceaff,.5);d.lineBetween(41*T,8*T-44,41*T-30,8*T-110)})}
 
  // ---- crew quarters (quarantined med bay): four small rooms behind the glass, see quarters.ts
  world.crew=buildQuarters(scene);
@@ -135,7 +140,7 @@ const { clamp } = ctx; const S = ctx.S;
  {const g=obj(14*T);[[32,12],[36,12]].forEach(([x,y])=>{box(g,x*T,y*T,3*T,2*T,10,0x1f4f96,0x1a2442);g.fillStyle(0x9fb4d6,1);g.fillRect(x*T,y*T-10,3*T,2)});bld.solar_2=[g,label('SOLAR ARRAY 2',35*T,14.7*T,'#ffd79a',10)]}
  {const g=obj(18*T);box(g,31*T,16*T,2*T,2*T,18,0xaebbd3,0x3d4f75);g.fillStyle(0x39d9ff,.6);g.fillCircle(32*T,16*T-10,10);bld.recycler=[g,label('WATER RECYCLER',32*T,18.6*T,'#bfe8ff',10)]}
  {const g=obj(18*T);box(g,36*T,16*T,3*T,2*T,22,0x5d6f8f,0x2a3550);g.fillStyle(0x0a1a33,1);g.fillRect(36*T+34,16*T-22+14,28,30);bld.shelter=[g,label('RADIATION SHELTER',37.5*T,18.6*T,'#d9c0ff',10)]}
- const caveObjs=[];{const g=obj(6*T);g.fillStyle(0x3a1a10,1);g.fillEllipse(35*T,5*T+10,3*T,2*T);g.fillStyle(0x07040a,1);g.fillEllipse(35*T,5*T+14,2*T,1.4*T);g.lineStyle(2,0xffb340,.6);g.strokeEllipse(35*T,5*T+10,3*T,2*T);caveObjs.push(g,label('CANDIDATE CAVE',35*T,3.4*T,'#ffd79a',10))}
+ const caveObjs=[];{const g=obj(26*T);g.fillStyle(0x3a1a10,1);g.fillEllipse(39*T,25*T+10,3*T,2*T);g.fillStyle(0x07040a,1);g.fillEllipse(39*T,25*T+14,2*T,1.4*T);g.lineStyle(2,0xffb340,.6);g.strokeEllipse(39*T,25*T+10,3*T,2*T);caveObjs.push(g,label('CANDIDATE CAVE',39*T,23.4*T,'#ffd79a',10))}
  world.sync=()=>{const st=ctx.state();if(!st)return;world.setSuit(!!st.suitOn&&!st.outside);world.stow(!!(st.ep&&st.ep.panelsStowed));roverObjs.forEach(o=>o.setVisible(st.buildings.includes('rover_bay')));for(const k of Object.keys(bld))bld[k].forEach(o=>o.setVisible(st.buildings.includes(k)));caveObjs.forEach(o=>o.setVisible(!!st.flags.cave_unlocked));world.setQuarantine(!!st.flags.quarantine_over)};
  // suit rack on the hallway wall, on the way to the airlock
  {const g=obj(17*T+1);g.fillStyle(0x24365a,1);g.fillRect(17*T-10,16*T-30,10,40);g.lineStyle(1,0x39d9ff,.6);g.strokeRect(17*T-10+.5,16*T-30+.5,9,39);const hang=obj(17*T+2);hang.fillStyle(0xeaf4ff,1);hang.fillRoundedRect(17*T-9,16*T-26,8,20,2);hang.fillStyle(0x203b67,1);hang.fillRoundedRect(17*T-8,16*T-27,6,5,2);hang.fillStyle(0x54d8f3,1);hang.fillRect(17*T-7,16*T-26,4,2);label('SUIT RACK',16*T,15.5*T,'#8ceaff',8);world.setSuit=(worn)=>hang.setVisible(!worn)}
@@ -144,6 +149,7 @@ const { clamp } = ctx; const S = ctx.S;
  const sg=scene.make.graphics({x:0,y:0,add:false});sg.fillStyle(0,.35);sg.fillEllipse(10,4,18,7);sg.generateTexture('shadow',20,8);sg.destroy();
  const player=scene.add.sprite(16*T,14.5*T,'player','in_down_stand').setOrigin(.5,1);const shadow=scene.add.image(0,0,'shadow');
  world.night=buildDayNight(scene,W,H);
+ world.wing=buildWing(scene);
 
  world.player=player;world.shadow=shadow;world.scene=scene;world.anim=0;
  const arrow=scene.add.graphics().setDepth(9990);world.arrow=arrow;

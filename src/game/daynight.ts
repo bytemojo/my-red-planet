@@ -9,12 +9,12 @@ export interface DayNight { update(hour: number, dust: number, t: number, extra:
 export function buildDayNight(scene: Phaser.Scene, W: number, H: number): DayNight {
   createGlowTexture(scene);
   const out = scene.add.graphics().setDepth(9500), inn = scene.add.graphics().setDepth(9500);
-  const B = { x0: 4 * T, y0: 2 * T - 14, x1: 30 * T, y1: 19 * T }; // the habitat, including its wall tops
+  const B = { x0: 4 * T, y0: 2 * T - 14, x1: 40 * T, y1: 19 * T }; // the habitat including the east wing, with its wall tops
   const lights: { img: Phaser.GameObjects.Image; inside: boolean; blink?: number; roverBay?: boolean }[] = [];
   const light = (x: number, y: number, tint: number, scale: number, inside = false, blink?: number, roverBay = false) =>
     lights.push({ img: scene.add.image(x, y, 'glow').setTint(tint).setScale(scale).setBlendMode(Phaser.BlendModes.ADD).setDepth(9510).setAlpha(0), inside, blink, roverBay });
   // outdoor lights next to equipment: airlock, comms dish, solar farm, rover bay
-  light(16 * T, 19.2 * T, 0xffc46b, 1.6); light(32 * T, 7.4 * T, 0xff5a6e, 0.5, false, 520); light(32 * T, 9.6 * T, 0x9fd8ff, 1.1);
+  light(16 * T, 19.2 * T, 0xffc46b, 1.6); light(41 * T, 7.4 * T, 0xff5a6e, 0.5, false, 520); light(41 * T, 9.6 * T, 0x9fd8ff, 1.1);
   light(9.2 * T, 21.2 * T, 0xffd79a, 1.3); light(29.8 * T, 21.2 * T, 0xffd79a, 1.3); light(19.5 * T, 28 * T, 0xffd79a, 1.2);
   light(34.5 * T, 20.6 * T, 0xffd79a, 1.3, false, undefined, true);
   // inside: machines and screens keep glowing at night

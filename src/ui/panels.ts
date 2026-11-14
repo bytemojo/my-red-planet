@@ -11,6 +11,8 @@ import { SYSTEM_NAME, lockedIn } from '../core/episode';
 import { openWiki, staticText } from './episode';
 import { ACTION_ENERGY as AE, EP } from '../core/constants';
 import type { SystemId } from '../core/types';
+import { GYM, MACHINES, workoutsToday, type Machine } from '../core/gym';
+import { alertFor, ALERT_LABEL } from '../core/episode';
 
 // Episode 1: a "check this system" button until it has been checked.
 const checkBtn = (s: GameState, sys: SystemId) => {
@@ -30,6 +32,7 @@ export interface Host {
   set(what: 'farm' | 'ls', value: string): void;
   rest(): void; rewind(sol: number): void; compare(): void; save(): void; menu(): void;
   branches(): number; rewindable(): number[];
+  workout(machine: Machine): void;                                  // plays the workout mini-game, animates, then runs it
 }
 type Draw = () => string;
 function panel(id: string, host: Host, draw: Draw, onDo: (cmd: string[]) => void): void {
@@ -174,6 +177,42 @@ export function openCrew(host: Host) {
     const left = s.ep ? ` Chats left today: <b>${Math.max(0, EP.CHATS_PER_SOL - Number(s.flags.tmp_chats || 0))}</b> of ${EP.CHATS_PER_SOL} (the crew needs rest).` : '';
     return `<div class="holo-panel">${head('crew', over ? 'Crew Quarters' : 'Sick Bay Intercom')}<div class="panel-body"><p class="why">${over ? 'The crew is well again.' : 'Everyone is quarantined. Use the wall intercom to send a message.'} A chat costs ${ACTION_ENERGY.talk} energy and cheers people up. Hungry crew need a meal from the hatch.${left}</p>${rows}</div></div>`;
   }, c => { if (c[0] === 'talk') { chat = c[1] as CrewId; answer = null; } else if (c[0] === 'reply' && chat) { answer = Number(c[1]) as 0 | 1; host.run('talk', { crew: chat }); } else if (c[0] === 'back') { chat = null; answer = null; } else if (c[0] === 'answer') { UI.close('inspect'); host.run('answer', { crew: c[1] }); } });
+}
+
+// ---------- Gym (Episode 1, pack Steps 5/9) ----------
+export function openGym(host: Host, machine: Machine) {
+  panel('inspect', host, () => {
+    const s = host.state(), n = workoutsToday(s), mc = MACHINES[machine];
+    const status = n === 0 ? 'No workout yet today.' : n <= GYM.SWEET_MAX ? `${n} of ${GYM.SWEET_MAX} workouts today: the sweet spot.` : `${n} workouts today: that is too many.`;
+    return `<div class="holo-panel">${head('crew', mc.name)}<div class="panel-body"><p class="why">${esc(mc.what)}</p>
+      <div class="fact">${ICON.bulb}<span><b>Sweet spot: one or two workouts per Sol.</b> Skip a day and your health drops overnight; train three or more times and it drops too. ${esc(status)}</span>${learnButton('exercise')}</div>
+      <p class="why">Space station crews exercise about two hours every day, because without gravity their bones and muscles get weaker. Healthier explorers also handle radiation outside better.</p>
+      <div class="optlist">${optCard('go', 'crew', 'Start the workout', false, `${chip('bulb', `−${mc.energy}`, 'n')}${chip('crew', n >= GYM.SWEET_MAX ? 'too much: health −' : `health +${mc.health}`, n >= GYM.SWEET_MAX ? 'r' : 'g')}`, s.energy < mc.energy, s.energy < mc.energy ? 'Too tired. Rest first.' : 'A short rhythm game. You can skip it and get the same result.')}</div></div></div>`;
+  }, c => { if (c[0] === 'go') { UI.close('inspect'); host.workout(machine); } });
+}
+
+// ---------- Science lab ----------
+export function openLab(host: Host) {
+  panel('inspect', host, () => {
+    const s = host.state(), studied = !!s.flags.tmp_studied, a = alertFor(s);
+    return `<div class="holo-panel">${head('farm', 'Science Lab')}<div class="panel-body">
+      <div class="optlist">${optCard('study', 'farm', 'Check the plants under the microscope', studied, `${cost(AE.study_plants)}${chip('farm', 'plant health +8', 'g')}`, studied, studied ? 'Done for today.' : 'Spot leaf disease early, before it spreads. Once per Sol.')}</div>
+      <h4>Radiation badge reader</h4>
+      ${vbar('rad', s.health / 100, s.health < 40 ? 'r' : 'g', `${Math.round(s.health)} health`)}
+      <p class="why">Space weather now: <b>${ALERT_LABEL[a]}</b>. In this game the badge counts the radiation you take outside: the higher the alert, the faster it adds up. Stay inside when the alert is HIGH. ${learnButton('space_radiation')}</p>
+      <p class="why">NASA's Curiosity rover carries a radiation detector that tells scientists what astronauts would face on Mars. ${learnButton('curiosity_rad')}</p></div></div>`;
+  }, c => { if (c[0] === 'study') host.run('study_plants'); });
+}
+
+// ---------- Bathroom ----------
+export function openBath(host: Host) {
+  panel('inspect', host, () => {
+    const s = host.state();
+    return `<div class="holo-panel">${head('water', 'Bathroom')}<div class="panel-body">
+      <p class="why">Nothing goes to waste up here. Water from the sink, the shower and even the toilet goes through the pipes to the Water Recovery System, which cleans it so you can drink it again.</p>
+      ${vbar('water', s.res.water / 100, levelClass(s.res.water) === 'crit' ? 'r' : 'g', `${Math.round(s.res.water)}% water in the tank`)}
+      <div class="fact">${ICON.water}<span>The real International Space Station now recovers <b>98%</b> of its water, including from sweat and urine. A Mars base has to do the same.</span>${learnButton('water_recycling')}</div></div></div>`;
+  }, () => {});
 }
 
 // ---------- Suit rack (Episode 1) ----------

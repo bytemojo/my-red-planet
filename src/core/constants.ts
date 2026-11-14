@@ -34,6 +34,7 @@ export const ACTION_ENERGY = {
   plant: 3, water: 4, harvest: 3, clean_panels: 12, talk: 1, build: 15, explore: 20,
   cave_explore: 20, cave_excavate: 25, cave_pressurize: 15, cave_shield: 15, request_shipment: 5, feed: 6,
   check: 1, suit: 1, answer: 0, panels: 4, repair_watering: 12, fix_panels: 18,
+  workout: 0, study_plants: 8, // workout energy depends on the machine (core/gym.ts)
 } as const;
 
 // Episode 1 "The Storm". Simplified game units (a game model, not engineering data), tuned so that
@@ -46,7 +47,6 @@ export const EP = {
   SCAR: 0.4,                     // share of burial damage that stays after the panels are dug out (scratched for good)
   BURY: { 2: 0.45, 3: 0.15, 4: 0.05 } as Record<number, number>, // panel damage per storm night if left out
   HEALTH_DRAIN: { low: 0, elevated: 2, high: 9, storm: 16 } as Record<string, number>, // per hour outside
-  HEALTH_NIGHT: 15,              // recovered while sleeping
   WATER_WALL: { water: 15, power: 6 },
   DRY_PLANT: 20, LIGHTS_OFF_PLANT: 6, GROW_PLANT: 5,
 };

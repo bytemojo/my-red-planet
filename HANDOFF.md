@@ -48,6 +48,13 @@ Also added: the radiation alarm sound while outside during a HIGH/STORM alert (`
 ### Character creator (pack Step 3): DONE, browser-verified (16 checks, `scripts/creator-checks.mjs`)
 Play → (asks "Start a new game?" if a save exists) → **creator** → backstory card → game. One scrollable holo modal with a live preview (front, side, EVA suit): (1) first name: spaces and symbols are blocked while typing, letters/hyphen/apostrophe, 2-12 characters, "One name only" helper, error text; (2) ten skin tones dark to light; (3) body style by description: "Long hair, narrower shoulders" / "Short hair, broader shoulders" (new `build` option in `pixelart.ts`); (4) hair colour wheel + 10 presets + hex input; CONTINUE disabled until the name is valid. The look is saved in settings and drawn on the player in the world (`lookToSpec`, `buildPlayerSheet` in `WorldScene.loadSession`). `settings.name` is the one source for `{name}` (`src/story/name.ts` `fillName`); the old Settings "Callsign" is now "Your name" with the same rule. Quick Start skips the creator and uses the last look. Rules in `src/core/player.ts`, tests in `tests/player.test.ts`.
 
+### East wing: gym, science lab, bathroom (pack Steps 5/9): DONE, browser-verified (11 checks, `scripts/wing-checks.mjs`)
+- New **east wing** (tiles x 30-39) reached through a door in the corridor's old east wall. Walls in `world.ts`, furniture in `src/game/wing.ts` (`WING_BLOCKS` = collision). The comms dish moved outside to x 40-41; the campaign-only candidate cave moved to the south-east (x 37-41, y 23-27). The day/night indoor tint now covers the wing.
+- **Gym** with the pack's three machines: resistance bands on wall anchors, a seatless cycle ergometer with a waist strap (wheel spins while used), and a rowing machine that is **folded flat against the wall** and **unfolds** while you row. Each opens a panel, then a short **rhythm mini-game** (press SPACE/tap in the green zone, 5 reps; "Skip (same result)" for accessibility), then the explorer is shown exercising. Rules (`src/core/gym.ts`, 8 tests): bands/bike/rower cost 5/10/15 energy and give +2/+4/+6 health; each night **0 workouts = -8 health**, **1-2 = +10** (rested and recovered), **3+ = -5** (overtrained, plus an immediate warning); the morning report says which. Healthier explorers lose health more slowly outside (`outsideDrainFactor`). The old automatic +15 health every night was removed: health now comes from the routine. NASA fact: crews exercise about two hours a day (verified page, learning card `exercise`).
+- **Science lab**: microscope ("check the plants": 8 energy, +8 plant health, once per Sol) and a radiation-badge reader (shows your health and today's space-weather alert, links to the radiation and Curiosity RAD cards).
+- **Bathroom** (fixtures only, kid-safe): sink, space toilet, shower; explains that water goes to Water Recovery and that the ISS recovers 98% (verified, learning card `water_recycling`).
+- Honest deviation: the pack wanted the lab "right next to the greenhouse". The greenhouse has no free wall, so the lab is in the new wing. The campaign's build spots (solar array 2, recycler, shelter) now overlap the wing; they only appear in the old campaign, which the menu no longer starts.
+
 ### Owner decisions (answered 2026-11-14)
 - **D1** Hebrus Valles in all visible text (menu Help, README, AGENTS.md, page description). The old campaign code still says Hadriacus Mons/Hellas Planitia; it is not reachable from the menu, so it was left alone.
 - **D2** Captain **Reyes** (not Reya).
@@ -59,7 +66,7 @@ Play → (asks "Start a new game?" if a save exists) → **creator** → backsto
 
 ## Next (in order)
 1. ~~Character creator~~ **DONE** (see below).
-2. **Gym + health loop** (pack Steps 5/9) and the **bathroom / science lab** rooms (Step 5), drawn in the same pixel style.
+2. ~~Gym + health loop, bathroom, science lab~~ **DONE** (see below).
 3. **Mars map + journal photos** (Step 12): bundle NASA images with credits (check usage guidelines), marker at Hebrus Valles from a verified source.
 4. Judge package: 2-minute video script (open on the Storm Call). README already points judges to `docs/NASA_SOURCES.md`.
 5. Not yet checked by a human: touch/joystick play on a real phone or tablet; the sound of the ring/alarm/static (headless runs are silent).
