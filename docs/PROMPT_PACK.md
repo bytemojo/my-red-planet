@@ -2,6 +2,8 @@
 
 Saved verbatim from the team lead (typos lightly corrected). **The priority order in HANDOFF.md wins** where it conflicts with this file, because the hackathon challenge (docs/CHALLENGE.md) sets the judging priorities. Use this file for the owner's intent, detail and wording. None of Steps 0-14 below have been run yet except the owner's visual note, which became Visual Pass A (done, see HANDOFF.md).
 
+**Owner decisions, 2026-11-14:** D1 Hebrus Valles in all visible text · D2 captain is **Reyes** · D3 "A Junior Astronaut Mission Trainer" is the **subtitle** of My Little Red Planet · D4 **cut** Episode 2 and the 20 crew chats (Step 10 reduced to one chat each, 2 per Sol); Steps 3 (character creator), 5/9 (rooms + gym) and 12 (map + journal photos) **stay in scope**. Episode 1 itself (Steps 0-2, 4, 6-8, 11, 13) is built and browser-verified; see HANDOFF.md.
+
 ---
 
 # NOTES FROM OWNER (run first)

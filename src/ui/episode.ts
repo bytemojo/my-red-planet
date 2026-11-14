@@ -69,6 +69,7 @@ function renderTree(tree: TreeNode[]): string {
 }
 export function showDebrief(s: GameState, onReplay: () => void, onMenu: () => void): void {
   const ep = s.ep!, r = ep.result!;
+  UI.close('inspect'); UI.close('control'); // the panel used for the last action should not sit under the debrief
   sfx.win();
   const el = overlay('debrief', `<div class="holo-panel holo-card">${head('sun', 'EPISODE 1 COMPLETE', false)}<div class="panel-body">
     <div class="stars" aria-label="${r.stars} of 3 stars">${'★'.repeat(r.stars)}<span style="opacity:.25">${'★'.repeat(3 - r.stars)}</span></div>
@@ -76,7 +77,7 @@ export function showDebrief(s: GameState, onReplay: () => void, onMenu: () => vo
     <p class="line"><b>${esc(r.best)}</b> ${esc(r.tip)}</p>
     <h4>Your decisions and what they caused</h4><div class="tree">${renderTree(ep.tree)}</div>
     <p class="why">${ep.passOuts ? `You passed out ${ep.passOuts} time${ep.passOuts > 1 ? 's' : ''} and restarted from a checkpoint. ` : ''}The storm was modelled on a real solar flare in NASA's DONKI catalogue (class ${esc(ep.sun.classType)}, ${esc(ep.sun.date)}, ${ep.sun.source === 'live' ? 'read live' : 'archived'}). ${learnButton('donki_live')}</p>
-    <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><button class="holo-btn small" id="db-wiki">${ICON.doc} NASA WIKI</button><span><button class="holo-btn small" id="db-menu">MAIN MENU</button> <button class="holo-btn small amber" id="db-replay">REPLAY WITH A DIFFERENT PLAN ▸</button></span></div></div></div>`);
+    <div class="db-actions"><button class="holo-btn small" id="db-wiki">${ICON.doc} NASA WIKI</button><div class="grp"><button class="holo-btn small" id="db-menu">MAIN MENU</button><button class="holo-btn small amber" id="db-replay">REPLAY WITH A DIFFERENT PLAN ▸</button></div></div></div></div></div>`);
   bindLearning(el);
   $('#db-wiki', el).onclick = () => { sfx.click(); openWiki(); };
   $('#db-replay', el).onclick = () => { sfx.ok(); UI.close('debrief'); onReplay(); };

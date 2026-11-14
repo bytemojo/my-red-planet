@@ -21,6 +21,11 @@ export function initHud() {
 const setBar = (el: Element, v: number, cls: string) => { el.classList.remove('warn', 'crit'); if (cls) el.classList.add(cls); (el.querySelector('.bar i') as HTMLElement).style.width = clamp(v, 0, 100) + '%'; };
 export function fmtClock(h: number) { const hh = Math.floor(h) % 24, mm = Math.floor((h % 1) * 6) * 10, ap = hh >= 12 ? 'PM' : 'AM'; let d = hh % 12; if (d === 0) d = 12; return `${d}:${String(mm).padStart(2, '0')} ${ap}`; }
 
+// The HUD refreshes 5 times a second. Only touch the DOM when the content changes, otherwise buttons inside
+// (like the learn-more ⌕) are replaced between press and release and a player's click is lost.
+const lastHtml: Record<string, string> = {};
+function setHtml(sel: string, html: string): boolean { if (lastHtml[sel] === html) return false; lastHtml[sel] = html; $(sel).innerHTML = html; return true; }
+
 export function refreshHud(s: GameState) {
   const r = rates(s), env = envForSol(s.sol);
   const rate: Record<string, number> = { o2: r.o2, food: r.food, water: r.water, power: r.power };
@@ -44,9 +49,8 @@ export function refreshHud(s: GameState) {
     const o = objective(s);
     $('.obj-title').textContent = o.title; $('#obj-count').textContent = `Sol ${s.sol}`;
     const icon: Record<string, string> = { air: 'o2', water: 'water', plants: 'farm', comms: 'dish', solar: 'panel' };
-    $('#chips').innerHTML = SYSTEMS.map(k => `<span class="sys ${s.ep!.checked.includes(k) ? 'ok' : ''}"><i></i>${ICON[icon[k]]}${k}</span>`).join('');
-    $('#obj-hint').innerHTML = `${ICON.bulb}<span>${o.detail}</span>${learnButton('donki_live')}`;
-    bindLearning($('#obj-hint'));
+    setHtml('#chips', SYSTEMS.map(k => `<span class="sys ${s.ep!.checked.includes(k) ? 'ok' : ''}"><i></i>${ICON[icon[k]]}${k}</span>`).join(''));
+    if (setHtml('#obj-hint', `${ICON.bulb}<span>${o.detail}</span>${learnButton('donki_live')}`)) bindLearning($('#obj-hint'));
     return;
   }
   // objective = current stage. Chips = quick status of the four systems.
@@ -55,7 +59,6 @@ export function refreshHud(s: GameState) {
   $('#obj-count').textContent = s.campaignComplete ? '★' : `${s.stage}/${STAGES.length}`;
   const planted = s.plots.filter(p => p.crop).length, ready = s.plots.filter(p => p.crop && p.growth >= CROPS[p.crop].sols).length;
   const chips: [string, string, boolean][] = [['farm', 'Farm', planted > 0 && ready === 0], ['ls', 'Air & Water', r.o2 >= -0.05 && r.water >= -0.5], ['dish', 'Comms', s.solsSinceShipment >= 0], ['panel', 'Solar', solarEfficiency(s, env) > 0.4]];
-  $('#chips').innerHTML = chips.map(([ic, n, ok]) => `<span class="sys ${ok ? 'ok' : ''}"><i></i>${ICON[ic]}${n}</span>`).join('');
-  $('#obj-hint').innerHTML = `${ICON.bulb}<span>${s.campaignComplete ? 'Keep every system healthy. Nothing is ever free.' : st.objective}</span>${learnButton(st.learnId)}`;
-  bindLearning($('#obj-hint'));
+  setHtml('#chips', chips.map(([ic, n, ok]) => `<span class="sys ${ok ? 'ok' : ''}"><i></i>${ICON[ic]}${n}</span>`).join(''));
+  if (setHtml('#obj-hint', `${ICON.bulb}<span>${s.campaignComplete ? 'Keep every system healthy. Nothing is ever free.' : st.objective}</span>${learnButton(st.learnId)}`)) bindLearning($('#obj-hint'));
 }

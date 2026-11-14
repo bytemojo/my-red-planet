@@ -33,6 +33,18 @@ Legend: [x] done and tested · [~] exists but not fully verified · [ ] not star
 - [~] Touch controls with the taller sprite; post-quarantine crew placement: not human-tested
 - [ ] Visual Pass B: kitchen with electric heater, cooking, on-screen animations for watering, panel cleaning, repairs
 
+## Episode 1 "The Storm" (2026-11-14)
+- [x] Core rules + decision tree + scoring (54 unit tests)
+- [x] Opening card, ringing intercom, 5-system check, suit rack, timed Storm Call, Ask Earth delay, 3 storm Sols, radiation-shield choice, faults, after-storm repairs, debrief + replay (browser-verified, 17 checks + full playthrough)
+- [x] Live DONKI "Today's Sun" with ARCHIVED fallback (browser-verified online and blocked)
+- [x] NASA wiki (30 checked links) + docs/NASA_SOURCES.md
+- [x] Owner decisions D1-D4 applied (Hebrus Valles text, Reyes, subtitle, cuts)
+- [ ] Character creator (Step 3)
+- [ ] Gym + health loop, bathroom, science lab (Steps 5/9)
+- [ ] Mars map + journal photos (Step 12)
+- [~] Touch play on a real device; audio by ear (not testable headless)
+- [-] Cut by owner: Episode 2, 20 crew chats
+
 ## Phase 3: Crew and construction
 - [x] 4 crew with dialogue by stage, friendship, quarantine arc
 - [ ] One full personal storyline per crew member (Reyes and one other first)

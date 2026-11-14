@@ -3,21 +3,21 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>My Little Red Planet</title>
-  <meta name="description" content="A cozy Mars colony-building game. Grow crops, manage air, water, and power, explore the surface, and help open a candidate lava tube in My Little Red Planet." />
+  <title>My Little Red Planet: A Junior Astronaut Mission Trainer</title>
+  <meta name="description" content="My Little Red Planet, a Junior Astronaut Mission Trainer: kids 7-12 run a Mars outpost at Hebrus Valles through a dust storm and a solar storm modelled on real NASA DONKI data. Every choice about power, shielding, air, water and food costs something." />
   <link rel="canonical" href="https://myredplanet.vercel.app/" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="My Little Red Planet" />
-  <meta property="og:title" content="My Little Red Planet | Explore Mars and Make It Home" />
-  <meta property="og:description" content="Grow crops, manage your Mars outpost, and explore the red planet in a cozy colony-building game." />
+  <meta property="og:title" content="My Little Red Planet | A Junior Astronaut Mission Trainer" />
+  <meta property="og:description" content="Run a Mars outpost through a storm built on real NASA solar flare data. No choice is free." />
   <meta property="og:url" content="https://myredplanet.vercel.app/" />
   <meta property="og:image" content="https://myredplanet.vercel.app/og-image.png" />
   <meta property="og:image:secure_url" content="https://myredplanet.vercel.app/og-image.png" />
   <meta property="og:image:type" content="image/png" />
   <meta property="og:image:alt" content="Junior astronauts explore a colorful Mars colony with greenhouses beneath the My Little Red Planet title." />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="My Little Red Planet | Explore Mars and Make It Home" />
-  <meta name="twitter:description" content="Grow crops, manage your Mars outpost, and explore the red planet in a cozy colony-building game." />
+  <meta name="twitter:title" content="My Little Red Planet | A Junior Astronaut Mission Trainer" />
+  <meta name="twitter:description" content="Run a Mars outpost through a storm built on real NASA solar flare data. No choice is free." />
   <meta name="twitter:image" content="https://myredplanet.vercel.app/og-image.png" />
   <meta name="twitter:image:alt" content="Junior astronauts explore a colorful Mars colony with greenhouses beneath the My Little Red Planet title." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -32,6 +32,7 @@
     <div class="menu-inner">
       <h1 class="title">MY LITTLE</h1>
       <p class="subtitle">RED PLANET</p>
+      <p class="mission-sub">A Junior Astronaut Mission Trainer</p>
       <p class="tagline">Lead the mission. Make Mars home.</p>
       <nav class="menu-list" aria-label="Main menu">
         <button class="holo-btn primary" data-act="continue" id="btn-continue" hidden><svg viewBox="0 0 20 20"><path d="M5 3l12 7-12 7z" fill="currentColor"/></svg>Continue</button>
@@ -90,8 +91,8 @@
       </div>
       <div class="ring" id="ring" hidden><button class="ring-ico" id="ring-btn" aria-label="Intercom is ringing: Captain Reyes is calling"><img src="/crew/reyes.png" alt=""><span>INTERCOM<br><b>CAPT. REYES</b></span></button><button class="ring-mute" id="ring-mute" aria-label="Mute the ringing">🔕</button></div>
     </div>
-    <div id="overlays"></div>
   </section>
+  <div id="overlays"></div><!-- outside both screens so learning cards and the wiki also show over the menu -->
 </div>
 
 <script type="module" src="/src/main.ts"></script>

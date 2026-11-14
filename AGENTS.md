@@ -8,7 +8,7 @@ You are continuing a browser game for the NASA Space Apps Challenge. Several dif
 3. The hard rules below still apply to everything, including the challenge work.
 
 ## The game in one paragraph
-A cozy, Stardew-Valley-style farming and colony-building game on Mars, for children aged 7-12. The player is a junior intern alone at a research outpost near Hadriacus Mons, Hellas Planitia, because the crew is quarantined with the flu. They farm, manage power/water/air/food, build, explore by rover, and finally open a candidate lava-tube cave into a protected underground colony. Kids learn that every resource has a cost and every decision has consequences, by playing, not by reading panels.
+A cozy, Stardew-Valley-style farming and colony-building game on Mars, for children aged 7-12. The player is a junior intern alone at a research outpost at Hebrus Valles, Mars, in 2036, because the crew is quarantined with the flu. (Owner decision D1, 2026-11-14: Hebrus Valles is the site in all visible text. The older open campaign's code still mentions Hadriacus Mons / Hellas Planitia; it is no longer reachable from the menu, so it was left as is.) They farm, manage power/water/air/food, build, explore by rover, and finally open a candidate lava-tube cave into a protected underground colony. Kids learn that every resource has a cost and every decision has consequences, by playing, not by reading panels.
 
 ## Two kinds of content. Keep them separate.
 1. **Scripted story beats** (`src/story/beats.ts`): authored scenes with fixed triggers (`when(state)`), fired once, in array order. They carry the campaign from stage to stage.

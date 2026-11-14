@@ -3,7 +3,7 @@ import { ACTION_ENERGY, CROPS, type ActionName } from '../core/constants';
 import { describePending, poll, resolve } from '../core/director';
 import { act, advance, emergencyShipment } from '../core/sim';
 import { reloadCheckpoint, rewind, rewindableSols, saveCheckpoint, saveToStorage, sleep, type Session } from '../core/session';
-import { lockedIn, SYSTEMS } from '../core/episode';
+import { alertFor, lockedIn, SYSTEMS } from '../core/episode';
 import { showDebrief } from '../ui/episode';
 import { H, T, W, buildWorld, world } from './world';
 import { frameName } from './sprites';
@@ -41,7 +41,7 @@ export class WorldScene extends Phaser.Scene {
   facing: Dir = 'down'; flip = false; acting: { frame: string; until: number; then?: () => void } | null = null;
   onMenu: () => void = () => {};
   onReplay: () => void = () => {};
-  sealT = 0;
+  sealT = 0; alarmT = 0;
   constructor() { super('World'); }
 
   state = () => this.sess.state;
@@ -278,6 +278,8 @@ export class WorldScene extends Phaser.Scene {
     if (g && !blocking) { let [mx, my] = MARKERS[g]; const needOut = !ZONES[g].inside; if (needOut === ins) { mx = 16; my = 17; } const bob = Math.sin(t / 220) * 5;
       a.fillStyle(0xffb340, 1); a.fillTriangle(mx * T - 9, my * T - 34 + bob, mx * T + 9, my * T - 34 + bob, mx * T, my * T - 18 + bob); a.lineStyle(2, 0xffb340, 0.7); const rr = 14 + ((t / 40) % 20); a.strokeCircle(mx * T, my * T, rr); a.lineStyle(2, 0xffb340, 0.25); a.strokeCircle(mx * T, my * T, rr + 8); }
     this.hudT += dt; if (this.hudT > 0.2) { this.hudT = 0; refreshHud(s); }
+    // Radiation alarm: outside while the space weather alert is HIGH or STORM (the HUD chip also flashes RUN INSIDE!).
+    if (s.ep && s.outside && !blocking && ['high', 'storm'].includes(alertFor(s))) { this.alarmT -= dt; if (this.alarmT <= 0) { this.alarmT = 2.5; sfx.alarm(); } } else this.alarmT = 0;
   }
 }
 export { CREW };

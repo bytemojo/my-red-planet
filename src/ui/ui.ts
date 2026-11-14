@@ -76,7 +76,8 @@ export function runPending(v: PendingView): Promise<string> {
       actions.parentElement!.insertBefore(box, actions);
       const bar = box.querySelector('.tbar i') as HTMLElement, n = box.querySelector('#tc-n') as HTMLElement;
       (box.querySelector('#tc-pause') as HTMLElement).onclick = () => { paused = !paused; box.classList.toggle('paused', paused); (box.querySelector('#tc-pause') as HTMLElement).textContent = paused ? 'RESUME TIMER' : 'TAKE YOUR TIME'; };
-      countdown = window.setInterval(() => { if (paused) return; left -= 0.1; if (left <= 3.05 && Math.abs(left % 1) < 0.1) sfx.tick(); n.textContent = String(Math.max(0, Math.ceil(left))); bar.style.width = `${Math.max(0, left / tm.seconds) * 100}%`; if (left <= 0) { sfx.warn(); finish(tm.timeoutChoice); } }, 100);
+      // Read v.timer at the deadline, not tm: pressing Ask Earth changes the timeout choice while the clock runs.
+      countdown = window.setInterval(() => { if (paused) return; left -= 0.1; if (left <= 3.05 && Math.abs(left % 1) < 0.1) sfx.tick(); n.textContent = String(Math.max(0, Math.ceil(left))); bar.style.width = `${Math.max(0, left / tm.seconds) * 100}%`; if (left <= 0) { sfx.warn(); finish(v.timer!.timeoutChoice); } }, 100);
     };
     const show = () => {
       full = withName(v.lines[i]); tx.textContent = ''; let n = 0; clearInterval(timer);
