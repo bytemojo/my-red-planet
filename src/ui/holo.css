@@ -479,3 +479,23 @@ kbd{font-family:var(--font-display);font-size:12px;border:1px solid var(--cyan);
 .wo-mark{position:absolute;top:-4px;width:12px;height:34px;background:var(--amber);box-shadow:0 0 10px var(--amber)}
 .wo-reps{font-size:26px;letter-spacing:.3em;text-align:center;color:var(--green);margin-bottom:12px}
 .wo-reps.miss{animation:shake .3s}
+
+/* journal */
+.journal{max-width:900px;width:100%}
+.journal .panel-body{max-height:calc(100vh - 120px);overflow:auto}
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.photo{margin:0;border:1px solid rgba(57,217,255,.3);background:rgba(0,0,0,.25)}
+.photo img{display:block;width:100%;height:auto;aspect-ratio:16/10;object-fit:cover}
+.photo figcaption{padding:8px 10px;display:flex;flex-direction:column;gap:4px;font-size:14px;color:#c4dff0}
+.photo figcaption b{color:var(--ice);font-size:16px}.photo small{color:#8fb3c7;font-size:12px}.photo a{color:var(--cyan)}
+.diary{display:flex;flex-direction:column;gap:8px}
+.dentry{display:flex;gap:10px;align-items:flex-start;border-left:3px solid var(--amber);padding:6px 10px;background:rgba(255,179,64,.06);font-size:17px}
+.dentry p{margin:0;flex:1;font-style:italic}
+.j-note{width:100%;font:inherit;font-size:16px;padding:8px;background:#02060f;color:var(--ice);border:1px solid rgba(57,217,255,.5);resize:vertical;user-select:text;-webkit-user-select:text}
+.notes{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.note{display:flex;gap:10px;align-items:center;justify-content:space-between;border:1px solid rgba(57,217,255,.3);padding:6px 10px}.note p{margin:0;white-space:pre-wrap}
+.mapbox{position:relative;width:100%;line-height:0;border:1px solid rgba(57,217,255,.4)}
+.mapbox img{width:100%;height:auto}
+.pin{position:absolute;transform:translate(-50%,-50%);line-height:1.2;pointer-events:none}
+.pin i{display:block;width:16px;height:16px;border-radius:50%;background:var(--amber);border:3px solid #fff;box-shadow:0 0 0 3px rgba(0,0,0,.45),0 0 16px var(--amber);animation:pulse 1s infinite alternate}
+.pin b{position:absolute;right:22px;top:-4px;white-space:nowrap;font-family:var(--font-display);font-size:11px;letter-spacing:.08em;color:#fff;background:rgba(5,12,29,.85);border:1px solid var(--amber);padding:3px 6px}

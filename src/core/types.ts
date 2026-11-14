@@ -44,6 +44,7 @@ export interface GameState {
   ep: EpisodeState | null;   // Episode 1 "The Storm"; null in the old open campaign
   suitOn: boolean;           // EVA suit worn (put on at the suit rack)
   health: number;            // player health 0-100 (radiation outside drains it)
+  notes?: { id: string; text: string }[]; // the player's own journal notes (saved with the game)
 }
 
 // ---------- Episode 1: The Storm ----------

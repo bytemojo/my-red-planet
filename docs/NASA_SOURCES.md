@@ -19,7 +19,22 @@ Checked on **2026-11-14** by opening each page or querying the API. Game numbers
 
 **What DONKI does and does not tell us:** DONKI catalogues real solar flares observed near Earth. It does not measure radiation at a base on Mars. We use the flare class only to set how fierce the in-game storm is.
 
-## 2. The in-game NASA wiki (optional reading)
+## 2. Journal photos and the Mars map (bundled in `public/`, not hotlinked)
+
+Use terms checked 2026-11-14: NASA's [Images and Media Usage Guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/) allow use "for educational or informational purposes, including … computer graphical simulations and Internet Web pages", with NASA acknowledged as the source (NASA notes its imagery is not formally public domain). The [JPL Image Use Policy](https://www.jpl.nasa.gov/jpl-image-use-policy/) allows educational use; each credit below is copied from the image's Photojournal page. Images were downsized to 880 px wide; nothing else was changed.
+
+| Image | Where in the game | Credit (exact) | Source |
+|---|---|---|---|
+| PIA11704 Pits and Channels of Hebrus Valles | Journal → Mars photos | NASA/JPL-Caltech/Univ. of Arizona | [JPL PIA11704](https://www.jpl.nasa.gov/images/pia11704-pits-and-channels-of-hebrus-valles/) |
+| PIA19400 Sunset in Mars' Gale Crater | Journal → Mars photos | NASA/JPL-Caltech/MSSS/Texas A&M Univ. | [JPL PIA19400](https://www.jpl.nasa.gov/images/pia19400-sunset-in-mars-gale-crater/) |
+| PIA22487 Mars Before and After Dust Storm | Journal → Mars photos | NASA/JPL-Caltech/MSSS | [JPL PIA22487](https://www.jpl.nasa.gov/images/pia22487-mars-before-and-after-dust-storm/) |
+| PIA17936 Bright 'Evening Star' Seen from Mars is Earth | Journal → Mars photos | NASA/JPL-Caltech/MSSS/TAMU | [JPL PIA17936](https://www.jpl.nasa.gov/images/pia17936-bright-evening-star-seen-from-mars-is-earth/) |
+| Mars MGS MOLA Global Color Shaded Relief (1024 px browse image, simple cylindrical) | Journal → Mars map | USGS Astrogeology Science Center, Goddard Space Flight Center, NASA. **Public domain, no use constraints** | [USGS Astropedia](https://astrogeology.usgs.gov/search/map/mars_mgs_mola_global_color_shaded_relief_463m) |
+| Hebrus Valles centre 19.98°N, 126.60°E (planetocentric, +East) | Pin on the Mars map | USGS Gazetteer of Planetary Nomenclature, Feature 2404 | [Gazetteer](https://planetarynames.wr.usgs.gov/Feature/2404) |
+
+The map pin is placed with `mapXY` in `src/core/marsmap.ts` (unit-tested against Hellas basin). The base itself is fictional; the map says "game location based on real map data".
+
+## 3. The in-game NASA wiki (optional reading)
 
 Reachable from the pause menu, the Control Module journal and the debrief. All links opened and checked on 2026-11-14.
 
@@ -35,7 +50,7 @@ Reachable from the pause menu, the Control Module journal and the debrief. All l
 
 **How the game uses NASA data:** [DONKI](https://ccmc.gsfc.nasa.gov/tools/DONKI/) · [X9.0 flare](https://science.nasa.gov/blogs/solar-cycle-25/2024/10/03/sun-releases-strong-solar-flare-6/) · [X8.7 flare](https://science.nasa.gov/blogs/solar-cycle-25/2024/05/14/strong-solar-flare-erupts-from-sun-15/) · [Hebrus Valles pit](https://www.jpl.nasa.gov/images/pia11704-pits-and-channels-of-hebrus-valles/) · [Curiosity RAD](https://www.nasa.gov/missions/mars-science-laboratory/how-nasas-curiosity-rover-is-making-mars-safer-for-astronauts/)
 
-## 3. Facts quoted in the game's learning cards
+## 4. Facts quoted in the game's learning cards
 
 | Fact | Source |
 |---|---|
@@ -46,7 +61,7 @@ Reachable from the pause menu, the Control Module journal and the debrief. All l
 | A Mars trip takes about 7 to 10 months | [We asked a NASA expert](https://www.nasa.gov/directorates/smd/how-long-does-it-take-to-get-to-the-moon-mars-jupiter-we-asked-a-nasa-expert-episode-51/) |
 | Phoenix found perchlorate salts in Martian soil (2008) | Campaign discovery card; NASA Phoenix mission (not re-verified this session) |
 
-## 4. Known limits
+## 5. Known limits
 
 - Perseverance MEDA / Curiosity REMS weather pages were not integrated; Episode 1's weather is a scripted game model.
 - NASA OSDR is linked as a resource; no OSDR dataset is read by the game.

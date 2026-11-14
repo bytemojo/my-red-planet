@@ -9,6 +9,7 @@ import { openControl } from './ui/panels';
 import { runPending } from './ui/ui';
 import { chosenSun, openWiki, showOpeningCard } from './ui/episode';
 import { confirmOverwrite, showCreator } from './ui/creator';
+import { openJournal } from './ui/journal';
 
 let game: Phaser.Game | null = null;
 let scene: WorldScene | null = null;
@@ -66,13 +67,14 @@ const refreshTopButton = () => {
 };
 function openPause() {
   if (UI.blocking()) return;
-  const el = overlay('pause', `<div class="holo-panel pause-panel">${head('clock', 'Paused', false)}<div class="panel-body"><p class="why">Take a breather. Mars will wait for you.</p><div class="optlist"><button class="holo-btn primary" data-pause="resume">RESUME MISSION</button><button class="holo-btn" data-pause="sound">${soundIcon(!settings.sound)}<span>${settings.sound ? 'SOUND: ON' : 'SOUND: OFF'}</span></button><button class="holo-btn" data-pause="save">SAVE GAME</button><button class="holo-btn" data-pause="wiki">LIVING IN SPACE: NASA WIKI</button><button class="holo-btn amber" data-pause="menu">SAVE & RETURN TO MENU</button></div></div></div>`);
+  const el = overlay('pause', `<div class="holo-panel pause-panel">${head('clock', 'Paused', false)}<div class="panel-body"><p class="why">Take a breather. Mars will wait for you.</p><div class="optlist"><button class="holo-btn primary" data-pause="resume">RESUME MISSION</button><button class="holo-btn" data-pause="sound">${soundIcon(!settings.sound)}<span>${settings.sound ? 'SOUND: ON' : 'SOUND: OFF'}</span></button><button class="holo-btn" data-pause="save">SAVE GAME</button><button class="holo-btn" data-pause="journal">MY JOURNAL</button><button class="holo-btn" data-pause="map">MARS MAP</button><button class="holo-btn" data-pause="wiki">LIVING IN SPACE: NASA WIKI</button><button class="holo-btn amber" data-pause="menu">SAVE & RETURN TO MENU</button></div></div></div>`);
   el.querySelectorAll('[data-pause]').forEach(button => ((button as HTMLElement).onclick = () => {
     const action = (button as HTMLElement).dataset.pause;
     if (action === 'resume') { sfx.click(); UI.close('pause'); }
     if (action === 'sound') { music.toggle(); if (settings.sound) sfx.ok(); openPause(); refreshTopButton(); }
     if (action === 'save' && scene) { sfx.ok(); saveToStorage(scene.sess); toast('Game saved.', { kind: 'good' }); }
-    if (action === 'wiki') { sfx.click(); openWiki(); }
+    if (action === 'wiki') { sfx.click(); UI.close('pause'); openWiki(); }
+    if ((action === 'journal' || action === 'map') && scene) { sfx.click(); UI.close('pause'); const sc = scene; openJournal(() => sc.sess.state, () => saveToStorage(sc.sess), action === 'map' ? 'map' : 'photos'); }
     if (action === 'menu' && scene) { sfx.click(); saveToStorage(scene.sess); UI.close('pause'); toMenu(); }
   }));
 }
@@ -84,7 +86,8 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase(); if ($('#game').hidden) return;
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k) && !(e.target && (e.target as HTMLElement).tagName === 'INPUT')) e.preventDefault();
   if (UI.stack.includes('dlg')) { if (['e', ' ', 'enter'].includes(k)) { e.preventDefault(); runPending.next?.(); } return; }
-  if (k === 'escape') { if (UI.stack.includes('pause')) UI.close('pause'); else if (!UI.blocking()) openPause(); else for (const id of ['inspect', 'control', 'simple', 'result']) if (UI.stack.includes(id)) { UI.close(id); break; } return; }
+  // Escape closes whatever is on top (the newest closable overlay); with nothing open it pauses.
+  if (k === 'escape') { const top = [...UI.stack].reverse().find(id => ['pause', 'learn', 'wiki', 'journal', 'inspect', 'control', 'simple', 'result'].includes(id)); if (top) UI.close(top); else if (!UI.blocking()) openPause(); return; }
   if (UI.blocking()) return;
   if (k === 'e' || k === 'enter' || k === ' ') scene?.doAct(); else if (k === 'c' && scene) openControl(scene.host);
   keys[k] = true;

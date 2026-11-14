@@ -125,6 +125,36 @@
       "kind": "observation",
       "verified": true,
       "verifiedOn": "2026-11-14"
+    },
+    {
+      "id": "nasa-journal-photos",
+      "name": "NASA Photojournal images PIA11704, PIA19400, PIA22487, PIA17936",
+      "source": "NASA/JPL Photojournal (credits per image in src/story/photos.ts)",
+      "url": "https://www.jpl.nasa.gov/jpl-image-use-policy/",
+      "instrument": "MRO HiRISE, MRO MARCI, MSL Mastcam",
+      "dateRange": "2014-2018 image releases",
+      "location": "Mars (Hebrus Valles, Gale Crater, global)",
+      "units": "n/a (photos)",
+      "transformation": "Downsized to 880 px wide JPEG and bundled in public/journal/.",
+      "limitations": "Shown with exact credits. Educational use per NASA Images and Media Usage Guidelines and the JPL Image Use Policy.",
+      "kind": "observation",
+      "verified": true,
+      "verifiedOn": "2026-11-14"
+    },
+    {
+      "id": "usgs-mola-map",
+      "name": "Mars MGS MOLA Global Color Shaded Relief 463m (1024 px browse image)",
+      "source": "USGS Astrogeology Science Center, Goddard Space Flight Center, NASA",
+      "url": "https://astrogeology.usgs.gov/search/map/mars_mgs_mola_global_color_shaded_relief_463m",
+      "instrument": "Mars Global Surveyor MOLA",
+      "dateRange": "1999-2001 measurements",
+      "location": "Global, simple cylindrical, longitude -180..180",
+      "units": "elevation colour + shaded relief",
+      "transformation": "Bundled in public/map/. The base's pin is placed from the USGS Gazetteer centre of Hebrus Valles (Feature 2404: 19.98 N, 126.60 E).",
+      "limitations": "Public domain, no use constraints. The base and its exact spot are fictional.",
+      "kind": "observation",
+      "verified": true,
+      "verifiedOn": "2026-11-14"
     }
   ]
 }

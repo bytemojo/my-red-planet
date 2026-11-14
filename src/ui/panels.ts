@@ -9,6 +9,7 @@ import { CREW } from '../story/crew';
 import { isHungry, mood } from '../core/crewlife';
 import { SYSTEM_NAME, lockedIn } from '../core/episode';
 import { openWiki, staticText } from './episode';
+import { openJournal } from './journal';
 import { ACTION_ENERGY as AE, EP } from '../core/constants';
 import type { SystemId } from '../core/types';
 import { GYM, MACHINES, workoutsToday, type Machine } from '../core/gym';
@@ -244,7 +245,7 @@ export function openControl(host: Host, tab = 'meters') {
       if (s.buildings.length) body += `<h4>Built</h4><div class="row">${s.buildings.map(id => `<span class="tag emb">${esc(BUILDINGS[id].name)}</span>`).join('')}</div>`;
     } else if (tab === 'crew') {
       body = (Object.keys(CREW) as CrewId[]).map(id => { const c = s.crew[id]; return `<div class="crewrow">${crewPortrait(id)}<span><div class="nm">${esc(CREW[id].name)}</div><div class="hearts">${Array.from({ length: 5 }, (_, i) => `<span class="${i < Math.min(5, c.friendship) ? '' : 'off'}">♥</span>`).join('')}</div><div class="row">${moodChip(s, id)}</div></span><span></span></div>`; }).join('');
-    } else if (tab === 'journal') body = `<div class="row"><button class="holo-btn small amber" data-do="wiki">${ICON.doc} LIVING IN SPACE: THE NASA WIKI</button></div>` + journalHtml(s);
+    } else if (tab === 'journal') body = `<div class="row"><button class="holo-btn small amber" data-do="journal">${ICON.doc} MY JOURNAL: PHOTOS, DIARY, NOTES, MAP</button><button class="holo-btn small" data-do="wiki">${ICON.doc} THE NASA WIKI</button></div><h4>Decisions and discoveries</h4>` + journalHtml(s);
     else {
       const sols = host.rewindable();
       body = `<div class="optlist">${optCard('rest', 'moon', 'Rest until morning', false, `${chip('moon', s.hour < 22 ? 'full energy' : 'less rest (late)', 'g')}`, false, 'Ends the Sol. Crops grow while you sleep.')}
@@ -263,6 +264,7 @@ export function openControl(host: Host, tab = 'meters') {
     else if (c[0] === 'rewind') { UI.close('control'); host.rewind(Number(c[1])); }
     else if (c[0] === 'compare') { UI.close('control'); host.compare(); }
     else if (c[0] === 'wiki') openWiki();
+    else if (c[0] === 'journal') openJournal(() => host.state(), () => host.save());
   });
 }
 export { $ };

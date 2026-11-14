@@ -40,6 +40,14 @@ export function alertLevel(sol: number, hour: number, classType = 'X'): Alert {
 export const alertFor = (s: GameState): Alert => (s.ep ? alertLevel(s.sol, s.hour, s.ep.sun.classType) : 'low');
 export const ALERT_LABEL: Record<Alert, string> = { low: 'LOW', elevated: 'ELEVATED', high: 'HIGH', storm: 'STORM' };
 
+// ---------- mission diary (auto journal entries, first person, no dates or Sol numbers) ----------
+export const DIARY_LEARN: Record<string, string> = { call: 'hebrus', checks: 'water_recycling', storm_call: 'mars_dust', storm_over: 'space_radiation', panels: 'nuclear_power', watering: 'space_crops', done: 'donki_live' };
+export function diary(s: GameState, key: string, text: string): void {
+  const id = `diary:${key}`;
+  if (s.journal.some(j => j.id === id)) return; // exactly one entry per objective
+  s.journal.push({ id, sol: s.sol, title: 'Mission diary', happened: text, decision: '', why: '', science: '', learnId: DIARY_LEARN[key], realData: false, kind: 'mission' });
+}
+
 // ---------- the decision tree ----------
 export function addNode(s: GameState, n: Omit<TreeNode, 'id' | 'sol'>): string {
   const ep = s.ep!; const id = `n${ep.tree.length + 1}`;
@@ -69,6 +77,7 @@ export function checkSystem(s: GameState, sys: SystemId): boolean {
   if (ep.phase === 'check' && ep.checked.length === SYSTEMS.length) {
     ep.phase = 'prep';
     addNode(s, { kind: 'choice', text: 'You checked every core system before the storm.', tone: 'good', tag: 'check' });
+    diary(s, 'checks', 'I checked every core system before the storm: air, water, plants, comms and the solar panels.');
   }
   return true;
 }
@@ -89,13 +98,14 @@ export function episodeTick(s: GameState, hours: number): void {
 // ---------- decisions (called from director.resolve) ----------
 export function onResolve(s: GameState, kind: 'beat' | 'event', id: string, choice: string): void {
   const ep = s.ep; if (!ep) return;
-  if (id === 'ep_call') { ep.phase = ep.checked.length >= SYSTEMS.length ? 'prep' : 'check'; return; }
+  if (id === 'ep_call') { ep.phase = ep.checked.length >= SYSTEMS.length ? 'prep' : 'check'; diary(s, 'call', 'I answered Captain Reyes. The whole crew is sick, so the base is counting on me.'); return; }
   if (id === 'storm_call') {
     ep.stormCall = choice as EpisodeState['stormCall'];
     ep.panelsStowed = choice === 'stow';
     const text = { stow: 'You stowed the solar panels before the dust hit.', out: 'You left the solar panels out to keep some power.', ask: 'You asked Earth what to do, so the panels stayed out while you waited.', wait: 'The timer ran out, so the panels stayed out.' }[choice] ?? '';
     addNode(s, { kind: 'choice', text, tone: choice === 'stow' ? 'mixed' : choice === 'out' ? 'mixed' : 'bad', tag: 'panels' });
     if (ep.phase !== 'storm') ep.phase = 'prep';
+    diary(s, 'storm_call', { stow: 'I stowed the solar panels before the dust hit. They stayed safe, but the battery had to carry everything.', out: 'I left the solar panels out to keep some power coming in, even though the dust could bury them.', ask: 'I asked Earth what to do, but the answer was still travelling when the storm hit. Out here we decide for ourselves.', wait: 'I could not decide in time, so the panels stayed out in the dust.' }[choice] ?? 'I made the storm call.');
     return;
   }
   if (id === 'radiation_peak') {
@@ -169,6 +179,7 @@ export function episodeMorning(s: GameState): void {
   if (isStormSol(s.sol)) { ep.phase = 'storm'; s.suitOn = false; }
   else if (s.sol >= EP.AFTER_SOL && ep.phase === 'storm') {
     ep.phase = 'after';
+    diary(s, 'storm_over', 'I got through three days of storm without stepping outside. I handled my first solar storm.');
     if (ep.panelsStowed) { ep.panelsStowed = false; addNode(s, { kind: 'effect', text: 'The storm cleared. The stowed panels unfolded clean and ready.', tone: 'good' }); }
   }
 }
@@ -176,13 +187,14 @@ export function episodeMorning(s: GameState): void {
 // ---------- after the storm ----------
 export function afterStormAction(s: GameState, what: 'clean' | 'water'): { ok: boolean; msg: string; energy: number; power: number } {
   const ep = s.ep!;
-  if (what === 'water') { ep.wateringFixed = true; addNode(s, { kind: 'choice', text: 'You repaired the automatic watering system.', tone: 'good' }); }
+  if (what === 'water') { ep.wateringFixed = true; addNode(s, { kind: 'choice', text: 'You repaired the automatic watering system.', tone: 'good' }); diary(s, 'watering', 'I fixed the watering pump. The plants can drink on their own again.'); }
   else {
     const buried = ep.panelDamage > 0;
     ep.panelsCleaned = true; s.panelDust = 0;
     const scar = Math.round(ep.panelDamage * EP.SCAR * 100) / 100;
     addNode(s, { kind: buried ? 'effect' : 'choice', tone: buried ? 'bad' : 'good', cause: buried ? ep.tree.filter(n => n.text.startsWith('Dust buried')).at(-1)?.id : undefined,
       text: buried ? `You dug the buried panels out (extra work), but some were scratched for good: ${Math.round(scar * 100)}% less solar power from now on.` : 'You cleaned the solar panels. Full sunshine again.' });
+    diary(s, 'panels', buried ? 'I dug the buried solar panels out of the dust. Some were scratched for good, so we will have a little less power from now on.' : 'I cleaned the solar panels and the power came back.');
     ep.panelDamage = scar;
   }
   maybeFinish(s);
@@ -192,6 +204,7 @@ export function maybeFinish(s: GameState): boolean {
   const ep = s.ep!;
   if (ep.phase !== 'after' || !ep.wateringFixed || !ep.panelsCleaned) return false;
   ep.phase = 'done'; ep.result = computeResult(s);
+  diary(s, 'done', 'Mission complete. I kept the base running through the storm, and the crew is getting better.');
   addLog(s, 'MISSION', 'Episode 1 complete.');
   return true;
 }
