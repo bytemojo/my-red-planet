@@ -25,7 +25,10 @@ const log = async label => { const r = await sc(`return {sol: st.sol, hour: +st.
 const nextMorning = async (pick) => { await sc(`st.hour = 23.95;`); await page.waitForTimeout(1500); await page.click('#rep-go').catch(() => {}); await page.waitForTimeout(600); await clearDlg(pick); await page.waitForTimeout(400); };
 
 await page.goto('http://localhost:5179/'); await page.waitForTimeout(3000); await shot('00-menu');
-await page.click('[data-act="play"]'); await page.waitForTimeout(700); await shot('01-opening');
+await page.click('[data-act="play"]'); await page.waitForTimeout(700);
+if (await page.$('#cf-yes')) { await page.click('#cf-yes'); await page.waitForTimeout(400); }
+if (await page.$('#cr-in')) { await page.fill('#cr-in', 'Ada'); await page.click('[data-style="long"]'); await shot('00b-creator'); await page.click('#cr-go'); await page.waitForTimeout(700); }
+await shot('01-opening');
 await page.click('#op-go'); await page.waitForTimeout(1800); await shot('02-ringing'); await log('start');
 await go(8.5, 11.7); await press('e'); await shot('03-who-is-calling');
 await clickDo('answer|aiko'); await page.waitForTimeout(500); await shot('04-wrong-answer');

@@ -3,13 +3,14 @@
 import { ICON } from './icons';
 import { $, UI, bindLearning, clamp, esc, head, learnButton, overlay } from './ui';
 import { settings, sfx } from './audio';
+import { fillName } from '../story/name';
 import { ALERT_LABEL, ARCHIVED_SUN, alertFor, baseEnergy, plantHealth } from '../core/episode';
 import { teamMorale } from '../core/crewlife';
 import { WIKI } from '../story/wiki';
 import type { EpisodeState, GameState, TreeNode } from '../core/types';
 
 // {name} in any line becomes the player's name (Settings > Callsign).
-export const withName = (t: string) => t.replace(/\{name\}/g, settings.name || 'Rookie');
+export const withName = (t: string) => fillName(t, settings.name);
 
 export const BACKSTORY = [
   'The year is 2036. You are part of a NASA mission to explore the Hebrus Valles region on Mars and build the foundation for future human habitation.',

@@ -6,7 +6,8 @@ import { reloadCheckpoint, rewind, rewindableSols, saveCheckpoint, saveToStorage
 import { alertFor, lockedIn, SYSTEMS } from '../core/episode';
 import { showDebrief } from '../ui/episode';
 import { H, T, W, buildWorld, world } from './world';
-import { frameName } from './sprites';
+import { buildPlayerSheet, frameName, lookToSpec } from './sprites';
+import { currentLook } from '../ui/creator';
 import { envForSol } from '../core/env';
 import { CREW_IDS } from '../core/crewlife';
 import { CREW_LIFE } from '../core/constants';
@@ -57,6 +58,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   loadSession(sess: Session) {
+    buildPlayerSheet(this, lookToSpec(currentLook())); world.player.setTexture('player', 'in_down_stand'); // the character creator's look
     this.sess = sess; const s = sess.state;
     this.lastStage = s.stage; this.finalShown = s.ep ? s.ep.phase === 'done' : s.campaignComplete;
     UI.stack.slice().forEach(id => { if (id !== 'opening') UI.close(id); }); $('#toasts').innerHTML = ''; // keep the backstory card if it is already up

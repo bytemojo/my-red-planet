@@ -8,6 +8,7 @@ import { loadFromStorage, newSession, saveToStorage, type Session } from './core
 import { openControl } from './ui/panels';
 import { runPending } from './ui/ui';
 import { chosenSun, openWiki, showOpeningCard } from './ui/episode';
+import { confirmOverwrite, showCreator } from './ui/creator';
 
 let game: Phaser.Game | null = null;
 let scene: WorldScene | null = null;
@@ -36,9 +37,20 @@ function toMenu() {
 }
 
 initMenu({
-  play: () => { try { localStorage.removeItem('mrp.save.v1'); } catch { /* ignore */ } start(newSession(Math.floor(Math.random() * 99999) + 1, { mode: 'storm', sun: chosenSun() })); void showOpeningCard(); }, // the card sits over the game and pauses the clock
-  // For judges and testers: systems already checked, clock at 6:36 PM on Sol 1, the Storm Call arrives at 7 PM.
-  quick: () => { try { localStorage.removeItem('mrp.save.v1'); } catch { /* ignore */ } start(newSession(Math.floor(Math.random() * 99999) + 1, { mode: 'storm', sun: chosenSun(), quick: true })); toast('<b>Quick start.</b> Systems checked. The storm arrives at 7 PM: walk around and wait for the call.', { kind: 'good', ms: 6000 }); },
+  // New game: ask before replacing a save, then the character creator, then the backstory card (it pauses the clock).
+  play: () => { void (async () => {
+    if (loadFromStorage() && !(await confirmOverwrite())) return;
+    await showCreator();
+    try { localStorage.removeItem('mrp.save.v1'); } catch { /* ignore */ }
+    start(newSession(Math.floor(Math.random() * 99999) + 1, { mode: 'storm', sun: chosenSun() })); void showOpeningCard();
+  })(); },
+  // For judges and testers: systems already checked, clock at 6:36 PM on Sol 1, the Storm Call arrives at 7 PM. Uses the last look made in the creator.
+  quick: () => { void (async () => {
+    if (loadFromStorage() && !(await confirmOverwrite())) return;
+    try { localStorage.removeItem('mrp.save.v1'); } catch { /* ignore */ }
+    start(newSession(Math.floor(Math.random() * 99999) + 1, { mode: 'storm', sun: chosenSun(), quick: true }));
+    toast('<b>Quick start.</b> Systems checked. The storm arrives at 7 PM: walk around and wait for the call.', { kind: 'good', ms: 6000 });
+  })(); },
   cont: () => { const s = loadFromStorage(); start(s ?? newSession(1)); },
   hasSave: () => !!loadFromStorage(),
 });

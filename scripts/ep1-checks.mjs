@@ -91,7 +91,9 @@ const tp = (page, x, y) => sc(page, `const pl = sc.children.list.find(c => c.tex
 {
   const { ctx, page, errs } = await newPage();
   await page.waitForTimeout(1200);
-  await page.click('[data-act="play"]'); await page.waitForTimeout(800); await page.click('#op-go'); await page.waitForTimeout(800);
+  await page.click('[data-act="play"]'); await page.waitForTimeout(800);
+  if (await page.$('#cr-in')) { await page.fill('#cr-in', 'Ada'); await page.click('#cr-go'); await page.waitForTimeout(700); }
+  await page.click('#op-go'); await page.waitForTimeout(800);
   const before = await sc(page, `return { suit: st.suitOn, hour: st.hour }`);
   await tp(page, 16, 20.5); await page.waitForTimeout(1200);
   const box = await page.$('#fail');

@@ -7,7 +7,8 @@ import { STAGES } from '../core/constants';
 import { LEARNING } from '../story/learning';
 import { settings } from './audio';
 
-const withName = (t: string) => t.replace(/\{name\}/g, settings.name || 'Rookie');
+import { fillName } from '../story/name';
+const withName = (t: string) => fillName(t, settings.name);
 
 export const $ = (s: string, r: ParentNode = document) => r.querySelector(s) as HTMLElement;
 export const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));

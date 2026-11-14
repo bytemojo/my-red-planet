@@ -74,6 +74,8 @@ export const CREW_LOOKS: Record<string, CharSpec> = {
   sofia: { skin: 0xc98d63, hair: 0x5a2c1c, hairStyle: 'curly', top: 0x8262b6, bottom: 0x3b3557, shoes: 0xdcd3f2, accent: 0xffd84a, blanket: 0xe0a35a },
 };
 export const PLAYER_LOOK: CharSpec = { skin: 0xf1c39d, hair: 0x3a241d, hairStyle: 'short', top: 0xe8823a, bottom: 0xcf6a2c, shoes: 0x3b3f55, accent: 0x39d9ff };
+// The character creator's choices on top of the player's orange flight suit.
+export const lookToSpec = (look: { skin: number; hair: number; style: 'long' | 'short' }): CharSpec => ({ ...PLAYER_LOOK, skin: look.skin, hair: look.hair, hairStyle: look.style, build: look.style === 'long' ? 'slim' : 'broad' });
 
 const hex = (c: number) => '#' + c.toString(16).padStart(6, '0');
 function sheet(scene: any, key: string, frames: [string, Pixels][]) {

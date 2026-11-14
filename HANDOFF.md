@@ -45,6 +45,9 @@ Built on Codex's partial pass (its notes are kept below). Done in headless Chrom
 5. The farm panel stayed open under the debrief; the debrief buttons wrapped badly. Fixed in `src/ui/episode.ts` / `holo.css`.
 Also added: the radiation alarm sound while outside during a HIGH/STORM alert (`WorldScene.update`).
 
+### Character creator (pack Step 3): DONE, browser-verified (16 checks, `scripts/creator-checks.mjs`)
+Play → (asks "Start a new game?" if a save exists) → **creator** → backstory card → game. One scrollable holo modal with a live preview (front, side, EVA suit): (1) first name: spaces and symbols are blocked while typing, letters/hyphen/apostrophe, 2-12 characters, "One name only" helper, error text; (2) ten skin tones dark to light; (3) body style by description: "Long hair, narrower shoulders" / "Short hair, broader shoulders" (new `build` option in `pixelart.ts`); (4) hair colour wheel + 10 presets + hex input; CONTINUE disabled until the name is valid. The look is saved in settings and drawn on the player in the world (`lookToSpec`, `buildPlayerSheet` in `WorldScene.loadSession`). `settings.name` is the one source for `{name}` (`src/story/name.ts` `fillName`); the old Settings "Callsign" is now "Your name" with the same rule. Quick Start skips the creator and uses the last look. Rules in `src/core/player.ts`, tests in `tests/player.test.ts`.
+
 ### Owner decisions (answered 2026-11-14)
 - **D1** Hebrus Valles in all visible text (menu Help, README, AGENTS.md, page description). The old campaign code still says Hadriacus Mons/Hellas Planitia; it is not reachable from the menu, so it was left alone.
 - **D2** Captain **Reyes** (not Reya).
@@ -55,7 +58,7 @@ Also added: the radiation alarm sound while outside during a HIGH/STORM alert (`
 - Opened the opening card, intercom ring and mute; completed the Quick Start storm sequence through Sol 5 in visible Chrome (Storm Call, Take Your Time, Ask Earth sent state, radiation choices, burial reports 55% → 40% → 35%, storm-end dialogue, AFTER THE STORM objective). Did not finish cleanup/debrief or the other checks. Headless Chrome would not launch in Codex's environment (`SIGABRT`); it launches fine in Claude Code's.
 
 ## Next (in order)
-1. **Character creator** (pack Step 3), simplified: one first name (validated), skin tone, hair style, hair colour, live preview; `buildPlayerSheet(scene, spec)` already re-renders the player; replace the Settings callsign with the name; `{name}` already works in dialogue.
+1. ~~Character creator~~ **DONE** (see below).
 2. **Gym + health loop** (pack Steps 5/9) and the **bathroom / science lab** rooms (Step 5), drawn in the same pixel style.
 3. **Mars map + journal photos** (Step 12): bundle NASA images with credits (check usage guidelines), marker at Hebrus Valles from a verified source.
 4. Judge package: 2-minute video script (open on the Storm Call). README already points judges to `docs/NASA_SOURCES.md`.

@@ -39,7 +39,7 @@ Legend: [x] done and tested · [~] exists but not fully verified · [ ] not star
 - [x] Live DONKI "Today's Sun" with ARCHIVED fallback (browser-verified online and blocked)
 - [x] NASA wiki (30 checked links) + docs/NASA_SOURCES.md
 - [x] Owner decisions D1-D4 applied (Hebrus Valles text, Reyes, subtitle, cuts)
-- [ ] Character creator (Step 3)
+- [x] Character creator (Step 3): name rule, skin, body style, hair wheel, live preview, overwrite confirm (16 browser checks)
 - [ ] Gym + health loop, bathroom, science lab (Steps 5/9)
 - [ ] Mars map + journal photos (Step 12)
 - [~] Touch play on a real device; audio by ear (not testable headless)

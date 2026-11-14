@@ -1,6 +1,7 @@
 // Sound effects ported from the legacy prototype (WebAudio beeps, no asset files).
 export const settings = (() => {
-  const base = { sound: true, reduce: typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches, name: 'Rookie' };
+  // name: the player's first name (one source of truth for {name}); look: the character creator's choices.
+  const base = { sound: true, reduce: typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches, name: 'Rookie', look: null as null | { name: string; skin: number; hair: number; style: 'long' | 'short' } };
   try { return Object.assign(base, JSON.parse(localStorage.getItem('mrp.settings') || '{}')); } catch { return base; }
 })();
 export const saveSettings = () => { try { localStorage.setItem('mrp.settings', JSON.stringify(settings)); } catch { /* ignore */ } };

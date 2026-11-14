@@ -4,6 +4,7 @@ import { $, esc } from './ui';
 import manifest from '../data/manifest.json';
 import type { GameState } from '../core/types';
 import { initSunCard, openWiki } from './episode';
+import { cleanNameInput, validateName } from '../core/player';
 
 const store = {
   get<T>(k: string, d: T): T { try { const v = localStorage.getItem('mrp.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
@@ -78,12 +79,13 @@ function showHelp() {
 function showSettings() {
   const h = menuModal('Settings', `<div class="setting"><span class="lab">Sound</span><div class="seg" id="s-sound"><button data-v="1" aria-pressed="${settings.sound}">On</button><button data-v="0" aria-pressed="${!settings.sound}">Off</button></div></div>
     <div class="setting"><span class="lab">Reduce motion</span><div class="seg" id="s-reduce"><button data-v="1" aria-pressed="${settings.reduce}">On</button><button data-v="0" aria-pressed="${!settings.reduce}">Off</button></div></div>
-    <div class="setting"><label class="lab" for="callsign">Callsign</label><input type="text" id="callsign" maxlength="12" value="${esc(settings.name)}" /></div>`);
+    <div class="setting"><label class="lab" for="callsign">Your name</label><input type="text" id="callsign" maxlength="12" value="${esc(settings.name)}" aria-describedby="callsign-err" /></div><div class="cr-err" id="callsign-err" aria-live="polite"></div>`);
   const seg = (id: string, key: 'sound' | 'reduce') => h.querySelectorAll(`#${id} button`).forEach(b => ((b as HTMLElement).onclick = () => {
     settings[key] = (b as HTMLElement).dataset.v === '1'; saveSettings(); applyMotion();
     h.querySelectorAll(`#${id} button`).forEach(o => o.setAttribute('aria-pressed', String(o === b))); if (key === 'sound') sfx.ok(); }));
   seg('s-sound', 'sound'); seg('s-reduce', 'reduce');
-  ($('#callsign', h) as HTMLInputElement).addEventListener('input', e => { settings.name = (e.target as HTMLInputElement).value.replace(/[^\w \-]/g, '').slice(0, 12) || 'Rookie'; saveSettings(); });
+  // The same one-name rule as the character creator; settings.name is the only source for {name}.
+  ($('#callsign', h) as HTMLInputElement).addEventListener('input', e => { const inp = e.target as HTMLInputElement, c = cleanNameInput(inp.value); if (c !== inp.value) inp.value = c; const v = validateName(c); ($('#callsign-err', h) as HTMLElement).textContent = v.ok ? '' : v.error; if (v.ok) { settings.name = v.name; if (settings.look) settings.look = { ...settings.look, name: v.name }; saveSettings(); } });
 }
 export const applyMotion = () => { document.documentElement.dataset.reduce = settings.reduce ? '1' : '0'; if (!settings.reduce) startFrame(); };
 

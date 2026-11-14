@@ -7,7 +7,7 @@ export const AW = 16, AH = 26;
 export type Dir = 'down' | 'up' | 'side';
 export type Pose = 'stand' | 'step1' | 'step2' | 'write1' | 'write2' | 'read1' | 'read2' | 'lie1' | 'lie2' | 'sleep1' | 'sleep2' | 'tray';
 export type HairStyle = 'short' | 'bob' | 'bun' | 'crop' | 'curly' | 'long';
-export interface CharSpec { skin: number; hair: number; hairStyle: HairStyle; top: number; bottom: number; shoes: number; accent: number; blanket?: number; eva?: boolean }
+export interface CharSpec { skin: number; hair: number; hairStyle: HairStyle; top: number; bottom: number; shoes: number; accent: number; blanket?: number; eva?: boolean; build?: 'slim' | 'broad' }
 
 // materials
 const E = 0, SKIN = 1, HAIR = 2, TOP = 3, ARM = 4, BOTTOM = 5, LEG2 = 6, SHOES = 7, ACCENT = 8, EYE = 9, BLUSH = 10, MOUTH = 11,
@@ -112,7 +112,7 @@ function helmet(g: Grid, dir: Dir, oy: number) {
 
 function torso(g: Grid, spec: CharSpec, dir: Dir, oy: number) {
   if (dir === 'side') { g.rect(6, 12 + oy, 10, 12 + oy, TOP); g.rect(5, 13 + oy, 10, 16 + oy, TOP); g.rect(5, 17 + oy, 10, 17 + oy, BOTTOM); }
-  else { g.rect(5, 12 + oy, 10, 12 + oy, TOP); g.rect(4, 13 + oy, 11, 16 + oy, TOP); g.rect(4, 17 + oy, 11, 17 + oy, BOTTOM); }
+  else { const n = spec.build === 'slim' ? 1 : 0; g.rect(5, 12 + oy, 10, 12 + oy, TOP); g.rect(4 + n, 13 + oy, 11 - n, 16 + oy, TOP); g.rect(4, 17 + oy, 11, 17 + oy, BOTTOM); } // slim: narrower shoulders, same hips
   if (spec.eva) {
     if (dir === 'down') { g.rect(6, 14 + oy, 9, 15 + oy, METAL); g.set(7, 14 + oy, LIGHT); g.rect(4, 17 + oy, 11, 17 + oy, ACCENT); }
     if (dir === 'up') g.rect(4, 12 + oy, 11, 17 + oy, METAL);
@@ -129,8 +129,9 @@ function arms(g: Grid, spec: CharSpec, dir: Dir, pose: Pose, oy: number) {
     return;
   }
   const l = pose === 'step1' ? -1 : pose === 'step2' ? 1 : 0; // arms swing opposite to legs
-  g.rect(3, 13 + oy, 3, 15 + oy + l, ARM); g.set(3, 16 + oy + l, hand);
-  g.rect(12, 13 + oy, 12, 15 + oy - l, ARM); g.set(12, 16 + oy - l, hand);
+  const a = spec.build === 'slim' ? 1 : 0; // arms hug the narrower shoulders
+  g.rect(3 + a, 13 + oy, 3 + a, 15 + oy + l, ARM); g.set(3 + a, 16 + oy + l, hand);
+  g.rect(12 - a, 13 + oy, 12 - a, 15 + oy - l, ARM); g.set(12 - a, 16 + oy - l, hand);
 }
 
 function legs(g: Grid, dir: Dir, pose: Pose, oy: number) {
