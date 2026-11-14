@@ -1,6 +1,6 @@
 # HANDOFF (update at the end of every session)
 
-Last updated 2026-11-14 by Claude Code (session ended mid-playtest, usage ran out). Next agent: **Codex**.
+Last updated 2026-11-14 by Codex (browser pass partial; see status below). Next: **Codex**.
 
 ## START HERE
 Read: `AGENTS.md` (rules) → this file → `docs/CHALLENGE.md` (what the judges want) → `docs/NASA_SOURCES.md` (every real-data point, for judges) → `docs/DESIGN.md`. `docs/PROMPT_PACK.md` is the owner's long Episode 1 brief — reference for wording/intent, not the task order; this file sets the order.
@@ -38,6 +38,14 @@ The rules are unit-tested and the whole front end **type-checks and builds**, bu
 2. Or run the automated pass: `npm i --no-save playwright-core` (uses installed Chrome), start the dev server on 5179, then `node scripts/ep1-playthrough.mjs docs/playtest/ep1` — it drives the whole episode and saves screenshots. **Look at them.**
 3. Check: the ring sound + mute; the countdown bar and "Take your time"; "Ask Earth" shows "message sent" and resolves only after the storm (the `earth_reply` beat fires); the 3 meters + alert chip update; airlock refuses during the storm; passing out reloads the checkpoint; the debrief tree lines link cause→effect; every wiki/learning link opens.
 4. Confirm the live DONKI fetch on the menu (online) and the graceful ARCHIVED fallback (offline / block the request).
+
+### Codex browser pass (2026-11-14; incomplete)
+- Opened the normal Episode 1 opening card and confirmed its text and Continue transition; the intercom ring and mute control rendered.
+- Completed the Quick Start storm sequence through Sol 5 in Chrome: the timed Storm Call, Take Your Time pause/resume, Ask Earth sent state, Sol 2 radiation-shielding choices, overnight panel burial reports (55% → 40% → 35% power), storm-end dialogue, and the AFTER THE STORM objective all appeared.
+- Did not complete panel cleaning, watering-pump repair, or inspect the debrief and its linked decision tree. Airlock refusal, suit blackout, wiki-link destinations, and both live/offline DONKI paths also remain unverified in this browser pass.
+- The provided Playwright script could not launch its headless Chrome process in this environment (`SIGABRT` / target browser closed), so the run used the visible Chrome browser. No UI fix was confirmed and no code change was made.
+- `npm run check` passed: 54 tests, type-check, and production build. Working tree was clean after the check.
+- Next: resume the saved Sol 5 run, finish cleanup and debrief, and inspect the remaining checks above. Then update this handoff and commit the completed phase.
 
 ## Then, if time (smaller, each optional)
 - **Audio polish:** radiation alarm when the alert flips to HIGH while outside (sound exists: `sfx.alarm`); wire it in `WorldScene.update`.
