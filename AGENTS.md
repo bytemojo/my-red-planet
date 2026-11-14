@@ -2,6 +2,11 @@
 
 You are continuing a browser game for the NASA Space Apps Challenge. Several different AI tools work on this repo, so **this file and HANDOFF.md are your only memory**. Read both first. Then read docs/DESIGN.md and docs/ROADMAP.md.
 
+## Start here (any agent: Claude Code, Codex, Copilot, Cursor)
+1. Read this file, then `HANDOFF.md` (current state and the ordered task queue), then `docs/CHALLENGE.md` (what the NASA Space Apps judges want; it sets priorities), then `docs/DESIGN.md` and `docs/ROADMAP.md`.
+2. `docs/PROMPT_PACK.md` is the owner's long Episode 1 prompt pack. It is reference for intent and wording, not a to-do list; `HANDOFF.md` decides the order. Where the pack contradicts the rules below (site, headline meters, suit blackout), the owner has not yet resolved it: see "Decisions waiting for the owner" in `HANDOFF.md` and ask, do not guess.
+3. The hard rules below still apply to everything, including the challenge work.
+
 ## The game in one paragraph
 A cozy, Stardew-Valley-style farming and colony-building game on Mars, for children aged 7-12. The player is a junior intern alone at a research outpost near Hadriacus Mons, Hellas Planitia, because the crew is quarantined with the flu. They farm, manage power/water/air/food, build, explore by rover, and finally open a candidate lava-tube cave into a protected underground colony. Kids learn that every resource has a cost and every decision has consequences, by playing, not by reading panels.
 
