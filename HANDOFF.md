@@ -73,7 +73,7 @@ Play → (asks "Start a new game?" if a save exists) → **creator** → backsto
 1. ~~Character creator~~ **DONE** (see below).
 2. ~~Gym + health loop, bathroom, science lab~~ **DONE** (see below).
 3. ~~Mars map + journal photos~~ **DONE** (see below).
-4. Judge package: 2-minute video script (open on the Storm Call). README already points judges to `docs/NASA_SOURCES.md`.
+4. ~~Judge package~~ **DONE**: `docs/DEMO_SCRIPT.md` (2-minute video, opens on the Storm Call); README points judges to `docs/NASA_SOURCES.md`.
 6. The owner's original visual note also asked for a **kitchen with cooking on an electric heater** and on-screen animations for **watering** and **repairs**. Not built yet; it was not in the D4 question, so ask the owner whether it is still wanted for Level 1.
 5. Not yet checked by a human: touch/joystick play on a real phone or tablet; the sound of the ring/alarm/static (headless runs are silent).
 
