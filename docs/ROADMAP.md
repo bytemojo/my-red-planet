@@ -31,7 +31,7 @@ Legend: [x] done and tested · [~] exists but not fully verified · [ ] not star
 - [x] Day/night tint, outdoor and indoor lights at night, dust dimming (pure maths unit-tested)
 - [x] Intercom zone moved to the corridor (was unreachable inside the sealed bay)
 - [~] Touch controls with the taller sprite; post-quarantine crew placement: not human-tested
-- [ ] Visual Pass B: kitchen with electric heater, cooking, on-screen animations for watering, panel cleaning, repairs
+- [~] Visual Pass B: Episode 1 meal tray with limited NASA meal stocks, heater power/water costs, and brief cook/serve animation; full kitchen room, farm-produce menu, and watering/repair animations remain
 
 ## Episode 1 "The Storm" (2026-11-14)
 - [x] Core rules + decision tree + scoring (54 unit tests)
@@ -42,6 +42,7 @@ Legend: [x] done and tested · [~] exists but not fully verified · [ ] not star
 - [x] Character creator (Step 3): name rule, skin, body style, hair wheel, live preview, overwrite confirm (16 browser checks)
 - [x] Gym + health loop, bathroom, science lab (Steps 5/9): east wing, 3 machines, rhythm workout, lab, water recovery (11 browser checks, 8 unit tests)
 - [x] Mars map + journal photos (Step 12): 4 bundled NASA photos, mission diary, notes, MOLA map with Gazetteer pin (13 browser checks, 5 unit tests)
+- [~] Episode objective checklist and bonus-star/share card; meal tray at quarantine hatch (77 tests/build pass; new meal UI still needs a direct in-world playthrough)
 - [~] Touch play on a real device; audio by ear (not testable headless)
 - [-] Cut by owner: Episode 2, 20 crew chats
 

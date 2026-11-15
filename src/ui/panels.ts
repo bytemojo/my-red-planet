@@ -14,6 +14,7 @@ import { ACTION_ENERGY as AE, EP } from '../core/constants';
 import type { SystemId } from '../core/types';
 import { GYM, MACHINES, workoutsToday, type Machine } from '../core/gym';
 import { alertFor, ALERT_LABEL } from '../core/episode';
+import { mealStock, SPACE_MEALS, type MealId } from '../core/meals';
 
 // Episode 1: a "check this system" button until it has been checked.
 const checkBtn = (s: GameState, sys: SystemId) => {
@@ -155,6 +156,19 @@ export function openCave(host: Host) {
 }
 
 // ---------- Crew (sick bay intercom / quarters) ----------
+export function openKitchen(host: Host) {
+  const tray: MealId[] = [];
+  panel('inspect', host, () => {
+    const s = host.state(), counts = SPACE_MEALS.map(m => ({ ...m, inTray: tray.filter(id => id === m.id).length }));
+    const water = counts.reduce((n, m) => n + m.water * m.inTray, 0), power = counts.reduce((n, m) => n + m.power * m.inTray, 0), minutes = counts.reduce((n, m) => n + m.minutes * m.inTray, 0);
+    return `<div class="holo-panel kitchen-panel">${head('food', 'Kitchen · NASA food supplies')}<div class="panel-body"><p class="why">Choose five portions for the crew and you. Hydrated food uses water; heated food uses station power. Supplies are limited.</p><div class="kitchen-grid">${counts.map(m => `<div class="meal-card"><div class="meal-icon" aria-hidden="true">${m.icon}</div><b>${m.name}</b><small>${m.method} · ${mealStock(s, m.id)} left</small><small>${m.water ? `Water ${Math.round(m.water * 1000)} ml` : ''}${m.water && m.power ? ' · ' : ''}${m.power ? `Power ${m.power}` : ''}${!m.water && !m.power ? 'No water or power' : ''} · ${m.minutes ? `${m.minutes} min` : 'instant'}</small><div class="meal-qty"><button data-do="remove|${m.id}" ${!m.inTray ? 'disabled' : ''} aria-label="Remove ${m.name}">−</button><span>${m.inTray}</span><button data-do="add|${m.id}" ${mealStock(s, m.id) <= m.inTray || tray.length >= 5 ? 'disabled' : ''} aria-label="Add ${m.name}">+</button></div></div>`).join('')}</div><div class="meal-tray"><b>TRAY ${tray.length}/5</b><span>${tray.map(id => SPACE_MEALS.find(m => m.id === id)?.name).join(' · ') || 'Choose portions above'}</span><small>Total: ${water ? `${Math.round(water * 1000)} ml water · ` : ''}${power} power · ${minutes} min</small></div><button class="holo-btn primary" data-do="cook" ${tray.length !== 5 || s.res.water < water || s.res.power < power || s.energy < ACTION_ENERGY.cook_serve ? 'disabled' : ''}>COOK & SERVE</button></div></div>`;
+  }, c => {
+    if (c[0] === 'add' && tray.length < 5) tray.push(c[1] as MealId);
+    else if (c[0] === 'remove') { const i = tray.lastIndexOf(c[1] as MealId); if (i >= 0) tray.splice(i, 1); }
+    else if (c[0] === 'cook' && tray.length === 5) { UI.close('inspect'); host.run('cook_serve', { tray: JSON.stringify(tray) }); }
+  });
+}
+
 export function openCrew(host: Host) {
   let chat: CrewId | null = null;
   panel('inspect', host, () => {

@@ -4,7 +4,8 @@ import { rates, solarEfficiency } from '../core/sim';
 import { envForSol } from '../core/env';
 import { STAGES, CROPS } from '../core/constants';
 import type { GameState } from '../core/types';
-import { objective, objectiveTasks } from '../core/episode';
+import { objective, objectiveTasks, plantHealth } from '../core/episode';
+import { teamMorale } from '../core/crewlife';
 import { refreshEpHud, ringUpdate } from './episode';
 
 export const arrows = (r: number) => { const a = Math.abs(r); if (a < 0.05) return { t: '▬', c: 'flat' }; const n = a > 1.2 ? 3 : a > 0.5 ? 2 : 1; return { t: (r > 0 ? '▲' : '▼').repeat(n), c: r > 0 ? 'up' : 'down' }; };
@@ -59,7 +60,14 @@ export function refreshHud(s: GameState) {
     $('.obj-title').textContent = o.title; $('#obj-count').textContent = `Sol ${s.sol}`;
     const tasks = objectiveTasks(s);
     $('#chips').classList.add('task-list');
-    setHtml('#chips', tasks.map(t => `<div class="obj-task ${t.done ? 'done' : ''}"><span class="obj-check" aria-hidden="true">${t.done ? '✓' : '○'}</span><span>${t.label}</span></div>`).join(''));
+    const bonuses = [
+      { label: 'Keep team morale high', done: teamMorale(s) >= 70 },
+      { label: 'Write a note in your journal', done: !!s.notes?.some(n => n.text.trim()) },
+      { label: 'Read a NASA source', done: sessionStorage.getItem('ep1_wiki_read') === '1' },
+      { label: 'Share the mission with a friend', done: sessionStorage.getItem('ep1_shared') === '1' },
+      { label: 'Keep the plants healthy', done: plantHealth(s) >= 75 },
+    ];
+    setHtml('#chips', `${tasks.map(t => `<div class="obj-task ${t.done ? 'done' : ''}"><span class="obj-check" aria-hidden="true">${t.done ? '✓' : '○'}</span><span>${t.label}</span></div>`).join('')}<div class="obj-bonus-title">BONUS STARS</div>${bonuses.map(t => `<div class="obj-task obj-bonus ${t.done ? 'done' : ''}"><span class="obj-check" aria-hidden="true">${t.done ? '★' : '☆'}</span><span>${t.label}</span></div>`).join('')}`);
     if (setHtml('#obj-hint', `${ICON.bulb}<span>${o.detail}</span>${learnButton('donki_live')}`)) bindLearning($('#obj-hint'));
     return;
   }

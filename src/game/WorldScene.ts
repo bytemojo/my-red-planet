@@ -12,10 +12,11 @@ import { currentLook } from '../ui/creator';
 import { envForSol } from '../core/env';
 import { CREW_IDS } from '../core/crewlife';
 import { CREW_LIFE } from '../core/constants';
+import { SPACE_MEALS } from '../core/meals';
 import type { Dir } from './pixelart';
 import { clamp, $, UI, flashMeter, head, optCard, overlay, runPending, showReport, showSimple, showStageResult, stageScore, toast, journalHtml, esc, chip } from '../ui/ui';
 import { refreshHud, initHud, updateRadar } from '../ui/hud';
-import { openBath, openCave, openComms, openControl, openCrew, openFarm, openGym, openLab, openLs, openRover, openSolar, openSuit, type Host } from '../ui/panels';
+import { openBath, openCave, openComms, openControl, openCrew, openFarm, openGym, openKitchen, openLab, openLs, openRover, openSolar, openSuit, type Host } from '../ui/panels';
 import { playWorkout } from '../ui/gym';
 import type { Machine } from '../core/gym';
 import { recordRun, updateAwards } from '../ui/menu';
@@ -29,7 +30,7 @@ const ZONES: Record<string, Zone> = {
   farm: { x0: 5, y0: 3, x1: 13, y1: 8, label: 'Check Farm', inside: true }, ls: { x0: 18, y0: 3, x1: 28, y1: 8, label: 'Check Air & Water', inside: true },
   comms: { x0: 18, y0: 13, x1: 28, y1: 17, label: 'Check Comms', inside: true }, control: { x0: 14, y0: 3, x1: 17, y1: 7, label: 'Open Control', inside: true },
   sick: { x0: 8, y0: 11, x1: 9, y1: 11, label: 'Use Intercom', inside: true },
-  hatch: { x0: 11, y0: 11, x1: 12, y1: 11, label: 'Serve a Meal', inside: true },
+  hatch: { x0: 11, y0: 11, x1: 12, y1: 11, label: 'Kitchen & Meal Hatch', inside: true },
   suit: { x0: 15, y0: 16, x1: 16, y1: 16, label: 'Suit Rack', inside: true },
   solar: { x0: 9, y0: 20, x1: 30, y1: 27, label: 'Check Solar', inside: false }, rover: { x0: 30, y0: 19, x1: 37, y1: 24, label: 'Use Rover', inside: false },
   cave: { x0: 37, y0: 23, x1: 41, y1: 27, label: 'Enter Cave', inside: false },
@@ -103,6 +104,14 @@ export class WorldScene extends Phaser.Scene {
     const r = act(s, name, arg as never);
     if (r.ok && s.ep && epBefore !== `${s.ep.phase}|${s.ep.checked.length}|${s.ep.wateringFixed}|${s.ep.panelsCleaned}`) saveCheckpoint(this.sess); // an objective moved on
     const kind = r.ok ? 'good' : 'bad';
+    if (r.ok && name === 'cook_serve') await new Promise<void>(resolve => {
+      const tray: string[] = JSON.parse(arg?.tray ?? '[]');
+      const prepMinutes = tray.reduce((sum, id) => sum + (SPACE_MEALS.find(m => m.id === id)?.minutes ?? 0), 0);
+      this.acting = { frame: 'in_side_stand', until: performance.now() + 700 + prepMinutes * 160, then: () => {
+        world.pop(world.player.x, world.player.y - 48, '♨ STEAM', '#bfeaff');
+        this.acting = { frame: 'in_tray', until: performance.now() + 1100, then: resolve };
+      } };
+    });
     if (r.ok && name === 'clean_panels') { world.clean(); this.lastDust = s.panelDust; }
     if (r.ok && name === 'talk' && arg?.crew) world.crew.react(arg.crew, 'heart');
     if (r.ok) { ({ plant: sfx.plant, water: sfx.water, harvest: sfx.harvest, clean_panels: sfx.ok } as Record<string, () => void>)[name]?.() ?? sfx.ok(); world.pop(world.player.x, world.player.y - 40, r.msg.length < 24 ? r.msg : '✓', '#8cffc6'); }
@@ -191,7 +200,7 @@ export class WorldScene extends Phaser.Scene {
   doAct() {
     const z = this.curZone; if (!z || UI.blocking() || this.busy) return; sfx.click();
     const h = this.host;
-    ({ farm: () => openFarm(h), ls: () => openLs(h), comms: () => openComms(h), solar: () => openSolar(h), control: () => openControl(h), sick: () => openCrew(h), hatch: () => this.serveMeal(), suit: () => openSuit(h), bands: () => openGym(h, 'bands'), bike: () => openGym(h, 'bike'), rower: () => openGym(h, 'rower'), lab: () => openLab(h), bath: () => openBath(h), rover: () => openRover(h), cave: () => openCave(h) } as Record<string, () => void>)[z]?.();
+    ({ farm: () => openFarm(h), ls: () => openLs(h), comms: () => openComms(h), solar: () => openSolar(h), control: () => openControl(h), sick: () => openCrew(h), hatch: () => this.state().ep ? openKitchen(h) : this.serveMeal(), suit: () => openSuit(h), bands: () => openGym(h, 'bands'), bike: () => openGym(h, 'bike'), rower: () => openGym(h, 'rower'), lab: () => openLab(h), bath: () => openBath(h), rover: () => openRover(h), cave: () => openCave(h) } as Record<string, () => void>)[z]?.();
   }
   // A workout: the rhythm mini-game (skippable), then the explorer is shown on the machine, then the result.
   async doWorkout(m: Machine) {

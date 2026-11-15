@@ -7,6 +7,7 @@ import { poll, rollEvent } from './director';
 import { talkLine } from '../story/crew';
 import { unlockDiscovery } from '../story/discoveries';
 import { CAVERN_NEEDED, CREW_LIFE } from './constants';
+import { cookServe } from './meals';
 import { CREW_IDS, crewNeedsCare, crewOvernight, crewTalked, crewTick, newCrewState, serveMeal } from './crewlife';
 import type { CropId, CrewId, DailyReport, Env, GameState, Plot, ResKey, SystemId } from './types';
 
@@ -194,7 +195,7 @@ const fail = (msg: string): ActionResult => ({ ok: false, msg });
 const done = (msg: string): ActionResult => ({ ok: true, msg });
 
 const LAB_PLANT_BOOST = 8; // game model: catching plant disease early in the lab
-export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?: CropId; crew?: CrewId; choice?: string; building?: string; verb?: string; system?: SystemId; machine?: string }): ActionResult {
+export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?: CropId; crew?: CrewId; choice?: string; building?: string; verb?: string; system?: SystemId; machine?: string; tray?: string }): ActionResult {
   const cost = ACTION_ENERGY[name];
   const env = envFor(s);
   if (s.pending) return fail('Finish the conversation first.');
@@ -331,6 +332,13 @@ export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?
       if (s.res.food < CREW_LIFE.FOOD_NEEDED) return fail('The food store is almost empty. Harvest something first.');
       const fed = serveMeal(s); spend(); checkProgress(s);
       return done(fed.length === 1 ? 'Meal served.' : `Meals served to ${fed.length} crew.`);
+    }
+    case 'cook_serve': {
+      let tray: string[];
+      try { tray = JSON.parse(arg?.tray ?? '[]') as string[]; } catch { return fail('The meal tray is empty.'); }
+      const result = cookServe(s, tray);
+      if (!result.ok) return fail(result.msg);
+      spend(); return done(result.msg);
     }
     case 'request_shipment':
       if (s.shipmentArrivesSol > s.sol) return fail('A shipment is already on its way.');

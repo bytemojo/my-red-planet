@@ -8,7 +8,7 @@ const T = 32;
 export const WING_BLOCKS: [number, number, number, number][] = [
   [33, 4, 2, 1],                 // cycle ergometer
   [36, 3, 2, 1],                 // rowing machine, folded against the north wall
-  [30, 13, 3, 1], [33, 13, 2, 1], [30, 17, 2, 1], // lab bench + microscope, glovebox, sample shelf
+  [30, 13, 2, 1], [33, 13, 2, 1], [30, 17, 2, 1], // lab bench leaves tile 32 clear as the doorway
   [36, 13, 1, 1], [38, 13, 1, 1], [36, 16, 3, 2], // bathroom: sink, space toilet, shower stall
 ];
 

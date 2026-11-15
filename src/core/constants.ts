@@ -34,7 +34,7 @@ export const ACTION_ENERGY = {
   plant: 3, water: 4, harvest: 3, clean_panels: 12, talk: 1, build: 15, explore: 20,
   cave_explore: 20, cave_excavate: 25, cave_pressurize: 15, cave_shield: 15, request_shipment: 5, feed: 6,
   check: 1, suit: 1, answer: 0, panels: 4, repair_watering: 12, fix_panels: 18,
-  workout: 0, study_plants: 8, // workout energy depends on the machine (core/gym.ts)
+  workout: 0, study_plants: 8, cook_serve: 6, // workout energy depends on the machine (core/gym.ts)
 } as const;
 
 // Episode 1 "The Storm". Simplified game units (a game model, not engineering data), tuned so that

@@ -7,6 +7,7 @@ Read: `AGENTS.md` (rules) → this file → `docs/CHALLENGE.md` (what the judges
 
 **Setup:** `npm install` · `npm run dev` (port 5173, or `--port 5179`) · `npm run check` (tests + type-check + build).
 **Git:** branch `visual-pass-a` tracks `origin/visual-pass-a`. The user has GitHub access to `bytemojo/my-red-planet`; pushing this branch was explicitly requested. Do not commit `.env.local` or `.vercel/`.
+
 **Always:** `npm run check` must pass before you call anything done. Commit after each task. Update this file honestly.
 
 ## Latest session (2026-11-15): Episode UI polish and menu navigation
@@ -45,7 +46,7 @@ The owner's goal (message 2026-11-14): "one level done well." The challenge auth
 - Wired into: `src/core/director.ts` (ep beats/events + `onResolve`), `src/core/sim.ts` (`newGame({mode:'storm'})`, new actions: `answer check suit panels repair_watering`, `feed`; **SAVE_VERSION = 3**), `src/core/session.ts` (checkpoints: `saveCheckpoint`/`reloadCheckpoint`), `src/ui/panels.ts`, `src/ui/hud.ts`, `src/ui/ui.ts` (timed dialogue + {name}), `src/game/WorldScene.ts` (suit zone, storm lock, `passOut`, debrief), `src/game/world.ts` (suit rack + stowed-panel art), `src/ui/menu.ts`, `src/main.ts`.
 - Data: `src/data/manifest.json` + `src/data/solar-events.json` — the two DONKI flares are now **verified: true** with exact flrIDs and peak times. `docs/NASA_SOURCES.md` is the judge-facing source list.
 
-### Tested (75 unit tests, all pass; type-check + build clean)
+### Tested (77 unit tests, all pass; type-check + build clean)
 `tests/episode.test.ts` (17): opening/call, the Storm Call (timed, stow vs out, Ask Earth delay), **balance** (neither choice dominates; a careful player and a leave-it-out player both survive, with different damage), storm lock, missed-check fault, deterministic alert, suit pass-out + checkpoint reload, after-storm finish + linked tree, scoring, 2 chats/Sol, save v3 migration. Plus the existing crew/art/sim tests.
 
 ## Episode 1 browser verification: COMPLETE (Claude Code, 2026-11-14)
@@ -96,8 +97,12 @@ Play → (asks "Start a new game?" if a save exists) → **creator** → backsto
 ### Codex continuation (2026-11-15)
 - Added a phase-specific checklist to the Episode 1 objective dropdown in `src/core/episode.ts` / `src/ui/hud.ts`: the current action and upcoming tasks are visible for the call, systems check, prep, storm, cleanup, and debrief phases. Completed items show checkmarks. Campaign HUD chips are unchanged.
 - Fixed the objective hint icon sizing in `src/ui/holo.css`; visually checked the opening call phase in browser at 1440×810. Checklist reads “Answer Captain Reyes at the hallway intercom”; hint and intercom callout are visible without layout overflow.
-- Added a unit test for phase-specific checklist state (`tests/episode.test.ts`). Current suite: 75 tests; `npm run check` passed (unit tests, TypeScript, production build).
-- The large optional prompt #2 additions (rec-room games, new storm repair choice, kitchen/cooking loop and meal animations, farm animation/heart unlocks, awards/social share, water-ice ending, and new HUD systems) were not implemented in this short pass. Prioritize a single tightly scoped feature only if more time remains; do not jeopardize the verified Episode 1 submission build.
+- Added a unit test for phase-specific checklist state (`tests/episode.test.ts`).
+- Added an Episode 1 meal tray at the quarantine meal hatch: eight limited-stock NASA-style packaged meal choices, five portions per serving, water costs for hydrated meals, power costs for heated meals, estimated prep time, and serving animation. Added two core tests for resource accounting and atomic failure. The menu and serving flow need a direct in-world browser playtest.
+- Added five optional bonus-star objectives to the objective dropdown and debrief (team morale, journal note, NASA source, share, plant health), plus WhatsApp/X/Facebook links and copy-link control. Share/wiki completion is session-local; no analytics or external tracking. Browser-checked the HUD objective/bonus list, but did not finish a full storm-to-debrief browser run after these changes.
+- Fixed the east-wing lab bench collision so tile 32 remains open as the lab doorway (`src/game/wing.ts`). Polished dialogue choice cards.
+- Current suite: 77 tests; `npm run check` passed (unit tests, TypeScript, production build).
+- Still not built from prompt #2: a separate kitchen room and farm-produce/locked-crop menu; physical farm planting/watering/repair animations; rec-room sleep pod and playable chess/checkers; a new storm preparation repair choice; the water-ice continuation ending. Keep the existing Episode 1 finale unless the owner explicitly wants a second playable chapter; these remaining requests need design and a full playtest before calling them done.
 
 ## Earlier work still in place (Visual Pass A)
 Generated pixel characters (`src/game/pixelart.ts`, `sprites.ts`), crew quarters with animated crew + morale faces + hunger bubbles + meal hatch (`quarters.ts`, `crewlife.ts`), day/night (`skytint.ts`/`daynight.ts`). The **open campaign** (original 6-stage game) still exists and works; Episode 1 runs alongside it (`state.ep` null = campaign). Screenshots in `docs/playtest/`.

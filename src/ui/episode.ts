@@ -88,16 +88,34 @@ function renderTree(tree: TreeNode[]): string {
 }
 export function showDebrief(s: GameState, onReplay: () => void, onMenu: () => void): void {
   const ep = s.ep!, r = ep.result!;
+  const bonusRows = () => {
+    const checks = [
+      ['Keep team morale high', teamMorale(s) >= 70],
+      ['Write a note in your journal', !!s.notes?.some(n => n.text.trim())],
+      ['Read a NASA source', sessionStorage.getItem('ep1_wiki_read') === '1'],
+      ['Share the mission with a friend', sessionStorage.getItem('ep1_shared') === '1'],
+      ['Keep the plants healthy', plantHealth(s) >= 75],
+    ] as const;
+    return `<div class="bonus-grid">${checks.map(([label, done]) => `<div class="bonus-goal ${done ? 'earned' : ''}"><span>${done ? '★' : '☆'}</span>${esc(label)}</div>`).join('')}</div>`;
+  };
+  const shareText = 'Play this fun Mars colony game with me at https://myredplanet.vercel.app/';
+  const shareLink = encodeURIComponent('https://myredplanet.vercel.app/');
+  const shareCopy = encodeURIComponent(shareText);
   UI.close('inspect'); UI.close('control'); // the panel used for the last action should not sit under the debrief
   sfx.win();
   const el = overlay('debrief', `<div class="holo-panel holo-card">${head('sun', 'EPISODE 1 COMPLETE', false)}<div class="panel-body">
     <div class="stars" aria-label="${r.stars} of 3 stars">${'★'.repeat(r.stars)}<span style="opacity:.25">${'★'.repeat(3 - r.stars)}</span></div>
     <div class="metrics"><div>Team morale<b>${r.morale}</b></div><div>Base energy<b>${r.power}</b></div><div>Plant health<b>${r.plants}</b></div><div>Your health<b>${r.health}</b></div></div>
     <p class="line"><b>${esc(r.best)}</b> ${esc(r.tip)}</p>
+    <h4>Bonus objectives</h4>${bonusRows()}
     <h4>Your decisions and what they caused</h4><div class="tree">${renderTree(ep.tree)}</div>
     <p class="why">${ep.passOuts ? `You passed out ${ep.passOuts} time${ep.passOuts > 1 ? 's' : ''} and restarted from a checkpoint. ` : ''}The storm was modelled on a real solar flare in NASA's DONKI catalogue (class ${esc(ep.sun.classType)}, ${esc(ep.sun.date)}, ${ep.sun.source === 'live' ? 'read live' : 'archived'}). ${learnButton('donki_live')}</p>
-    <div class="db-actions"><button class="holo-btn small" id="db-wiki">${ICON.doc} NASA WIKI</button><div class="grp"><button class="holo-btn small" id="db-menu">MAIN MENU</button><button class="holo-btn small amber" id="db-replay">REPLAY WITH A DIFFERENT PLAN ▸</button></div></div></div></div></div>`);
+    <div class="share-card"><b>SHARE YOUR MISSION</b><p>${esc(shareText)}</p><div class="share-actions"><a class="holo-btn small" target="_blank" rel="noopener" href="https://wa.me/?text=${shareCopy}" data-share>WhatsApp</a><a class="holo-btn small" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?text=${shareCopy}" data-share>𝕏</a><a class="holo-btn small" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=${shareLink}" data-share>Facebook</a><button class="holo-btn small" id="db-copy">COPY LINK</button></div><div id="share-status" aria-live="polite"></div></div>
+    <div class="db-actions"><button class="holo-btn small" id="db-wiki">${ICON.doc} NASA WIKI</button><div class="grp"><button class="holo-btn small" id="db-menu">MAIN MENU</button><button class="holo-btn small amber" id="db-replay">PLAY AGAIN ▸</button></div></div></div></div></div>`);
   bindLearning(el);
+  const markShared = () => { sessionStorage.setItem('ep1_shared', '1'); const status = $('#share-status', el); if (status) status.textContent = '★ Share bonus earned!'; const goals = el.querySelector('.bonus-grid'); if (goals) goals.innerHTML = bonusRows().match(/<div class="bonus-grid">([\s\S]*)<\/div>$/)?.[1] ?? ''; };
+  el.querySelectorAll('[data-share]').forEach(a => (a as HTMLElement).addEventListener('click', markShared));
+  $('#db-copy', el).onclick = async () => { try { await navigator.clipboard.writeText(shareText); $('#share-status', el).textContent = 'Link copied. ★ Share bonus earned!'; markShared(); } catch { $('#share-status', el).textContent = shareText; } };
   $('#db-wiki', el).onclick = () => { sfx.click(); openWiki(); };
   $('#db-replay', el).onclick = () => { sfx.ok(); UI.close('debrief'); onReplay(); };
   $('#db-menu', el).onclick = () => { sfx.click(); UI.close('debrief'); onMenu(); };
@@ -111,6 +129,7 @@ export function openWiki(section?: string) {
     <div class="row">${WIKI.map(w => `<button class="holo-btn small" data-jump="${w.id}">${esc(w.title.split(':')[0])}</button>`).join('')}</div>
     ${WIKI.map(sec).join('')}</div></div>`);
   el.querySelectorAll('[data-jump]').forEach(b => ((b as HTMLElement).onclick = () => { sfx.click(); $(`#wiki-${(b as HTMLElement).dataset.jump}`, el)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
+  el.querySelectorAll('.wiki a').forEach(a => a.addEventListener('click', () => sessionStorage.setItem('ep1_wiki_read', '1')));
   if (section) $(`#wiki-${section}`, el)?.scrollIntoView();
 }
 
