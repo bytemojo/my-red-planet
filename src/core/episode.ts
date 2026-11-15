@@ -1,7 +1,7 @@
 // Episode 1 "The Storm": rules only (pure, no Phaser/DOM, unit-tested in tests/episode.test.ts).
 // Sol 1 = prep day. Sols 2-4 = locked inside during a radiation storm that coincides with a regional dust storm.
 // Sol 5 = clean up, then results. Every decision and its consequences are written to ep.tree for the debrief.
-import { EP } from './constants';
+import { CREW_LIFE, EP } from './constants';
 import { envForSol } from './env';
 import { hash01 } from './rng';
 import { clamp, addLog } from './util';
@@ -68,6 +68,35 @@ export function objective(s: GameState): { title: string; detail: string } {
     case 'storm': return { title: `SURVIVE THE STORM (SOL ${s.sol - 1} OF 3)`, detail: 'The airlock is sealed. Keep power up, water the plants, feed the crew, and exercise once or twice in the gym.' };
     case 'after': return { title: 'AFTER THE STORM', detail: `${ep.panelsCleaned ? '✓' : '•'} Clean the solar panels (outside, suit on)   ${ep.wateringFixed ? '✓' : '•'} Repair the watering system (farm pump)` };
     default: return { title: 'MISSION COMPLETE', detail: 'See your results.' };
+  }
+}
+
+export interface ObjectiveTask { label: string; done: boolean }
+/** A short, phase-specific checklist for the HUD disclosure. */
+export function objectiveTasks(s: GameState): ObjectiveTask[] {
+  const ep = s.ep!;
+  const crops = s.plots.filter(p => p.crop);
+  const watered = crops.length > 0 && crops.every(p => p.watered);
+  const hungry = !s.flags.quarantine_over && Object.values(s.crew).some(c => c.hunger >= CREW_LIFE.HUNGRY_AT);
+  switch (ep.phase) {
+    case 'call': return [{ label: 'Answer Captain Reyes at the hallway intercom', done: ep.call === 'answered' }];
+    case 'check': return SYSTEMS.map(sys => ({ label: `Check ${SYSTEM_NAME[sys]}`, done: ep.checked.includes(sys) }));
+    case 'prep': return [
+      { label: 'Water the crop beds by hand', done: ep.wateringFixed || watered },
+      { label: 'Feed the crew', done: !hungry },
+      { label: 'Make your panel plan when Reyes calls at 7 PM', done: !!ep.stormCall },
+    ];
+    case 'storm': return [
+      { label: `Stay inside for storm Sol ${Math.min(3, s.sol - 1)} of 3`, done: !s.outside },
+      { label: 'Water the crop beds by hand', done: ep.wateringFixed || watered },
+      { label: 'Feed the crew before they get hungry', done: !hungry },
+      { label: 'Rest at the Control Module to advance the Sol', done: false },
+    ];
+    case 'after': return [
+      { label: 'Put on your EVA suit and clean the solar panels', done: ep.panelsCleaned },
+      { label: 'Repair the watering pump in the farm', done: ep.wateringFixed },
+    ];
+    case 'done': return [{ label: 'Review your mission results', done: true }];
   }
 }
 

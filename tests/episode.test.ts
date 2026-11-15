@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SAVE_VERSION, act, advance, rates, solarGen } from '../src/core/sim';
 import { describePending, poll, resolve } from '../src/core/director';
-import { alertLevel, episodeEnv, objective, SYSTEMS } from '../src/core/episode';
+import { alertLevel, episodeEnv, objective, objectiveTasks, SYSTEMS } from '../src/core/episode';
 import { deserialize, newSession, reloadCheckpoint, serialize, sleep, type Session } from '../src/core/session';
 import { EP } from '../src/core/constants';
 import type { GameState } from '../src/core/types';
@@ -25,6 +25,13 @@ describe('Episode 1 opening', () => {
     expect(s.res.power).toBe(50); expect(s.pending).toBeNull();
     expect(s.plots.every(p => p.crop)).toBe(true);
     expect(objective(s).title).toBe('TALK TO CAPTAIN REYES');
+  });
+  it('shows a phase-specific checklist and marks each checked system complete', () => {
+    const sess = newSession(2, { mode: 'storm' }), s = sess.state;
+    expect(objectiveTasks(s)).toEqual([{ label: 'Answer Captain Reyes at the hallway intercom', done: false }]);
+    act(s, 'answer', { crew: 'reyes' }); story(sess);
+    for (const sys of SYSTEMS.slice(0, 2)) act(s, 'check', { system: sys });
+    expect(objectiveTasks(s).filter(t => t.done).map(t => t.label)).toEqual(['Check air', 'Check water']);
   });
   it('only Captain Reyes answers the call, then the systems check begins', () => {
     const sess = newSession(1, { mode: 'storm' }), s = sess.state;

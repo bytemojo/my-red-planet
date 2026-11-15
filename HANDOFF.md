@@ -1,12 +1,12 @@
 # HANDOFF (update at the end of every session)
 
-Last updated 2026-11-15 by Copilot (Episode UI polish and menu navigation).
+Last updated 2026-11-15 by Codex and Copilot (Episode UI, objectives, meal flow and bonus rewards).
 
 ## START HERE
 Read: `AGENTS.md` (rules) → this file → `docs/CHALLENGE.md` (what the judges want) → `docs/NASA_SOURCES.md` (every real-data point, for judges) → `docs/DESIGN.md`. `docs/PROMPT_PACK.md` is the owner's long Episode 1 brief — reference for wording/intent, not the task order; this file sets the order.
 
-**Setup:** `npm install` · `npm run dev` (port 5173, or `--port 5179`) · `npm run check` (79 tests + type-check + build, all passing now).
-**Git:** branch `visual-pass-a` tracks `origin/visual-pass-a`. Includes the owner's GitHub update (crew portraits, commit `c6a6cb4`) already merged. The user has GitHub access to `bytemojo/my-red-planet`. **Do not** run `vercel`, push unless asked, or open/commit `.env.local` or `.vercel/`.
+**Setup:** `npm install` · `npm run dev` (port 5173, or `--port 5179`) · `npm run check` (tests + type-check + build).
+**Git:** branch `visual-pass-a` tracks `origin/visual-pass-a`. The user has GitHub access to `bytemojo/my-red-planet`; pushing this branch was explicitly requested. Do not commit `.env.local` or `.vercel/`.
 **Always:** `npm run check` must pass before you call anything done. Commit after each task. Update this file honestly.
 
 ## Latest session (2026-11-15): Episode UI polish and menu navigation
@@ -45,7 +45,7 @@ The owner's goal (message 2026-11-14): "one level done well." The challenge auth
 - Wired into: `src/core/director.ts` (ep beats/events + `onResolve`), `src/core/sim.ts` (`newGame({mode:'storm'})`, new actions: `answer check suit panels repair_watering`, `feed`; **SAVE_VERSION = 3**), `src/core/session.ts` (checkpoints: `saveCheckpoint`/`reloadCheckpoint`), `src/ui/panels.ts`, `src/ui/hud.ts`, `src/ui/ui.ts` (timed dialogue + {name}), `src/game/WorldScene.ts` (suit zone, storm lock, `passOut`, debrief), `src/game/world.ts` (suit rack + stowed-panel art), `src/ui/menu.ts`, `src/main.ts`.
 - Data: `src/data/manifest.json` + `src/data/solar-events.json` — the two DONKI flares are now **verified: true** with exact flrIDs and peak times. `docs/NASA_SOURCES.md` is the judge-facing source list.
 
-### Tested (54 unit tests, all pass; type-check + build clean)
+### Tested (75 unit tests, all pass; type-check + build clean)
 `tests/episode.test.ts` (17): opening/call, the Storm Call (timed, stow vs out, Ask Earth delay), **balance** (neither choice dominates; a careful player and a leave-it-out player both survive, with different damage), storm lock, missed-check fault, deterministic alert, suit pass-out + checkpoint reload, after-storm finish + linked tree, scoring, 2 chats/Sol, save v3 migration. Plus the existing crew/art/sim tests.
 
 ## Episode 1 browser verification: COMPLETE (Claude Code, 2026-11-14)
@@ -92,6 +92,12 @@ Play → (asks "Start a new game?" if a save exists) → **creator** → backsto
 4. ~~Judge package~~ **DONE**: `docs/DEMO_SCRIPT.md` (2-minute video, opens on the Storm Call); README points judges to `docs/NASA_SOURCES.md`.
 5. The owner's original visual note also asked for a **kitchen with cooking on an electric heater** and on-screen animations for **watering** and **repairs**. Not built yet; it was not in the D4 question, so ask the owner whether it is still wanted for Level 1.
 6. Not yet checked by a human: touch/joystick play on a real phone or tablet; the sound of the ring/alarm/static (headless runs are silent).
+
+### Codex continuation (2026-11-15)
+- Added a phase-specific checklist to the Episode 1 objective dropdown in `src/core/episode.ts` / `src/ui/hud.ts`: the current action and upcoming tasks are visible for the call, systems check, prep, storm, cleanup, and debrief phases. Completed items show checkmarks. Campaign HUD chips are unchanged.
+- Fixed the objective hint icon sizing in `src/ui/holo.css`; visually checked the opening call phase in browser at 1440×810. Checklist reads “Answer Captain Reyes at the hallway intercom”; hint and intercom callout are visible without layout overflow.
+- Added a unit test for phase-specific checklist state (`tests/episode.test.ts`). Current suite: 75 tests; `npm run check` passed (unit tests, TypeScript, production build).
+- The large optional prompt #2 additions (rec-room games, new storm repair choice, kitchen/cooking loop and meal animations, farm animation/heart unlocks, awards/social share, water-ice ending, and new HUD systems) were not implemented in this short pass. Prioritize a single tightly scoped feature only if more time remains; do not jeopardize the verified Episode 1 submission build.
 
 ## Earlier work still in place (Visual Pass A)
 Generated pixel characters (`src/game/pixelart.ts`, `sprites.ts`), crew quarters with animated crew + morale faces + hunger bubbles + meal hatch (`quarters.ts`, `crewlife.ts`), day/night (`skytint.ts`/`daynight.ts`). The **open campaign** (original 6-stage game) still exists and works; Episode 1 runs alongside it (`state.ep` null = campaign). Screenshots in `docs/playtest/`.
