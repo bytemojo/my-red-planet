@@ -24,5 +24,7 @@ describe('Episode 1 kitchen tray', () => {
     s.res.power = 1;
     expect(act(s, 'cook_serve', { tray: JSON.stringify(['chicken', 'chicken', 'chicken', 'chicken', 'chicken']) }).msg).toMatch(/power/i);
     expect(s.flags.meal_chicken).toBeUndefined();
+    expect(act(s, 'cook_serve', { tray: '{}' }).ok).toBe(false);
+    expect(s.flags.meal_chicken).toBeUndefined();
   });
 });

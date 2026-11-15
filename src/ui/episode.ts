@@ -11,6 +11,19 @@ import type { EpisodeState, GameState, TreeNode } from '../core/types';
 
 // {name} in any line becomes the player's name (Settings > Callsign).
 export const withName = (t: string) => fillName(t, settings.name);
+export function bonusGoals(s: GameState): { label: string; done: boolean }[] {
+  return [
+    { label: 'Keep team morale high', done: teamMorale(s) >= 70 },
+    { label: 'Write a note in your journal', done: !!s.notes?.some(n => n.text.trim()) },
+    { label: 'Read a NASA source', done: sessionStorage.getItem('ep1_wiki_read') === '1' },
+    { label: 'Share the mission with a friend', done: sessionStorage.getItem('ep1_shared') === '1' },
+    { label: 'Keep the plants healthy', done: plantHealth(s) >= 75 },
+  ];
+}
+export function resetBonusProgress(): void {
+  sessionStorage.removeItem('ep1_wiki_read');
+  sessionStorage.removeItem('ep1_shared');
+}
 
 export const BACKSTORY = [
   'The year is 2036. You are part of a NASA mission to explore the Hebrus Valles region on Mars and build the foundation for future human habitation.',
@@ -89,14 +102,7 @@ function renderTree(tree: TreeNode[]): string {
 export function showDebrief(s: GameState, onReplay: () => void, onMenu: () => void): void {
   const ep = s.ep!, r = ep.result!;
   const bonusRows = () => {
-    const checks = [
-      ['Keep team morale high', teamMorale(s) >= 70],
-      ['Write a note in your journal', !!s.notes?.some(n => n.text.trim())],
-      ['Read a NASA source', sessionStorage.getItem('ep1_wiki_read') === '1'],
-      ['Share the mission with a friend', sessionStorage.getItem('ep1_shared') === '1'],
-      ['Keep the plants healthy', plantHealth(s) >= 75],
-    ] as const;
-    return `<div class="bonus-grid">${checks.map(([label, done]) => `<div class="bonus-goal ${done ? 'earned' : ''}"><span>${done ? '★' : '☆'}</span>${esc(label)}</div>`).join('')}</div>`;
+    return `<div class="bonus-grid">${bonusGoals(s).map(({ label, done }) => `<div class="bonus-goal ${done ? 'earned' : ''}"><span>${done ? '★' : '☆'}</span>${esc(label)}</div>`).join('')}</div>`;
   };
   const shareText = 'Play this fun Mars colony game with me at https://myredplanet.vercel.app/';
   const shareLink = encodeURIComponent('https://myredplanet.vercel.app/');
@@ -113,7 +119,7 @@ export function showDebrief(s: GameState, onReplay: () => void, onMenu: () => vo
     <div class="share-card"><b>SHARE YOUR MISSION</b><p>${esc(shareText)}</p><div class="share-actions"><a class="holo-btn small" target="_blank" rel="noopener" href="https://wa.me/?text=${shareCopy}" data-share>WhatsApp</a><a class="holo-btn small" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?text=${shareCopy}" data-share>𝕏</a><a class="holo-btn small" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=${shareLink}" data-share>Facebook</a><button class="holo-btn small" id="db-copy">COPY LINK</button></div><div id="share-status" aria-live="polite"></div></div>
     <div class="db-actions"><button class="holo-btn small" id="db-wiki">${ICON.doc} NASA WIKI</button><div class="grp"><button class="holo-btn small" id="db-menu">MAIN MENU</button><button class="holo-btn small amber" id="db-replay">PLAY AGAIN ▸</button></div></div></div></div></div>`);
   bindLearning(el);
-  const markShared = () => { sessionStorage.setItem('ep1_shared', '1'); const status = $('#share-status', el); if (status) status.textContent = '★ Share bonus earned!'; const goals = el.querySelector('.bonus-grid'); if (goals) goals.innerHTML = bonusRows().match(/<div class="bonus-grid">([\s\S]*)<\/div>$/)?.[1] ?? ''; };
+  const markShared = () => { sessionStorage.setItem('ep1_shared', '1'); const status = $('#share-status', el); if (status) status.textContent = '★ Share bonus earned!'; const goals = el.querySelector('.bonus-grid'); if (goals) goals.outerHTML = bonusRows(); };
   el.querySelectorAll('[data-share]').forEach(a => (a as HTMLElement).addEventListener('click', markShared));
   $('#db-copy', el).onclick = async () => { try { await navigator.clipboard.writeText(shareText); $('#share-status', el).textContent = 'Link copied. ★ Share bonus earned!'; markShared(); } catch { $('#share-status', el).textContent = shareText; } };
   $('#db-wiki', el).onclick = () => { sfx.click(); openWiki(); };

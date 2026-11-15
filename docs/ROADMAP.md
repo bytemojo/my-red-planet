@@ -42,7 +42,7 @@ Legend: [x] done and tested · [~] exists but not fully verified · [ ] not star
 - [x] Character creator (Step 3): name rule, skin, body style, hair wheel, live preview, overwrite confirm (16 browser checks)
 - [x] Gym + health loop, bathroom, science lab (Steps 5/9): east wing, 3 machines, rhythm workout, lab, water recovery (11 browser checks, 8 unit tests)
 - [x] Mars map + journal photos (Step 12): 4 bundled NASA photos, mission diary, notes, MOLA map with Gazetteer pin (13 browser checks, 5 unit tests)
-- [~] Episode objective checklist and bonus-star/share card; meal tray at quarantine hatch (77 tests/build pass; new meal UI still needs a direct in-world playthrough)
+- [~] Episode objective checklist and bonus-star/share card; meal tray at quarantine hatch (77 tests/build pass; mixed meal tray browser-verified, full debrief replay still pending)
 - [~] Touch play on a real device; audio by ear (not testable headless)
 - [-] Cut by owner: Episode 2, 20 crew chats
 

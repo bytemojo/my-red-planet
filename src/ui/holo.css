@@ -537,6 +537,10 @@ kbd{font-family:var(--font-display);font-size:12px;border:1px solid var(--cyan);
 .meal-qty{grid-column:2;display:flex;align-items:center;gap:12px;justify-content:flex-end;margin-top:4px}.meal-qty button{min-width:38px;min-height:36px;border:1px solid rgba(57,217,255,.5);color:var(--cyan);font-size:20px}.meal-qty button:disabled{opacity:.35}.meal-qty span{font:700 15px var(--font-display);min-width:14px;text-align:center}
 .meal-tray{display:grid;gap:3px;padding:8px;margin:8px 0;border-left:3px solid var(--amber);background:rgba(255,210,74,.06)}.meal-tray>b{font:700 11px var(--font-display);letter-spacing:.15em;color:var(--amber)}.meal-tray span{font-size:13px;color:#d6e8f2}.meal-tray small{color:#9dbbd0;font-size:12px}
 .kitchen-panel .holo-btn.primary{width:100%;justify-content:center}.kitchen-panel .panel-body{overflow:auto}
+.kitchen-panel .meal-tray{order:1;position:sticky;top:0;z-index:3;background:rgba(24,26,39,.98);box-shadow:0 6px 16px rgba(0,0,0,.5)}
+.kitchen-panel .kitchen-grid{order:2}
+.kitchen-panel .meal-advice{order:3;margin:0}
+.kitchen-panel .holo-btn.primary{order:4;position:sticky;bottom:0;z-index:3;background:#163b58;box-shadow:0 -6px 16px rgba(0,0,0,.5)}
 @media (max-width:600px){.ep-bar{width:150px;padding:6px}.metrics{grid-template-columns:repeat(2,1fr)}}
 
 /* character creator */

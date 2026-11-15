@@ -198,7 +198,7 @@ export class WorldScene extends Phaser.Scene {
 
   // ----- interaction -----
   doAct() {
-    const z = this.curZone; if (!z || UI.blocking() || this.busy) return; sfx.click();
+    const z = this.curZone; if (!z || UI.blocking() || this.busy || this.acting) return; sfx.click();
     const h = this.host;
     ({ farm: () => openFarm(h), ls: () => openLs(h), comms: () => openComms(h), solar: () => openSolar(h), control: () => openControl(h), sick: () => openCrew(h), hatch: () => this.state().ep ? openKitchen(h) : this.serveMeal(), suit: () => openSuit(h), bands: () => openGym(h, 'bands'), bike: () => openGym(h, 'bike'), rower: () => openGym(h, 'rower'), lab: () => openLab(h), bath: () => openBath(h), rover: () => openRover(h), cave: () => openCave(h) } as Record<string, () => void>)[z]?.();
   }

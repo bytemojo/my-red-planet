@@ -18,7 +18,7 @@ export const mealStock = (s: GameState, id: MealId) => Number(s.flags[`meal_${id
 
 export function cookServe(s: GameState, selection: string[]): { ok: boolean; msg: string } {
   if (!s.ep || s.flags.quarantine_over) return { ok: false, msg: 'The crew is not waiting at the quarantine hatch.' };
-  if (selection.length !== 5) return { ok: false, msg: 'Choose exactly five portions for the crew and you.' };
+  if (!Array.isArray(selection) || selection.length !== 5 || selection.some(id => typeof id !== 'string')) return { ok: false, msg: 'Choose exactly five portions for the crew and you.' };
   const counts = new Map<string, number>();
   for (const id of selection) counts.set(id, (counts.get(id) ?? 0) + 1);
   const meals = [...counts].map(([id, count]) => ({ meal: SPACE_MEALS.find(m => m.id === id), count }));

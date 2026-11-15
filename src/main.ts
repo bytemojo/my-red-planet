@@ -6,7 +6,7 @@ import { music, settings, sfx } from './ui/audio';
 import { loadFromStorage, newSession, saveToStorage, type Session } from './core/session';
 import { openControl } from './ui/panels';
 import { runPending } from './ui/ui';
-import { chosenSun, showOpeningCard } from './ui/episode';
+import { chosenSun, resetBonusProgress, showOpeningCard } from './ui/episode';
 import { confirmOverwrite, showCreator } from './ui/creator';
 import { openJournal } from './ui/journal';
 
@@ -27,7 +27,7 @@ function start(sess: Session) {
   });
   game.registry.set('sess', sess);
   if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game; // dev-only hook for automated playtests
-  const hook = (sc: WorldScene) => { scene = sc; sc.onMenu = toMenu; sc.onReplay = () => { const sun = sc.sess.state.ep?.sun; start(newSession(Math.floor(Math.random() * 99999) + 1, { mode: 'storm', sun })); toast('<b>New run.</b> Same storm, your choices can change.', { kind: 'good', ms: 4000 }); }; };
+  const hook = (sc: WorldScene) => { scene = sc; sc.onMenu = toMenu; sc.onReplay = () => { const sun = sc.sess.state.ep?.sun; resetBonusProgress(); start(newSession(Math.floor(Math.random() * 99999) + 1, { mode: 'storm', sun })); toast('<b>New run.</b> Same storm, your choices can change.', { kind: 'good', ms: 4000 }); }; };
   game.events.once('ready', () => hook(game!.scene.getScene('World') as unknown as WorldScene));
   const wait = setInterval(() => { const sc = game?.scene.getScene('World') as unknown as WorldScene | undefined; if (sc) { hook(sc); clearInterval(wait); } }, 50);
 }
@@ -42,8 +42,9 @@ initMenu({
     if (loadFromStorage() && !(await confirmOverwrite())) return;
     await showCreator();
     try { localStorage.removeItem('mrp.save.v1'); } catch { /* ignore */ }
-    start(newSession(Math.floor(Math.random() * 99999) + 1, { mode: 'storm', sun: chosenSun() })); void showOpeningCard();
+    resetBonusProgress(); start(newSession(Math.floor(Math.random() * 99999) + 1, { mode: 'storm', sun: chosenSun() })); void showOpeningCard();
   })(); },
+
   cont: () => { const s = loadFromStorage(); start(s ?? newSession(1)); },
   hasSave: () => !!loadFromStorage(),
 });
