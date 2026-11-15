@@ -10,12 +10,21 @@ import { refreshEpHud, ringUpdate } from './episode';
 export const arrows = (r: number) => { const a = Math.abs(r); if (a < 0.05) return { t: '▬', c: 'flat' }; const n = a > 1.2 ? 3 : a > 0.5 ? 2 : 1; return { t: (r > 0 ? '▲' : '▼').repeat(n), c: r > 0 ? 'up' : 'down' }; };
 const METERS = ['o2', 'food', 'water', 'power'] as const;
 const NAMES: Record<string, string> = { o2: 'Air', food: 'Food', water: 'Water', power: 'Power' };
+const RADAR_BOUNDS = { minX: 4, maxX: 41, minY: 2, maxY: 27 };
 
 export function initHud() {
   document.querySelectorAll('[data-ic]').forEach(e => { (e as HTMLElement).innerHTML = ICON[(e as HTMLElement).dataset.ic!] ?? ''; });
   document.querySelectorAll('.meter').forEach(el => {
     const k = (el as HTMLElement).dataset.m!;
     el.innerHTML = `<div class="m-top"><span class="m-ico">${ICON[k]}</span><span class="m-val">0</span></div><div class="bar"><i></i></div><div class="m-rate"></div>`;
+  });
+}
+export function updateRadar(x: number, y: number, objective: string | null) {
+  const player = $('#radar-player');
+  player.style.left = `${clamp((x - RADAR_BOUNDS.minX) / (RADAR_BOUNDS.maxX - RADAR_BOUNDS.minX), 0, 1) * 100}%`;
+  player.style.top = `${clamp((y - RADAR_BOUNDS.minY) / (RADAR_BOUNDS.maxY - RADAR_BOUNDS.minY), 0, 1) * 100}%`;
+  document.querySelectorAll('#radar .radar-poi').forEach(poi => {
+    (poi as HTMLElement).classList.toggle('objective', (poi as HTMLElement).dataset.location === objective);
   });
 }
 const setBar = (el: Element, v: number, cls: string) => { el.classList.remove('warn', 'crit'); if (cls) el.classList.add(cls); (el.querySelector('.bar i') as HTMLElement).style.width = clamp(v, 0, 100) + '%'; };

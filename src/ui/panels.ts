@@ -156,7 +156,7 @@ export function openCave(host: Host) {
 
 // ---------- Crew (sick bay intercom / quarters) ----------
 export function openCrew(host: Host) {
-  let chat: CrewId | null = null, answer: 0 | 1 | null = null;
+  let chat: CrewId | null = null;
   panel('inspect', host, () => {
     const s = host.state(), over = !!s.flags.quarantine_over;
     if (s.ep && s.ep.call === 'ringing' && s.ep.phase === 'call') {
@@ -164,20 +164,22 @@ export function openCrew(host: Host) {
       return `<div class="holo-panel">${head('crew', 'Incoming call')}<div class="panel-body"><p class="why">The intercom is ringing. Who is calling?</p>${rows}</div></div>`;
     }
     if (chat) {
-      const chatId = chat as CrewId, c = CREW[chatId], hearts = Array.from({ length: 5 }, (_, i) => `<span class="${i < Math.min(5, s.crew[chatId].friendship) ? '' : 'off'}">♥</span>`).join('');
-      const messages = answer === null
+      const chatId = chat, c = CREW[chatId], saved = s.crewChats[chatId], hearts = Array.from({ length: 5 }, (_, i) => `<span class="${i < Math.min(5, s.crew[chatId].friendship) ? '' : 'off'}">♥</span>`).join('');
+      const messages = !saved
         ? `<div class="chat-bubble them"><b>${esc(c.name)}</b><p>${esc(c.chat.prompt)}</p></div>`
-        : `<div class="chat-bubble them"><b>${esc(c.name)}</b><p>${esc(c.chat.prompt)}</p></div><div class="chat-bubble me"><p>${esc(c.chat.choices[answer])}</p></div><div class="chat-bubble them"><b>${esc(c.name)}</b><p>${esc(c.chat.replies[answer])}</p>${c.chat.fact ? `<div class="chat-fact">${esc(c.chat.fact)} ${c.chat.learnId ? learnButton(c.chat.learnId) : ''}</div>` : ''}</div>`;
-      const choices = answer === null ? `<div class="chat-choices"><button class="holo-btn" data-do="reply|0">${esc(c.chat.choices[0])}</button><button class="holo-btn" data-do="reply|1">${esc(c.chat.choices[1])}</button></div>` : `<button class="holo-btn amber" data-do="back">BACK TO INTERCOM</button>`;
+        : `<div class="chat-saved">SAVED CONVERSATION · SOL ${saved.sol}</div><div class="chat-bubble them"><b>${esc(c.name)}</b><p>${esc(c.chat.prompt)}</p></div><div class="chat-bubble me"><p>${esc(c.chat.choices[saved.choice])}</p></div><div class="chat-bubble them"><b>${esc(c.name)}</b><p>${esc(c.chat.replies[saved.choice])}</p>${c.chat.fact ? `<div class="chat-fact">${esc(c.chat.fact)} ${c.chat.learnId ? learnButton(c.chat.learnId) : ''}</div>` : ''}</div>`;
+      const choices = !saved
+        ? `<div class="chat-choices"><button class="holo-btn" data-do="reply|0">${esc(c.chat.choices[0])}</button><button class="holo-btn" data-do="reply|1">${esc(c.chat.choices[1])}</button></div>`
+        : `<button class="holo-btn amber" data-do="back">BACK TO INTERCOM</button>`;
       return `<div class="holo-panel chat-panel">${head('crew', c.name)}<div class="panel-body"><div class="chat-profile">${crewPortrait(chatId)}<span><b>${esc(c.role)}</b><div class="hearts">${hearts}</div></span></div><div class="chat-thread">${messages}</div>${choices}</div></div>`;
     }
     const rows = (Object.keys(CREW) as CrewId[]).map(id => {
       const c = s.crew[id], hearts = Array.from({ length: 5 }, (_, i) => `<span class="${i < Math.min(5, c.friendship) ? '' : 'off'}">♥</span>`).join('');
-      return `<div class="crewrow">${crewPortrait(id)}<span><div class="nm">${esc(CREW[id].name)}</div><div class="why">${esc(CREW[id].role)}. ${esc(CREW[id].blurb)}</div><div class="hearts">${hearts}</div><div class="row">${moodChip(s, id)}</div></span><button class="holo-btn small" data-do="talk|${id}">Message</button></div>`;
+      return `<div class="crewrow">${crewPortrait(id)}<span><div class="nm">${esc(CREW[id].name)}</div><div class="why">${esc(CREW[id].role)}. ${esc(CREW[id].blurb)}</div><div class="hearts">${hearts}</div><div class="row">${moodChip(s, id)}</div></span><button class="holo-btn small" data-do="talk|${id}">${s.crewChats[id] ? 'Read chat' : 'Message'}</button></div>`;
     }).join('');
     const left = s.ep ? ` Chats left today: <b>${Math.max(0, EP.CHATS_PER_SOL - Number(s.flags.tmp_chats || 0))}</b> of ${EP.CHATS_PER_SOL} (the crew needs rest).` : '';
     return `<div class="holo-panel">${head('crew', over ? 'Crew Quarters' : 'Sick Bay Intercom')}<div class="panel-body"><p class="why">${over ? 'The crew is well again.' : 'Everyone is quarantined. Use the wall intercom to send a message.'} A chat costs ${ACTION_ENERGY.talk} energy and cheers people up. Hungry crew need a meal from the hatch.${left}</p>${rows}</div></div>`;
-  }, c => { if (c[0] === 'talk') { chat = c[1] as CrewId; answer = null; } else if (c[0] === 'reply' && chat) { answer = Number(c[1]) as 0 | 1; host.run('talk', { crew: chat }); } else if (c[0] === 'back') { chat = null; answer = null; } else if (c[0] === 'answer') { UI.close('inspect'); host.run('answer', { crew: c[1] }); } });
+  }, c => { if (c[0] === 'talk') { chat = c[1] as CrewId; } else if (c[0] === 'reply' && chat) { host.run('talk', { crew: chat, choice: c[1] }); } else if (c[0] === 'back') { chat = null; } else if (c[0] === 'answer') { UI.close('inspect'); host.run('answer', { crew: c[1] }); } });
 }
 
 // ---------- Gym (Episode 1, pack Steps 5/9) ----------

@@ -54,15 +54,19 @@ export function bindLearning(root: ParentNode = document) { root.querySelectorAl
 
 // ---------- dialogue with portrait (beats and events) ----------
 const NAMES: Record<string, string> = { reyes: 'CAPT. REYES', aiko: 'AIKO TANAKA', david: 'DAVID OKAFOR', sofia: 'DR. SILVA', system: 'MISSION CONTROL' };
+const QUARANTINE_CUTOUTS: Partial<Record<CrewId, string>> = { reyes: '/crew/reyes-sick.gif', sofia: '/crew/sofia-sick.png' };
 export const speakerName = (id: string) => NAMES[id] ?? id.toUpperCase();
 export const crewPortrait = (id: CrewId, className = 'crew-avatar') =>
   `<img class="${className}" src="/crew/${id}.png" alt="${esc(CREW[id].name)}">`;
 
-export function runPending(v: PendingView): Promise<string> {
+export function runPending(v: PendingView, quarantineOver = false): Promise<string> {
   return new Promise(resolve => {
     const portraitId = Object.prototype.hasOwnProperty.call(CREW, v.speaker) ? v.speaker as CrewId : null;
     const place = v.speaker === 'reyes' ? 'QUARANTINE BAY' : v.speaker === 'system' ? '' : 'SICK BAY';
-    const portrait = portraitId ? `<img class="dlg-cutout" src="/crew/${portraitId}.png" alt="">` : '';
+    const sickPortrait = portraitId && !quarantineOver ? QUARANTINE_CUTOUTS[portraitId] : undefined;
+    const portraitSrc = portraitId ? sickPortrait ?? `/crew/${portraitId}.png` : '';
+    const portraitClass = portraitId === 'sofia' ? 'dlg-cutout dlg-cutout-sofia' : 'dlg-cutout';
+    const portrait = portraitId ? `<img class="${portraitClass}" src="${portraitSrc}" alt="">` : '';
     const boxClass = portraitId ? 'dlg-box dlg-box-character' : 'holo-panel dlg-box dlg-box-system';
     const el = overlay('dlg', `<div class="dlg-stage ${portraitId ? 'with-portrait' : ''}">${portrait}
       <div class="${boxClass}"><div class="dlg-main"><div class="dlg-name" id="dlg-name"></div><div class="dlg-text" id="dlg-text" aria-live="polite"></div><div class="dlg-actions" id="dlg-actions"></div></div></div></div>`, 'dialogue-overlay');

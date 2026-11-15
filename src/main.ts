@@ -45,13 +45,6 @@ initMenu({
     try { localStorage.removeItem('mrp.save.v1'); } catch { /* ignore */ }
     start(newSession(Math.floor(Math.random() * 99999) + 1, { mode: 'storm', sun: chosenSun() })); void showOpeningCard();
   })(); },
-  // For judges and testers: systems already checked, clock at 6:36 PM on Sol 1, the Storm Call arrives at 7 PM. Uses the last look made in the creator.
-  quick: () => { void (async () => {
-    if (loadFromStorage() && !(await confirmOverwrite())) return;
-    try { localStorage.removeItem('mrp.save.v1'); } catch { /* ignore */ }
-    start(newSession(Math.floor(Math.random() * 99999) + 1, { mode: 'storm', sun: chosenSun(), quick: true }));
-    toast('<b>Quick start.</b> Systems checked. The storm arrives at 7 PM: walk around and wait for the call.', { kind: 'good', ms: 6000 });
-  })(); },
   cont: () => { const s = loadFromStorage(); start(s ?? newSession(1)); },
   hasSave: () => !!loadFromStorage(),
 });

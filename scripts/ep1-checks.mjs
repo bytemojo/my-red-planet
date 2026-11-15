@@ -1,4 +1,4 @@
-// Episode 1 targeted browser checks (17). Needs: npm i --no-save playwright-core, Chrome, and the dev server on port 5179.
+// Episode 1 targeted browser checks (18). Needs: npm i --no-save playwright-core, Chrome, and the dev server on port 5179.
 // Usage: node scripts/ep1-checks.mjs <outdir>
 import { chromium } from 'playwright-core';
 const out = process.argv[2], URL = 'http://localhost:5179/';
@@ -17,6 +17,18 @@ async function newPage(block = false) {
 }
 const sc = (page, fn, arg) => page.evaluate(([f, a]) => { const s = window.__game.scene.getScene('World'); return new Function('sc', 'st', 'a', f)(s, s.sess.state, a); }, [fn, arg]);
 const tp = (page, x, y) => sc(page, `const pl = sc.children.list.find(c => c.texture && c.texture.key === 'player'); pl.x = a[0]*32; pl.y = a[1]*32; sc.moveTarget = null;`, [x, y]);
+async function startQuick(page) {
+  await page.click('[data-act="play"]'); await page.waitForTimeout(800);
+  if (await page.$('#cr-in')) { await page.fill('#cr-in', 'Ada'); await page.click('#cr-go'); await page.waitForTimeout(700); }
+  await page.waitForSelector('#op-go', { timeout: 10000 }); await page.click('#op-go');
+  await page.waitForFunction(() => window.__game?.scene.getScene('World')?.sess?.state?.ep);
+  await page.evaluate(async () => {
+    const scene = window.__game.scene.getScene('World');
+    const { newSession } = await import('/src/core/session.ts');
+    scene.loadSession(newSession(771, { mode: 'storm', sun: scene.sess.state.ep.sun, quick: true }));
+  });
+  await page.waitForTimeout(500);
+}
 
 // 1. Live DONKI on the menu
 {
@@ -24,6 +36,7 @@ const tp = (page, x, y) => sc(page, `const pl = sc.children.list.find(c => c.tex
   await page.waitForFunction(() => !document.querySelector('#sun-card')?.textContent.includes('Checking'), null, { timeout: 15000 }).catch(() => {});
   const txt = (await page.textContent('#sun-card')) || '';
   ok('Menu shows LIVE DONKI data when online', /LIVE/.test(txt) && /class [ABCMX]/.test(txt), txt.replace(/\s+/g, ' ').slice(0, 140));
+  ok('Quick Start button is removed from the menu', await page.$('#btn-quick') === null);
   await page.screenshot({ path: `${out}/c1-menu-live.png` });
   // wiki from Help
   await page.click('[data-act="help"]'); await page.waitForTimeout(300); await page.click('#help-wiki'); await page.waitForTimeout(500);
@@ -46,23 +59,22 @@ const tp = (page, x, y) => sc(page, `const pl = sc.children.list.find(c => c.tex
   const txt = (await page.textContent('#sun-card')) || '';
   ok('Menu falls back to ARCHIVED when DONKI is unreachable', /ARCHIVED/.test(txt) && !/LIVE/.test(txt), txt.replace(/\s+/g, ' ').slice(0, 140));
   await page.screenshot({ path: `${out}/c3-menu-offline.png` });
-  // quick start offline uses the archived flare
-  await page.click('[data-act="quick"]'); await page.waitForTimeout(1500);
+  // Internal test fixture uses the archived flare without exposing Quick Start in the menu.
+  await startQuick(page);
   const sun = await sc(page, `return st.ep.sun`);
   ok('Offline storm uses the archived X9.0 flare', sun.source === 'archived' && sun.classType === 'X9.0', JSON.stringify(sun));
   await ctx.close();
 }
 
-// 3. Quick start + Ask Earth arrives too late
+// 3. Storm fixture + Ask Earth arrives too late
 {
   const { ctx, page, errs } = await newPage();
-  await page.waitForTimeout(1500);
-  await page.click('[data-act="quick"]'); await page.waitForTimeout(1500);
+  await startQuick(page);
   const st0 = await sc(page, `return { phase: st.ep.phase, checked: st.ep.checked.length, hour: st.hour, call: st.ep.call }`);
-  ok('Quick Start: systems pre-checked, just before the storm', st0.phase === 'prep' && st0.checked === 5 && st0.call === 'answered' && st0.hour > 18, JSON.stringify(st0));
+  ok('Storm test fixture starts with systems checked before the storm', st0.phase === 'prep' && st0.checked === 5 && st0.call === 'answered' && st0.hour > 18, JSON.stringify(st0));
   await page.screenshot({ path: `${out}/c4-quick.png` });
   await page.waitForSelector('#dlg [data-choice="ask"]', { timeout: 20000 });
-  ok('Storm Call appears on its own in Quick Start', true);
+  ok('Storm Call appears on its own in the test fixture', true);
   await page.click('#dlg [data-choice="ask"]'); await page.waitForTimeout(400);
   const sent = await page.$('#dlg .sent');
   ok('Ask Earth shows "message sent" and the card stays open', !!sent && !!(await page.$('#dlg')));
@@ -83,7 +95,7 @@ const tp = (page, x, y) => sc(page, `const pl = sc.children.list.find(c => c.tex
   }
   const st2 = await sc(page, `return { sol: st.sol, phase: st.ep.phase, reply: st.seenBeats.includes('earth_reply'), order: st.seenBeats.slice(-3) }`);
   ok('Earth\'s reply arrives on Sol 2, after the storm has begun (too late to change the call)', st2.sol === 2 && st2.reply && st2.order.indexOf('storm_begins') < st2.order.indexOf('earth_reply'), JSON.stringify(st2));
-  ok('No console errors (quick start)', errs.length === 0, errs.join(' | '));
+  ok('No console errors (storm fixture)', errs.length === 0, errs.join(' | '));
   await ctx.close();
 }
 

@@ -1,10 +1,10 @@
 # 2-minute demo video: My Little Red Planet
 
-For the team recording the NASA Space Apps submission video. Record the browser at 1280×800, sound on. Use **Quick start** for the storm and a normal game for the creator. Times are targets; the spoken lines are suggestions, keep them short and plain.
+For the team recording the NASA Space Apps submission video. Record the browser at 1280×800, sound on. Start a normal game and advance to the Storm Call before recording the timed sequence. Times are targets; the spoken lines are suggestions, keep them short and plain.
 
 | Time | Show on screen | Say |
 |---|---|---|
-| 0:00–0:12 | Quick start → the **Storm Call** card appears: countdown bar, three choices, REAL DATA tag. | "A dust storm is about to bury your solar panels, and you have 12 seconds. Stow them and lose power tonight, or leave them out and risk losing a lot more." |
+| 0:00–0:12 | The **Storm Call** card appears: countdown bar, three choices, REAL DATA tag. | "A dust storm is about to bury your solar panels, and you have 12 seconds. Stow them and lose power tonight, or leave them out and risk losing a lot more." |
 | 0:12–0:22 | Press **Ask Earth**. "Message sent… 3 to 22 minutes each way." Let the timer run out. | "You can ask Earth, but a radio message takes up to 22 minutes each way. By the time the answer comes, the storm has hit." |
 | 0:22–0:35 | Sleep to Sol 2: morning report ("Dust buried the panels overnight"), then Reyes: "Earth's answer finally came in." | "Every choice has a consequence you can see. Out here, kids learn that crews have to decide for themselves." |
 | 0:35–0:50 | Sofia's **radiation peak** card: water walls (cost water and power) / storage corner (morale) / hope. Point at the three meters and the SPACE WEATHER chip. | "The storm is modelled on a real X9.0 solar flare from NASA's DONKI database. Water makes a good radiation shield, but it is also your drinking water. No choice is free." |

@@ -37,7 +37,6 @@
       <nav class="menu-list" aria-label="Main menu">
         <button class="holo-btn primary" data-act="continue" id="btn-continue" hidden><svg viewBox="0 0 20 20"><path d="M5 3l12 7-12 7z" fill="currentColor"/></svg>Continue</button>
         <button class="holo-btn primary" data-act="play" id="btn-play"><svg viewBox="0 0 20 20"><path d="M5 3l12 7-12 7z" fill="currentColor"/></svg>Episode 1: The Storm</button>
-        <button class="holo-btn" data-act="quick" id="btn-quick"><svg viewBox="0 0 20 20"><path d="M3 3l7 7-7 7zM10 3l7 7-7 7z" fill="currentColor"/></svg>Quick start: jump to the storm</button>
         <button class="holo-btn" data-act="awards"><svg viewBox="0 0 20 20"><path d="M10 2l2.4 5 5.4.7-4 3.7 1 5.4L10 14.2 5.2 16.8l1-5.4-4-3.7 5.4-.7z" fill="currentColor"/></svg>Your awards</button>
         <button class="holo-btn" data-act="board"><svg viewBox="0 0 20 20"><path d="M3 17V9h4v8zm5 0V3h4v14zm5 0v-6h4v6z" fill="currentColor"/></svg>Leaderboard</button>
         <button class="holo-btn" data-act="help"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7.6 8a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2.9-1.2 1.8M10 14.2v1.6" fill="none" stroke="currentColor" stroke-width="2"/></svg>Help</button>
@@ -79,6 +78,26 @@
     </header>
     <div id="stage">
       <div id="phaser"></div>
+      <div id="radar" class="radar" role="img" aria-label="Station radar. Cyan dot is your location; amber shows your current objective." title="Station radar · cyan: you · amber: current objective">
+        <div class="radar-map" aria-hidden="true">
+          <span class="radar-poi" data-location="sick" style="left:12.2%;top:38.8%" title="Intercom"></span>
+          <span class="radar-poi" data-location="farm" style="left:14.9%;top:14.4%" title="Greenhouse"></span>
+          <span class="radar-poi" data-location="hatch" style="left:20.3%;top:38.8%" title="Meal hatch"></span>
+          <span class="radar-poi" data-location="control" style="left:32.4%;top:10%" title="Control Module"></span>
+          <span class="radar-poi" data-location="ls" style="left:50%;top:16%" title="Life support"></span>
+          <span class="radar-poi" data-location="comms" style="left:50%;top:50.4%" title="Comms console"></span>
+          <span class="radar-poi" data-location="bands" style="left:73%;top:13.2%" title="Resistance bands"></span>
+          <span class="radar-poi" data-location="bike" style="left:80.8%;top:15.6%" title="Cycle ergometer"></span>
+          <span class="radar-poi" data-location="rower" style="left:89.2%;top:15.6%" title="Rowing machine"></span>
+          <span class="radar-poi" data-location="lab" style="left:75.7%;top:51.2%" title="Science lab"></span>
+          <span class="radar-poi" data-location="bath" style="left:90.5%;top:51.2%" title="Bathroom"></span>
+          <span class="radar-poi" data-location="solar" style="left:40.5%;top:90.4%" title="Solar farm"></span>
+          <span class="radar-poi" data-location="rover" style="left:82.4%;top:84%" title="Rover bay"></span>
+          <span class="radar-poi" data-location="cave" style="left:94.6%;top:94%" title="Candidate cave"></span>
+          <span class="radar-player" id="radar-player"></span>
+        </div>
+        <div class="radar-legend"><span><i class="you"></i>YOU</span><span><i class="goal"></i>OBJECTIVE</span></div>
+      </div>
       <div id="joy-base"></div><div id="joy-knob"></div>
       <div id="touch-hint" hidden>Tap to walk · tap a station to use it</div>
       <button id="act" hidden></button>

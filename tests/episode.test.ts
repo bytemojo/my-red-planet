@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { act, advance, rates, solarGen } from '../src/core/sim';
+import { SAVE_VERSION, act, advance, rates, solarGen } from '../src/core/sim';
 import { describePending, poll, resolve } from '../src/core/director';
 import { alertLevel, episodeEnv, objective, SYSTEMS } from '../src/core/episode';
 import { deserialize, newSession, reloadCheckpoint, serialize, sleep, type Session } from '../src/core/session';
@@ -148,12 +148,12 @@ describe('After the storm and results', () => {
   });
 });
 
-describe('save v3', () => {
-  it('migrates a v2 save to v3 without an episode', () => {
+describe('save migration', () => {
+  it('migrates a v2 save to the current version without an episode', () => {
     const raw = JSON.parse(serialize(newSession(2)));
-    raw.state.version = 2; delete raw.state.ep; delete raw.state.suitOn; delete raw.state.health;
+    raw.state.version = 2; delete raw.state.ep; delete raw.state.suitOn; delete raw.state.health; delete raw.state.crewChats;
     const back = deserialize(JSON.stringify(raw))!;
-    expect(back.state.version).toBe(3); expect(back.state.ep).toBeNull(); expect(back.state.health).toBe(100);
+    expect(back.state.version).toBe(SAVE_VERSION); expect(back.state.ep).toBeNull(); expect(back.state.health).toBe(100); expect(back.state.crewChats).toEqual({});
   });
 });
 

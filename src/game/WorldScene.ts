@@ -13,7 +13,7 @@ import { CREW_IDS } from '../core/crewlife';
 import { CREW_LIFE } from '../core/constants';
 import type { Dir } from './pixelart';
 import { clamp, $, UI, flashMeter, head, optCard, overlay, runPending, showReport, showSimple, showStageResult, stageScore, toast, journalHtml, esc, chip } from '../ui/ui';
-import { refreshHud, initHud } from '../ui/hud';
+import { refreshHud, initHud, updateRadar } from '../ui/hud';
 import { openBath, openCave, openComms, openControl, openCrew, openFarm, openGym, openLab, openLs, openRover, openSolar, openSuit, type Host } from '../ui/panels';
 import { playWorkout } from '../ui/gym';
 import type { Machine } from '../core/gym';
@@ -69,7 +69,7 @@ export class WorldScene extends Phaser.Scene {
     this.sess = sess; const s = sess.state;
     this.lastStage = s.stage; this.finalShown = s.ep ? s.ep.phase === 'done' : s.campaignComplete;
     UI.stack.slice().forEach(id => { if (id !== 'opening') UI.close(id); }); $('#toasts').innerHTML = ''; // keep the backstory card if it is already up
-    this.resetPlayer(false); world.sync(); refreshHud(s);
+    this.resetPlayer(false); world.sync(); refreshHud(s); updateRadar(world.player.x / T, world.player.y / T, this.guide(s));
     this.cameras.main.centerOn(world.player.x, world.player.y);
     this.time.delayedCall(250, () => void this.afterAction(true));
   }
@@ -91,7 +91,7 @@ export class WorldScene extends Phaser.Scene {
   };
 
   lastDust = -1;
-  refresh() { world.sync(); const pd = this.state().panelDust; if (pd !== this.lastDust) { this.lastDust = pd; world.dust(); } refreshHud(this.state()); }
+  refresh() { world.sync(); const s = this.state(), pd = s.panelDust; if (pd !== this.lastDust) { this.lastDust = pd; world.dust(); } refreshHud(s); updateRadar(world.player.x / T, world.player.y / T, this.guide(s)); }
 
   async run(name: ActionName, arg?: Record<string, string>) {
     const s = this.state(), before = { ...s.res }, e0 = s.energy;
@@ -121,7 +121,7 @@ export class WorldScene extends Phaser.Scene {
       let guard = 0;
       while (s.pending && guard++ < 6) {
         const v = describePending(s); if (!v) break;
-        const choice = await runPending(v);
+        const choice = await runPending(v, !!s.flags.quarantine_over);
         resolve(s, choice); poll(s); this.refresh();
         if (s.ep) saveCheckpoint(this.sess);
       }
@@ -130,7 +130,7 @@ export class WorldScene extends Phaser.Scene {
         if (s.stage > this.lastStage) { const fin = this.lastStage; this.lastStage++; recordRun(stageScore(s).score, s.sol); await showStageResult(s, fin); }
         else if (s.campaignComplete && !this.finalShown) { this.finalShown = true; recordRun(stageScore(s).score, s.sol); await showStageResult(s, s.stage); }
         else break;
-        poll(s); while (s.pending) { const v = describePending(s); if (!v) break; resolve(s, await runPending(v)); poll(s); }
+        poll(s); while (s.pending) { const v = describePending(s); if (!v) break; resolve(s, await runPending(v, !!s.flags.quarantine_over)); poll(s); }
       }
       for (const n of updateAwards(s)) toast(`★ New award: <b>${esc(n)}</b>`, { kind: 'good', ms: 4500 });
     } finally { this.busy = wasBusy; this.refresh(); }
@@ -165,7 +165,7 @@ export class WorldScene extends Phaser.Scene {
   async passOut(kind: string) {
     const s = this.state(); if (this.busy) return; this.busy = true; delete s.flags.tmp_passout; sfx.warn();
     const why = kind === 'suit' ? 'You forgot your suit! Mars air is far too thin to breathe.' : kind === 'health' ? 'The radiation got to you. When the space weather alert is HIGH, run inside!' : 'Your suit ran out of air.';
-    const el = overlay('fail', `<div class="holo-panel">${head('suit', 'You passed out', false)}<div class="panel-body"><div class="failico">!</div><p class="line">${why}</p><p class="why">Captain Reyes talked you through getting back inside. You restart from your last checkpoint. Nobody dies on this crew.${kind === 'suit' ? ' Tip: the suit rack is in the hallway, right before the airlock.' : ''}</p><div class="row" style="justify-content:flex-end"><button class="holo-btn small amber" id="po-go">BACK TO THE CHECKPOINT ▸</button></div></div></div>`);
+    const el = overlay('fail', `<div class="holo-panel">${head('suit', 'You passed out', false)}<div class="panel-body"><div class="failico">!</div><p class="line">${why}</p><p class="why">You restart from your last checkpoint.${kind === 'suit' ? ' Tip: the suit rack is in the hallway, right before the airlock.' : ''}</p><div class="row" style="justify-content:flex-end"><button class="holo-btn small amber" id="po-go">BACK TO THE CHECKPOINT ▸</button></div></div></div>`);
     await new Promise<void>(res => { $('#po-go', el).onclick = () => { sfx.click(); UI.close('fail'); res(); }; });
     reloadCheckpoint(this.sess); this.resetPlayer(false); this.busy = false; this.refresh(); saveToStorage(this.sess);
     await this.afterAction(true);
@@ -297,7 +297,7 @@ export class WorldScene extends Phaser.Scene {
     const a = world.arrow; a.clear(); const g = this.guide(s);
     if (g && !blocking) { let [mx, my] = MARKERS[g]; const needOut = !ZONES[g].inside; if (needOut === ins) { mx = 16; my = 17; } const bob = Math.sin(t / 220) * 5;
       a.fillStyle(0xffb340, 1); a.fillTriangle(mx * T - 9, my * T - 34 + bob, mx * T + 9, my * T - 34 + bob, mx * T, my * T - 18 + bob); a.lineStyle(2, 0xffb340, 0.7); const rr = 14 + ((t / 40) % 20); a.strokeCircle(mx * T, my * T, rr); a.lineStyle(2, 0xffb340, 0.25); a.strokeCircle(mx * T, my * T, rr + 8); }
-    this.hudT += dt; if (this.hudT > 0.2) { this.hudT = 0; refreshHud(s); }
+    this.hudT += dt; if (this.hudT > 0.2) { this.hudT = 0; refreshHud(s); updateRadar(p.x / T, p.y / T, g); }
     // Radiation alarm: outside while the space weather alert is HIGH or STORM (the HUD chip also flashes RUN INSIDE!).
     if (s.ep && s.outside && !blocking && ['high', 'storm'].includes(alertFor(s))) { this.alarmT -= dt; if (this.alarmT <= 0) { this.alarmT = 2.5; sfx.alarm(); } } else this.alarmT = 0;
   }

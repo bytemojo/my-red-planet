@@ -39,6 +39,20 @@ describe('crew morale', () => {
     expect(teamMorale(talky)).toBeGreaterThan(teamMorale(quiet));
     expect(mood(quiet.crew.reyes)).toBe('sad');
   });
+  it('saves each chosen intercom reply and keeps it after leaving and loading the chat', () => {
+    const sess = newSession(9); dismissAll(sess.state);
+    act(sess.state, 'talk', { crew: 'david', choice: '1' });
+    act(sess.state, 'talk', { crew: 'sofia', choice: '0' });
+    const loaded = deserialize(serialize(sess))!;
+    expect(loaded.state.crewChats.david).toEqual({ sol: 1, choice: 1 });
+    expect(loaded.state.crewChats.sofia).toEqual({ sol: 1, choice: 0 });
+  });
+  it('rejects invalid reply choices without spending energy', () => {
+    const s = fresh(), energy = s.energy;
+    expect(act(s, 'talk', { crew: 'david', choice: '2' }).ok).toBe(false);
+    expect(s.energy).toBe(energy);
+    expect(s.crewChats.david).toBeUndefined();
+  });
 });
 
 describe('crew hunger and the meal hatch', () => {
@@ -96,12 +110,13 @@ describe('save migration', () => {
   it('upgrades a v1 save (and its rewind snapshots) instead of discarding it', () => {
     const sess = newSession(4); sleep(sess); dismissAll(sess.state);
     const old = JSON.parse(serialize(sess));
-    const strip = (st: GameState) => { st.version = 1; for (const id of CREW_IDS) st.crew[id] = { friendship: 2, met: true } as never; return st; };
+    const strip = (st: GameState) => { st.version = 1; delete (st as Partial<GameState>).crewChats; for (const id of CREW_IDS) st.crew[id] = { friendship: 2, met: true } as never; return st; };
     strip(old.state);
     for (const k of Object.keys(old.snapshots)) old.snapshots[k] = JSON.stringify(strip(JSON.parse(old.snapshots[k])));
     const back = deserialize(JSON.stringify(old))!;
     expect(back).not.toBeNull();
     expect(back.state.version).toBe(SAVE_VERSION);
+    expect(back.state.crewChats).toEqual({});
     expect(back.state.crew.reyes).toEqual({ friendship: 2, met: true, morale: CREW_LIFE.MORALE_START, hunger: CREW_LIFE.HUNGER_START });
     expect(rewind(back, 1)).toBe(true);
     expect(back.state.crew.aiko.morale).toBe(CREW_LIFE.MORALE_START);

@@ -1,13 +1,22 @@
 # HANDOFF (update at the end of every session)
 
-Last updated 2026-11-14 by Claude Code (Episode 1 browser verification complete; owner decisions D1-D4 answered).
+Last updated 2026-11-15 by Copilot (gameplay UI fixes and quarantine dialogue portraits).
 
 ## START HERE
 Read: `AGENTS.md` (rules) → this file → `docs/CHALLENGE.md` (what the judges want) → `docs/NASA_SOURCES.md` (every real-data point, for judges) → `docs/DESIGN.md`. `docs/PROMPT_PACK.md` is the owner's long Episode 1 brief — reference for wording/intent, not the task order; this file sets the order.
 
-**Setup:** `npm install` · `npm run dev` (port 5173, or `--port 5179`) · `npm run check` (54 tests + type-check + build, all passing now). 
-**Git:** branch `visual-pass-a`, latest commit `0f7e6f2`. Includes the owner's GitHub update (crew portraits, commit `c6a6cb4`) already merged. The user has GitHub access to `bytemojo/my-red-planet`; they will push/PR. **Do not** run `vercel`, push without asking, or open/commit `.env.local` or `.vercel/`.
+**Setup:** `npm install` · `npm run dev` (port 5173, or `--port 5179`) · `npm run check` (76 tests + type-check + build, all passing now).
+**Git:** branch `visual-pass-a` tracks `origin/visual-pass-a`. Includes the owner's GitHub update (crew portraits, commit `c6a6cb4`) already merged. The user has GitHub access to `bytemojo/my-red-planet`. **Do not** run `vercel`, push unless asked, or open/commit `.env.local` or `.vercel/`.
 **Always:** `npm run check` must pass before you call anything done. Commit after each task. Update this file honestly.
+
+## Latest session (2026-11-15): gameplay UI + quarantined crew portraits
+- Simplified the pass-out message; the checkpoint recovery and suit-rack tip remain.
+- Added a circular HUD radar with player location, key station markers, and the current objective highlighted. Verified at desktop and 390px mobile width.
+- Crew chat choices are stored in `GameState` and saves (SAVE_VERSION 4); old saves and rewind snapshots migrate with empty chat records. David's reply was browser-tested after leaving and reopening the intercom. Chat profile photos remain the regular crew portraits.
+- The workout now judges the marker position shown on the last rendered frame and reports clear hit/miss feedback. Browser-tested five successful PUSH hits through the green zone.
+- Removed the user-facing Quick Start menu button and route. The internal quick-start simulation option remains for automated testing only; the browser test fixture no longer depends on a visible button.
+- Added supplied sick-state dialogue cutouts for Reyes and Dr. Silva. They are used only before `quarantine_over`; recovered dialogue uses the existing PNGs. Dr. Silva's cutout is half-size in both states. The chat profile images are unchanged. The Reyes asset is a single-frame GIF; Dr. Silva's latest attachment has a `.gif` filename but PNG file signature and one frame. Neither cutout is animated; a multi-frame asset is still needed for animation.
+- Validation: `npm run check` passed (76 tests, type-check, production build). Browser-checked pass-out copy, radar layout, saved David chat, and workout. The browser test runner script itself was not run here because `playwright-core` is not installed; real-device touch/audio remain untested.
 
 ## What this session built: Episode 1 "The Storm" (the whole thing)
 The owner's goal (message 2026-11-14): "one level done well." The challenge author's signature scene (dust storm about to bury the panels, 10 seconds to decide) is now the centrepiece. Flow, all implemented:
@@ -35,7 +44,7 @@ The owner's goal (message 2026-11-14): "one level done well." The challenge auth
 ## Episode 1 browser verification: COMPLETE (Claude Code, 2026-11-14)
 Built on Codex's partial pass (its notes are kept below). Done in headless Chrome with two scripts, then screenshots were checked by eye. Screenshots: `docs/playtest/ep1/`.
 - **Full playthrough** (`scripts/ep1-playthrough.mjs`): menu → backstory → ringing intercom → wrong caller gets "no answer" → Reyes' call → all 5 system checks (suit on for solar) → Storm Call (countdown + Take your time) → stow → 3 storm Sols (radiation-peak card, morning reports, static comms) → after the storm → dig out/clean panels → repair pump → **debrief with stars, metrics and a linked decision→consequence tree** → NASA wiki. **Zero console errors.**
-- **17 targeted checks, all PASS** (`scripts/ep1-checks.mjs`): live DONKI on the menu (read real flares, e.g. M3.5 on 2026-11-05, 13 flares in 30 days); ARCHIVED fallback with DONKI blocked, and the storm then uses the archived X9.0 flare; Quick Start (systems pre-checked, Storm Call arrives by itself); **Ask Earth**: "message sent", panels stay out at the deadline, and Earth's reply arrives on Sol 2 *after* "the storm is here" (too late to change the call); airlock refuses during the storm (toast "Airlock sealed"); going outside without the suit → pass out → checkpoint reload (back inside, pass-out counted); wiki: 30 https links, all open in a new tab and load the NASA page; learning card opens its NASA source; no console errors in any run. Note: the link checks open real nasa.gov pages, so they can time out on a slow connection (it happened once per session; the rerun passed).
+- **17 targeted checks, all PASS on 2026-11-14** (`scripts/ep1-checks.mjs`): live DONKI on the menu; ARCHIVED fallback with DONKI blocked; the then-visible Quick Start; **Ask Earth**; storm airlock; suit pass-out and checkpoint reload; wiki links and learning source; no console errors. The test script now uses an internal quick-mode fixture and checks that the Quick Start button is absent, but that revised script was not rerun in this session. Note: the wiki-link checks open real nasa.gov pages and can time out on a slow connection.
 
 ### Bugs found and fixed in this pass
 1. **Ask Earth never worked** (important): the countdown kept a copy of the old timeout choice, so asking Earth was recorded as "time ran out" and Earth's reply never came. Fixed in `src/ui/ui.ts` (reads `v.timer` at the deadline).
@@ -46,7 +55,7 @@ Built on Codex's partial pass (its notes are kept below). Done in headless Chrom
 Also added: the radiation alarm sound while outside during a HIGH/STORM alert (`WorldScene.update`).
 
 ### Character creator (pack Step 3): DONE, browser-verified (16 checks, `scripts/creator-checks.mjs`)
-Play → (asks "Start a new game?" if a save exists) → **creator** → backstory card → game. One scrollable holo modal with a live preview (front, side, EVA suit): (1) first name: spaces and symbols are blocked while typing, letters/hyphen/apostrophe, 2-12 characters, "One name only" helper, error text; (2) ten skin tones dark to light; (3) body style by description: "Long hair, narrower shoulders" / "Short hair, broader shoulders" (new `build` option in `pixelart.ts`); (4) hair colour wheel + 10 presets + hex input; CONTINUE disabled until the name is valid. The look is saved in settings and drawn on the player in the world (`lookToSpec`, `buildPlayerSheet` in `WorldScene.loadSession`). `settings.name` is the one source for `{name}` (`src/story/name.ts` `fillName`); the old Settings "Callsign" is now "Your name" with the same rule. Quick Start skips the creator and uses the last look. Rules in `src/core/player.ts`, tests in `tests/player.test.ts`.
+Play → (asks "Start a new game?" if a save exists) → **creator** → backstory card → game. One scrollable holo modal with a live preview (front, side, EVA suit): (1) first name: spaces and symbols are blocked while typing, letters/hyphen/apostrophe, 2-12 characters, "One name only" helper, error text; (2) ten skin tones dark to light; (3) body style by description: "Long hair, narrower shoulders" / "Short hair, broader shoulders" (new `build` option in `pixelart.ts`); (4) hair colour wheel + 10 presets + hex input; CONTINUE disabled until the name is valid. The look is saved in settings and drawn on the player in the world (`lookToSpec`, `buildPlayerSheet` in `WorldScene.loadSession`). `settings.name` is the one source for `{name}` (`src/story/name.ts` `fillName`); the old Settings "Callsign" is now "Your name" with the same rule. The old Quick Start shortcut was removed from the menu; its internal option remains for automated tests only. Rules in `src/core/player.ts`, tests in `tests/player.test.ts`.
 
 ### East wing: gym, science lab, bathroom (pack Steps 5/9): DONE, browser-verified (11 checks, `scripts/wing-checks.mjs`)
 - New **east wing** (tiles x 30-39) reached through a door in the corridor's old east wall. Walls in `world.ts`, furniture in `src/game/wing.ts` (`WING_BLOCKS` = collision). The comms dish moved outside to x 40-41; the campaign-only candidate cave moved to the south-east (x 37-41, y 23-27). The day/night indoor tint now covers the wing.
@@ -67,7 +76,7 @@ Play → (asks "Start a new game?" if a save exists) → **creator** → backsto
 - **D4** Cut **Episode 2** and the **20 crew chats** (keep one chat each, 2 per Sol). **Still in scope:** the character creator (pack Step 3), the extra rooms + gym (Steps 5/9), the Mars map + journal photos (Step 12).
 
 ### Codex browser pass (2026-11-14; partial, kept for the record)
-- Opened the opening card, intercom ring and mute; completed the Quick Start storm sequence through Sol 5 in visible Chrome (Storm Call, Take Your Time, Ask Earth sent state, radiation choices, burial reports 55% → 40% → 35%, storm-end dialogue, AFTER THE STORM objective). Did not finish cleanup/debrief or the other checks. Headless Chrome would not launch in Codex's environment (`SIGABRT`); it launches fine in Claude Code's.
+- Opened the opening card, intercom ring and mute; completed the then-available Quick Start storm sequence through Sol 5 in visible Chrome (Storm Call, Take Your Time, Ask Earth sent state, radiation choices, burial reports 55% → 40% → 35%, storm-end dialogue, AFTER THE STORM objective). Did not finish cleanup/debrief or the other checks. Headless Chrome would not launch in Codex's environment (`SIGABRT`); it launches fine in Claude Code's.
 
 ## Next (in order)
 1. ~~Character creator~~ **DONE** (see below).

@@ -89,14 +89,14 @@ function showSettings() {
 }
 export const applyMotion = () => { document.documentElement.dataset.reduce = settings.reduce ? '1' : '0'; if (!settings.reduce) startFrame(); };
 
-export function initMenu(h: { play(): void; quick(): void; cont(): void; hasSave(): boolean }) {
+export function initMenu(h: { play(): void; cont(): void; hasSave(): boolean }) {
   document.querySelectorAll('[data-ic]').forEach(e => { (e as HTMLElement).innerHTML = ICON[(e as HTMLElement).dataset.ic!] ?? ''; });
   initStars(); applyMotion(); startFrame(); music.set('menu');
   void initSunCard();
   $('#btn-continue').hidden = !h.hasSave();
   document.querySelectorAll('.menu-list [data-act]').forEach(b => ((b as HTMLElement).onclick = () => {
     sfx.click(); const a = (b as HTMLElement).dataset.act;
-    if (a === 'play') h.play(); else if (a === 'quick') h.quick(); else if (a === 'continue') h.cont(); else if (a === 'awards') showAwards(); else if (a === 'board') showBoard(); else if (a === 'help') showHelp(); else if (a === 'settings') showSettings();
+    if (a === 'play') h.play(); else if (a === 'continue') h.cont(); else if (a === 'awards') showAwards(); else if (a === 'board') showBoard(); else if (a === 'help') showHelp(); else if (a === 'settings') showSettings();
   }));
 }
 export const menuControls = {

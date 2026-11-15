@@ -10,7 +10,7 @@ import { CAVERN_NEEDED, CREW_LIFE } from './constants';
 import { CREW_IDS, crewNeedsCare, crewOvernight, crewTalked, crewTick, newCrewState, serveMeal } from './crewlife';
 import type { CropId, CrewId, DailyReport, Env, GameState, Plot, ResKey, SystemId } from './types';
 
-export const SAVE_VERSION = 3; // bump when GameState changes shape; migrate in session.ts
+export const SAVE_VERSION = 4; // bump when GameState changes shape; migrate in session.ts
 
 // NOTE: functions here MUTATE the GameState you pass in. State is plain JSON; clone with JSON.parse(JSON.stringify()).
 export interface NewGameOpts { mode?: 'campaign' | 'storm'; sun?: import('./types').EpisodeState['sun']; quick?: boolean }
@@ -20,7 +20,7 @@ export function newGame(seed = 1, opts: NewGameOpts = {}): GameState {
   const s: GameState = {
     version: SAVE_VERSION, seed, sol: 1, hour: DAY_START, energy: 100,
     res: { o2: 78, food: 72, water: 66, power: 80 }, suit: 100, rad: 100, outside: false,
-    farm: 'dim', ls: 'bal', panelDust: 0.1, plots, buildings: [], stage: 1, crew, flags: {},
+    farm: 'dim', ls: 'bal', panelDust: 0.1, plots, buildings: [], stage: 1, crew, crewChats: {}, flags: {},
     seenBeats: [], discovered: [], pending: null, lastEventSol: 0,
     cave: { explore: 0, excavate: 0, pressurize: 0, shield: 0 },
     solsSinceShipment: 0, bestSelfSufficient: 0, shipmentArrivesSol: 0, campaignComplete: false,
@@ -194,7 +194,7 @@ const fail = (msg: string): ActionResult => ({ ok: false, msg });
 const done = (msg: string): ActionResult => ({ ok: true, msg });
 
 const LAB_PLANT_BOOST = 8; // game model: catching plant disease early in the lab
-export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?: CropId; crew?: CrewId; building?: string; verb?: string; system?: SystemId; machine?: string }): ActionResult {
+export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?: CropId; crew?: CrewId; choice?: string; building?: string; verb?: string; system?: SystemId; machine?: string }): ActionResult {
   const cost = ACTION_ENERGY[name];
   const env = envFor(s);
   if (s.pending) return fail('Finish the conversation first.');
@@ -282,8 +282,10 @@ export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?
       s.res.power -= 5; spend(); afterStormAction(s, 'water'); return done('Watering system repaired. The beds water themselves again.');
     case 'talk': {
       if (!arg?.crew) return fail('Who?');
+      if (arg.choice !== undefined && arg.choice !== '0' && arg.choice !== '1') return fail('Choose one of the replies.');
       if (s.ep && flagNum(s, 'tmp_chats') >= EP.CHATS_PER_SOL) return fail(`You have used today's ${EP.CHATS_PER_SOL} intercom chats. The crew needs to rest. Try again tomorrow.`);
       if (s.ep) s.flags.tmp_chats = flagNum(s, 'tmp_chats') + 1;
+      if (arg.choice !== undefined && !s.crewChats[arg.crew]) s.crewChats[arg.crew] = { sol: s.sol, choice: arg.choice === '0' ? 0 : 1 };
       const t = talkLine(s, arg.crew); crewTalked(s, arg.crew, t.gained); spend(); checkProgress(s);
       return done(t.line);
     }

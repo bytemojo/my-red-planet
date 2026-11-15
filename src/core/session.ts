@@ -15,6 +15,10 @@ export function migrateState(s: GameState | null | undefined): GameState | null 
     s.ep = s.ep ?? null; s.suitOn = s.suitOn ?? false; s.health = s.health ?? 100;
     s.version = 3;
   }
+  if (s.version < 4) { // v3 -> v4: persistent crew conversations
+    s.crewChats = s.crewChats ?? {};
+    s.version = 4;
+  }
   return s;
 }
 
