@@ -1,4 +1,4 @@
-// Episode 1 targeted browser checks (20). Needs: npm i --no-save playwright-core, Chrome, and the dev server on port 5179.
+// Episode 1 targeted browser checks (21). Needs: npm i --no-save playwright-core, Chrome, and the dev server on port 5179.
 // Usage: node scripts/ep1-checks.mjs <outdir>
 import { chromium } from 'playwright-core';
 const out = process.argv[2], URL = 'http://localhost:5179/';
@@ -33,10 +33,15 @@ async function startQuick(page) {
 // 1. Live DONKI on the menu
 {
   const { ctx, page, errs } = await newPage();
-  await page.waitForFunction(() => !document.querySelector('#sun-card')?.textContent.includes('Checking'), null, { timeout: 15000 }).catch(() => {});
+  await page.waitForFunction(() => document.querySelector('#sun-card')?.getAttribute('aria-busy') === 'false', null, { timeout: 15000 }).catch(() => {});
   const txt = (await page.textContent('#sun-card')) || '';
-  ok('Menu shows LIVE DONKI data when online', /LIVE/.test(txt) && /class [ABCMX]/.test(txt), txt.replace(/\s+/g, ' ').slice(0, 140));
-  ok('Solar Forecast has no live-data checkbox', /Solar Forecast/.test(txt) && await page.$('#sun-use') === null);
+  ok('Menu shows a compact solar warning when live DONKI data is available', /STORM INCOMING|SOLAR ALERT|SOLAR QUIET/.test(txt) && !/class [ABCMX]/.test(txt), txt);
+  const alertUi = await page.$eval('#sun-card', el => ({ height: el.getBoundingClientRect().height, border: getComputedStyle(el).borderWidth, icon: !!el.querySelector('.sun-icon') }));
+  ok('Solar warning has a flat icon and borderless 42px button', alertUi.height === 42 && alertUi.border === '0px' && alertUi.icon);
+  await page.click('#sun-card');
+  const solarModal = (await page.textContent('#solar-forecast')) || '';
+  ok('Clicking the warning opens full details and a NASA source link', /LIVE · NASA DONKI/.test(solarModal) && /ccmc\.gsfc\.nasa\.gov/.test(await page.getAttribute('#solar-forecast a', 'href') || ''));
+  await page.click('#solar-forecast [data-close]');
   ok('Quick Start button is removed from the menu', await page.$('#btn-quick') === null);
   await page.screenshot({ path: `${out}/c1-menu-live.png` });
   // wiki from Help
@@ -56,10 +61,13 @@ async function startQuick(page) {
 // 2. Offline fallback
 {
   const { ctx, page } = await newPage(true);
-  await page.waitForFunction(() => !document.querySelector('#sun-card')?.textContent.includes('Checking'), null, { timeout: 15000 }).catch(() => {});
+  await page.waitForFunction(() => document.querySelector('#sun-card')?.getAttribute('aria-busy') === 'false', null, { timeout: 15000 }).catch(() => {});
   const txt = (await page.textContent('#sun-card')) || '';
-  ok('Menu falls back to ARCHIVED when DONKI is unreachable', /ARCHIVED/.test(txt) && !/LIVE/.test(txt), txt.replace(/\s+/g, ' ').slice(0, 140));
-  ok('Archived Solar Forecast has no live-data checkbox', /Solar Forecast/.test(txt) && await page.$('#sun-use') === null);
+  ok('Menu shows the archived flare warning when DONKI is unreachable', txt === 'STORM INCOMING');
+  await page.click('#sun-card');
+  const solarModal = (await page.textContent('#solar-forecast')) || '';
+  ok('Archived warning opens its source details', /ARCHIVED · NASA DONKI/.test(solarModal) && /X9\.0/.test(solarModal));
+  await page.click('#solar-forecast [data-close]');
   await page.screenshot({ path: `${out}/c3-menu-offline.png` });
   // Internal test fixture uses the archived flare without exposing Quick Start in the menu.
   await startQuick(page);

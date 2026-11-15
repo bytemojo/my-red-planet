@@ -77,6 +77,14 @@ describe('The Storm Call', () => {
 });
 
 describe('The storm Sols', () => {
+  it('keeps the radiation preparation prompt in-world while retaining its NASA learning link', () => {
+    const s = quick().state;
+    s.pending = { kind: 'event', id: 'radiation_peak' };
+    const view = describePending(s)!;
+    expect(view.lines).toEqual(['The space weather alert goes to its peak tonight. How should we prepare?']);
+    expect(view.realData).toBe(true);
+    expect(view.learnId).toBe('space_radiation');
+  });
   it('locks the airlock for three Sols, then opens it', () => {
     const sess = quick();
     playSol(sess, { storm_call: 'stow' });
@@ -102,6 +110,7 @@ describe('The storm Sols', () => {
     for (const h of [7, 12.5, 20]) expect(alertLevel(3, h)).toBe(alertLevel(3, h));
     expect(alertLevel(1, 9)).toBe('low'); expect(alertLevel(1, 15)).toBe('elevated'); expect(alertLevel(5, 12)).toBe('low');
     expect(['high', 'storm']).toContain(alertLevel(2, 12));
+    expect(alertLevel(3, 12, 'C3.2')).toBe('low'); expect(alertLevel(3, 12, 'M3.5')).toBe('high');
   });
 });
 

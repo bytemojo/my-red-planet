@@ -6,6 +6,7 @@ import { reloadCheckpoint, rewind, rewindableSols, saveCheckpoint, saveToStorage
 import { alertFor, lockedIn, SYSTEMS } from '../core/episode';
 import { showDebrief } from '../ui/episode';
 import { H, T, W, buildWorld, world } from './world';
+import { pathToClosestReachable } from './pathfinding';
 import { buildPlayerSheet, frameName, lookToSpec } from './sprites';
 import { currentLook } from '../ui/creator';
 import { envForSol } from '../core/env';
@@ -45,7 +46,7 @@ export const joy = { id: null as number | null, ox: 0, oy: 0, x: 0, y: 0 };
 
 export class WorldScene extends Phaser.Scene {
   sess!: Session; curZone: string | null = null; busy = false; lastStage = 1; finalShown = false; hudT = 0; syncT = 0; anim = 0;
-  moveTarget: Phaser.Math.Vector2 | null = null; autoActZone: string | null = null;
+  moveTarget: Phaser.Math.Vector2 | null = null; movePath: Phaser.Math.Vector2[] = []; autoActZone: string | null = null;
   facing: Dir = 'down'; flip = false; acting: { frame: string; frames?: string[]; until: number; then?: () => void } | null = null;
   onMenu: () => void = () => {};
   onReplay: () => void = () => {};
@@ -74,7 +75,10 @@ export class WorldScene extends Phaser.Scene {
     this.time.delayedCall(250, () => void this.afterAction(true));
   }
 
-  resetPlayer(tow: boolean) { world.player.x = 16 * T; world.player.y = tow ? 17.2 * T : 14.5 * T; if (this.sess) this.sess.state.outside = false; }
+  resetPlayer(tow: boolean) {
+    this.moveTarget = null; this.movePath = []; this.autoActZone = null;
+    world.player.x = 16 * T; world.player.y = tow ? 17.2 * T : 14.5 * T; if (this.sess) this.sess.state.outside = false;
+  }
   blockedAt(px: number, py: number) { const tx = Math.floor(px / T), ty = Math.floor(py / T); if (tx < 0 || ty < 0 || tx >= W || ty >= H) return true;
     if (ty >= 18 && tx >= 15 && tx <= 16 && this.sess && lockedIn(this.state())) { if (performance.now() - this.sealT > 2500) { this.sealT = performance.now(); toast('<b>Airlock sealed.</b> It opens when the storm has passed.', { kind: 'warn' }); sfx.warn(); } return true; } // storm lock
     return world.blocked[ty][tx]; }
@@ -220,10 +224,28 @@ export class WorldScene extends Phaser.Scene {
     for (const k of Object.keys(ZONES)) {
       const z = ZONES[k];
       if (tx >= z.x0 && tx <= z.x1 && ty >= z.y0 && ty <= z.y1 && this.zoneOk(k, s, s.outside === false)) {
-        const [mx, my] = MARKERS[k]; this.moveTarget = new Phaser.Math.Vector2(mx * T, my * T); this.autoActZone = k; sfx.click(); return;
+        const [mx, my] = MARKERS[k]; this.walkToPoint(new Phaser.Math.Vector2(mx * T, my * T), k, s); sfx.click(); return;
       }
     }
-    this.moveTarget = new Phaser.Math.Vector2(point.x, point.y); this.autoActZone = null; sfx.click();
+    this.walkToPoint(point, null, s); sfx.click();
+  }
+  walkToPoint(point: Phaser.Math.Vector2, autoActZone: string | null, s: GameState) {
+    const target = {
+      x: clamp(Math.floor(point.x / T), 0, W - 1),
+      y: clamp(Math.floor(point.y / T), 0, H - 1),
+    };
+    const start = { x: Math.floor(world.player.x / T), y: Math.floor(world.player.y / T) };
+    const path = pathToClosestReachable(W, H, start, target, (x, y) =>
+      world.blocked[y][x] || (lockedIn(s) && y >= 18 && x >= 15 && x <= 16),
+    );
+    const destination = new Phaser.Math.Vector2(
+      clamp(point.x, target.x * T + 8, (target.x + 1) * T - 8),
+      clamp(point.y, target.y * T + 8, (target.y + 1) * T - 8),
+    );
+    this.movePath = path.path.map(tile => new Phaser.Math.Vector2((tile.x + 0.5) * T, (tile.y + 0.5) * T));
+    if (path.reached && this.movePath.length) this.movePath[this.movePath.length - 1] = destination;
+    this.moveTarget = this.movePath.shift() ?? (path.reached ? destination : null);
+    this.autoActZone = autoActZone;
   }
   zoneOk(k: string, s: GameState, ins: boolean) {
     const q = ZONES[k]; if (q.inside !== ins) return false;
@@ -265,10 +287,13 @@ export class WorldScene extends Phaser.Scene {
     if (!blocking) {
       if (keys.a || keys.arrowleft) dx -= 1; if (keys.d || keys.arrowright) dx += 1; if (keys.w || keys.arrowup) dy -= 1; if (keys.s || keys.arrowdown) dy += 1;
       if (joy.id !== null && Math.hypot(joy.x, joy.y) > 0.15) { dx += joy.x; dy += joy.y; }
+      if ((dx !== 0 || dy !== 0) && (this.moveTarget || this.movePath.length)) { this.moveTarget = null; this.movePath = []; this.autoActZone = null; }
       if (this.moveTarget) {
         const ddx = this.moveTarget.x - p.x, ddy = this.moveTarget.y - p.y;
-        if (Math.hypot(ddx, ddy) < 10) { this.moveTarget = null; }
-        else { dx += ddx; dy += ddy; }
+        if (Math.hypot(ddx, ddy) < 8) {
+          this.moveTarget = this.movePath.shift() ?? null;
+          if (this.moveTarget) { dx += this.moveTarget.x - p.x; dy += this.moveTarget.y - p.y; }
+        } else { dx += ddx; dy += ddy; }
       }
       const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
       const sp = s.outside ? 86 : 100; const nx = p.x + dx * sp * dt; if (!this.hit(nx, p.y)) p.x = nx; const ny = p.y + dy * sp * dt; if (!this.hit(p.x, ny)) p.y = ny;

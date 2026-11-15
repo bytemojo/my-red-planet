@@ -1,18 +1,20 @@
 # HANDOFF (update at the end of every session)
 
-Last updated 2026-11-15 by Copilot (Solar Forecast menu polish).
+Last updated 2026-11-15 by Copilot (Episode UI polish and menu navigation).
 
 ## START HERE
 Read: `AGENTS.md` (rules) → this file → `docs/CHALLENGE.md` (what the judges want) → `docs/NASA_SOURCES.md` (every real-data point, for judges) → `docs/DESIGN.md`. `docs/PROMPT_PACK.md` is the owner's long Episode 1 brief — reference for wording/intent, not the task order; this file sets the order.
 
-**Setup:** `npm install` · `npm run dev` (port 5173, or `--port 5179`) · `npm run check` (76 tests + type-check + build, all passing now).
+**Setup:** `npm install` · `npm run dev` (port 5173, or `--port 5179`) · `npm run check` (79 tests + type-check + build, all passing now).
 **Git:** branch `visual-pass-a` tracks `origin/visual-pass-a`. Includes the owner's GitHub update (crew portraits, commit `c6a6cb4`) already merged. The user has GitHub access to `bytemojo/my-red-planet`. **Do not** run `vercel`, push unless asked, or open/commit `.env.local` or `.vercel/`.
 **Always:** `npm run check` must pass before you call anything done. Commit after each task. Update this file honestly.
 
-## Latest session (2026-11-15): Solar Forecast menu card
-- Renamed the menu card to **Solar Forecast**, removed the live-data checkbox and its copy, and made the fetched DONKI flare drive the storm automatically. The archived flare remains the offline fallback.
-- Moved the card to the desktop menu's upper-left corner; it remains below the menu on mobile.
-- Validation: `npm run check` passed (76 tests, type-check, production build). Browser-checked live and archived card content, absence of the checkbox, and card placement at 1280px desktop and 390px mobile widths. Real-device checks remain untested.
+## Latest session (2026-11-15): Episode UI polish and menu navigation
+- Kept the compact Solar Forecast warning on the menu; selecting it opens the details modal with its NASA DONKI source. Offline play uses the archived flare.
+- Character dialogue and choice cards now use the requested comic-book style. The Learn More control is a blue, slowly blinking magnifying-glass icon; character dialogue no longer shows a REAL DATA chip. Dr. Silva's radiation line is: “The space weather alert goes to its peak tonight. How should we prepare?”
+- Polished the Episode HUD: colorful icon-and-meter rows without numbers or card backgrounds, one colored morale face, the requested resource/Solar Alert color scales, and a circular radar showing the player and current objective. The Sol clock is outside the radar at the screen's bottom-right, without a card background and with a subtle blurred shadow.
+- Moved the NASA wiki button to the home menu immediately after Your awards and removed its dedicated pause-menu button. The global mute remains; the Reyes intercom has no separate mute button.
+- Validation: `npm run check` passed (79 tests, type-check, production build); `git diff --check` passed. Browser-tested at `http://127.0.0.1:5175/`: menu placement and wiki modal, radiation dialogue wording and comic styling, Learn More icon and NASA learning modal, absence of the dialogue REAL DATA chip and Reyes intercom mute button, and Sol-clock positioning/transparent background with drop-shadow. Real-device touch/audio remain untested.
 
 ## Previous session (2026-11-15): gameplay UI + quarantined crew portraits
 - Simplified the pass-out message; the checkpoint recovery and suit-rack tip remain.
@@ -88,8 +90,8 @@ Play → (asks "Start a new game?" if a save exists) → **creator** → backsto
 2. ~~Gym + health loop, bathroom, science lab~~ **DONE** (see below).
 3. ~~Mars map + journal photos~~ **DONE** (see below).
 4. ~~Judge package~~ **DONE**: `docs/DEMO_SCRIPT.md` (2-minute video, opens on the Storm Call); README points judges to `docs/NASA_SOURCES.md`.
-6. The owner's original visual note also asked for a **kitchen with cooking on an electric heater** and on-screen animations for **watering** and **repairs**. Not built yet; it was not in the D4 question, so ask the owner whether it is still wanted for Level 1.
-5. Not yet checked by a human: touch/joystick play on a real phone or tablet; the sound of the ring/alarm/static (headless runs are silent).
+5. The owner's original visual note also asked for a **kitchen with cooking on an electric heater** and on-screen animations for **watering** and **repairs**. Not built yet; it was not in the D4 question, so ask the owner whether it is still wanted for Level 1.
+6. Not yet checked by a human: touch/joystick play on a real phone or tablet; the sound of the ring/alarm/static (headless runs are silent).
 
 ## Earlier work still in place (Visual Pass A)
 Generated pixel characters (`src/game/pixelart.ts`, `sprites.ts`), crew quarters with animated crew + morale faces + hunger bubbles + meal hatch (`quarters.ts`, `crewlife.ts`), day/night (`skytint.ts`/`daynight.ts`). The **open campaign** (original 6-stage game) still exists and works; Episode 1 runs alongside it (`state.ep` null = campaign). Screenshots in `docs/playtest/`.

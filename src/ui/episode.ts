@@ -27,15 +27,14 @@ export function showOpeningCard(): Promise<void> {
 
 // ---------- the ringing intercom ----------
 const RING_MAX_MS = 5 * 60 * 1000;
-let ringStart = 0, ringTimer = 0, ringMuted = false;
+let ringStart = 0, ringTimer = 0;
 export function ringUpdate(s: GameState) {
   const box = $('#ring'); if (!box) return;
   const ringing = !!s.ep && s.ep.call === 'ringing' && s.ep.phase === 'call' && !UI.stack.includes('opening'); // not while the backstory is up
   if (!ringing) { box.hidden = true; if (ringTimer) { clearInterval(ringTimer); ringTimer = 0; } ringStart = 0; return; }
   if (box.hidden) {
-    box.hidden = false; ringStart = performance.now(); ringMuted = false; box.classList.remove('quiet');
-    $('#ring-mute').onclick = () => { ringMuted = !ringMuted; $('#ring-mute').textContent = ringMuted ? '🔔' : '🔕'; };
-    if (!ringTimer) ringTimer = window.setInterval(() => { if (!ringMuted && performance.now() - ringStart < RING_MAX_MS) sfx.ring(); }, 2600);
+    box.hidden = false; ringStart = performance.now(); box.classList.remove('quiet');
+    if (!ringTimer) ringTimer = window.setInterval(() => { if (performance.now() - ringStart < RING_MAX_MS) sfx.ring(); }, 2600);
   }
   if (performance.now() - ringStart >= RING_MAX_MS) box.classList.add('quiet'); // goes quiet after 5 real minutes, icon stays lit
 }
@@ -45,11 +44,30 @@ export function refreshEpHud(s: GameState) {
   const bar = $('#ep-bar'); if (!bar) return;
   bar.hidden = !s.ep;
   if (!s.ep) return;
-  const set = (id: string, v: number) => { const el = $('#' + id); el.classList.remove('warn', 'crit'); if (v < 20) el.classList.add('crit'); else if (v < 40) el.classList.add('warn'); (el.querySelector('.bar i') as HTMLElement).style.width = clamp(v, 0, 100) + '%'; el.querySelector('b')!.textContent = String(Math.round(v)); };
+  const set = (id: string, v: number) => {
+    const el = $('#' + id);
+    el.classList.remove('warn', 'low', 'crit');
+    if (v < 20) el.classList.add('crit'); else if (v < 40) el.classList.add('low'); else if (v < 65) el.classList.add('warn');
+    (el.querySelector('.bar i') as HTMLElement).style.width = clamp(v, 0, 100) + '%';
+    el.setAttribute('aria-valuenow', String(Math.round(v)));
+  };
   set('epm-energy', baseEnergy(s)); set('epm-health', s.health); set('epm-morale', teamMorale(s));
-  const a = alertFor(s), chip = $('#ep-alert');
-  chip.className = 'sw ' + a + (s.outside && (a === 'high' || a === 'storm') ? ' run' : '');
-  chip.textContent = s.outside && (a === 'high' || a === 'storm') ? '☢ RUN INSIDE!' : `SPACE WEATHER · ${ALERT_LABEL[a]}`;
+  const morale = teamMorale(s), moraleMeter = $('#epm-morale');
+  const mood = morale < 35 ? 'angry' : morale >= 65 ? 'happy' : 'neutral';
+  moraleMeter.dataset.mood = mood;
+  moraleMeter.setAttribute('aria-valuetext', `${Math.round(morale)} out of 100, ${mood}`);
+  const moodIcon = $('#epm-morale-icon');
+  if (moodIcon.dataset.mood !== mood) {
+    moodIcon.dataset.mood = mood;
+    moodIcon.innerHTML = `<span>${ICON[mood]}</span>`;
+  }
+  const a = alertFor(s), solar = $('#ep-alert');
+  const strength = { low: 0, elevated: 55, high: 100, storm: 100 }[a];
+  const runInside = s.outside && (a === 'high' || a === 'storm');
+  solar.className = `epm solar-meter ${a}${runInside ? ' run' : ''}`;
+  (solar.querySelector('.bar i') as HTMLElement).style.width = `${strength}%`;
+  solar.setAttribute('aria-valuenow', String(strength));
+  solar.setAttribute('aria-valuetext', runInside ? `${ALERT_LABEL[a]}, run inside` : ALERT_LABEL[a]);
 }
 
 // ---------- comms during the storm: static and one clue per Sol ----------
@@ -113,17 +131,63 @@ export async function fetchTodaysSun(): Promise<{ sun: Sun; count: number; fetch
   } catch { return null; }
 }
 export const sunChoice: { sun: Sun } = { sun: ARCHIVED_SUN };
+let solarForecastDetails: { count: number; fetchedAt: Date } | null = null;
+let solarForecastLoaded = false;
+
+function solarWarning(sun: Sun) {
+  const type = sun.classType[0];
+  if (type === 'X') return { text: 'STORM INCOMING', level: 'danger', alert: 'DANGEROUS' };
+  if (type === 'M') return { text: 'SOLAR ALERT', level: 'alert', alert: 'HIGH' };
+  return { text: 'SOLAR QUIET', level: 'safe', alert: 'SAFE' };
+}
+
+export function openSolarForecast() {
+  const sun = sunChoice.sun, warning = solarWarning(sun);
+  const sourceTag = !solarForecastLoaded
+    ? '<span class="tag emb">CHECKING NASA DONKI</span>'
+    : sun.source === 'live' ? '<span class="tag live">LIVE · NASA DONKI</span>' : '<span class="tag arch">ARCHIVED · NASA DONKI</span>';
+  const flareDetails = !solarForecastLoaded
+    ? '<p>Checking NASA DONKI for solar activity…</p>'
+    : sun.source === 'live'
+      ? `<p>In the last 30 days, NASA DONKI recorded ${solarForecastDetails!.count} solar flares. The strongest was <b>class ${esc(sun.classType)}</b> on ${esc(sun.date)}. Fetched ${esc(solarForecastDetails!.fetchedAt.toLocaleTimeString())}.</p>`
+      : '<p>NASA DONKI could not be reached. The game uses its archived record of the real <b>X9.0 flare</b> from 3 Oct 2024.</p>';
+  const guidance = warning.level === 'danger'
+    ? 'Strong flare activity: stay inside the habitat, move to a shielded area, and turn off nonessential equipment to save power. Keep life-support systems on.'
+    : warning.level === 'alert'
+      ? 'Solar activity is elevated: stay inside during mission alerts and use available water shielding. Keep essential systems powered.'
+      : 'Conditions are calm. No extra steps are needed right now—keep checking mission alerts.';
+  const el = overlay('solar-forecast', `<div class="holo-panel">${head('sun', 'Solar Forecast')}<div class="panel-body">
+    ${sourceTag}
+    <div class="card solar-status" data-alert="${warning.level}"><h3>${warning.alert}</h3>${flareDetails}</div>
+    <div><h4>What you can do</h4><p class="why">${guidance}</p></div>
+    <p class="why">DONKI records solar flares observed near Earth; it does not measure radiation at Mars.</p>
+    <a class="holo-btn small amber" href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank" rel="noopener noreferrer">OPEN NASA DONKI ↗</a>
+    <a class="holo-btn small" href="https://www.nasa.gov/science-research/heliophysics/real-martians-how-to-protect-astronauts-from-space-radiation-on-mars/" target="_blank" rel="noopener noreferrer">READ NASA RADIATION GUIDANCE ↗</a>
+  </div></div>`);
+  el.setAttribute('role', 'dialog');
+  el.setAttribute('aria-modal', 'true');
+  el.setAttribute('aria-label', 'Solar Forecast details');
+  (el.querySelector('[data-close]') as HTMLElement | null)?.focus();
+  return el;
+}
+
 export async function initSunCard() {
   const card = $('#sun-card'); if (!card) return;
+  card.onclick = () => { sfx.click(); openSolarForecast(); };
   const live = await fetchTodaysSun();
   if (live) {
     sunChoice.sun = live.sun;
-    const peak = live.sun.classType[0] === 'X' ? 'STORM' : live.sun.classType[0] === 'M' ? 'HIGH' : 'ELEVATED';
-    card.innerHTML = `<b>Solar Forecast</b> <span class="tag live">LIVE · NASA DONKI</span><br>Strongest flare in the last 30 days: <b>class ${esc(live.sun.classType)}</b> on ${esc(live.sun.date)} (${live.count} flares). Fetched ${live.fetchedAt.toLocaleTimeString()}.<br>This flare sets the storm's modeled radiation peak to <b>${peak}</b>.`;
+    solarForecastDetails = { count: live.count, fetchedAt: live.fetchedAt };
   } else {
     sunChoice.sun = ARCHIVED_SUN;
-    card.innerHTML = `<b>Solar Forecast</b> <span class="tag arch">ARCHIVED</span><br>Could not reach NASA DONKI (offline?). Your storm is modelled on the real <b>X9.0</b> flare of 3 Oct 2024 from the DONKI catalogue. Nothing here is live data.`;
   }
+  solarForecastLoaded = true;
+  const warning = solarWarning(sunChoice.sun);
+  const label = $('#sun-label', card);
+  if (label) label.textContent = warning.text;
+  card.dataset.alert = warning.level;
+  card.setAttribute('aria-label', `Solar warning: ${warning.text}. Click for flare details and NASA DONKI source.`);
+  card.setAttribute('aria-busy', 'false');
 }
 export const chosenSun = (): Sun => sunChoice.sun;
 export { plantHealth };

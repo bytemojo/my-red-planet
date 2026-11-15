@@ -96,7 +96,7 @@ export function initMenu(h: { play(): void; cont(): void; hasSave(): boolean }) 
   $('#btn-continue').hidden = !h.hasSave();
   document.querySelectorAll('.menu-list [data-act]').forEach(b => ((b as HTMLElement).onclick = () => {
     sfx.click(); const a = (b as HTMLElement).dataset.act;
-    if (a === 'play') h.play(); else if (a === 'continue') h.cont(); else if (a === 'awards') showAwards(); else if (a === 'board') showBoard(); else if (a === 'help') showHelp(); else if (a === 'settings') showSettings();
+    if (a === 'play') h.play(); else if (a === 'continue') h.cont(); else if (a === 'awards') showAwards(); else if (a === 'wiki') openWiki(); else if (a === 'board') showBoard(); else if (a === 'help') showHelp(); else if (a === 'settings') showSettings();
   }));
 }
 export const menuControls = {

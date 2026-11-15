@@ -48,13 +48,16 @@ export const vbar = (ic: string, frac: number, cls: string, right = '') =>
 export const optCard = (key: string, ic: string, name: string, active: boolean, fx: string, disabled = false, why = '') =>
   `<button class="opt big ${active ? 'active' : ''}" data-do="${esc(key)}" ${disabled ? 'disabled' : ''}><span class="oico">${ICON[ic] ?? ''}</span><span class="obody"><span class="opt-top"><b>${esc(name)}</b>${active ? '<span class="badge">ON</span>' : ''}</span>${why ? `<span class="why">${esc(why)}</span>` : ''}<span class="fx">${fx}</span></span></button>`;
 export const levelClass = (v: number) => (v < 20 ? 'crit' : v < 40 ? 'warn' : '');
-export const learnButton = (id?: string) => id ? `<button class="learn-btn" data-learn="${esc(id)}" aria-label="Learn more from NASA">⌕</button>` : '';
+export const learnButton = (id?: string) => id ? `<button type="button" class="learn-btn" data-learn="${esc(id)}" aria-label="Learn More" title="Learn More"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m12.5 12.5 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>` : '';
 export function openLearning(id: string) { const l = LEARNING[id]; if (!l) return; overlay('learn', `<div class="holo-panel learn-card">${head('bulb', l.title)}<div class="panel-body"><p><b>Did you know?</b> ${esc(l.learned)}</p><p class="why">${esc(l.detail)}</p><a class="holo-btn small amber" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">READ THE NASA SOURCE ↗</a><p class="src-line">${esc(l.sourceTitle)}${l.note ? ` · ${esc(l.note)}` : ''}</p></div></div>`); }
 export function bindLearning(root: ParentNode = document) { root.querySelectorAll('[data-learn]').forEach(el => ((el as HTMLElement).onclick = () => { sfx.click(); openLearning((el as HTMLElement).dataset.learn!); })); }
 
 // ---------- dialogue with portrait (beats and events) ----------
 const NAMES: Record<string, string> = { reyes: 'CAPT. REYES', aiko: 'AIKO TANAKA', david: 'DAVID OKAFOR', sofia: 'DR. SILVA', system: 'MISSION CONTROL' };
-const QUARANTINE_CUTOUTS: Partial<Record<CrewId, string>> = { reyes: '/crew/reyes-sick.gif', sofia: '/crew/sofia-sick.png' };
+const QUARANTINE_CUTOUTS: Partial<Record<CrewId, string>> = {
+  reyes: '/crew/REYES%20GIF.gif',
+  sofia: '/crew/silva%20GIF.gif',
+};
 export const speakerName = (id: string) => NAMES[id] ?? id.toUpperCase();
 export const crewPortrait = (id: CrewId, className = 'crew-avatar') =>
   `<img class="${className}" src="/crew/${id}.png" alt="${esc(CREW[id].name)}">`;
@@ -65,13 +68,13 @@ export function runPending(v: PendingView, quarantineOver = false): Promise<stri
     const place = v.speaker === 'reyes' ? 'QUARANTINE BAY' : v.speaker === 'system' ? '' : 'SICK BAY';
     const sickPortrait = portraitId && !quarantineOver ? QUARANTINE_CUTOUTS[portraitId] : undefined;
     const portraitSrc = portraitId ? sickPortrait ?? `/crew/${portraitId}.png` : '';
-    const portraitClass = portraitId === 'sofia' ? 'dlg-cutout dlg-cutout-sofia' : 'dlg-cutout';
+    const portraitClass = portraitId ? `dlg-cutout dlg-cutout-${portraitId}` : '';
     const portrait = portraitId ? `<img class="${portraitClass}" src="${portraitSrc}" alt="">` : '';
     const boxClass = portraitId ? 'dlg-box dlg-box-character' : 'holo-panel dlg-box dlg-box-system';
     const el = overlay('dlg', `<div class="dlg-stage ${portraitId ? 'with-portrait' : ''}">${portrait}
       <div class="${boxClass}"><div class="dlg-main"><div class="dlg-name" id="dlg-name"></div><div class="dlg-text" id="dlg-text" aria-live="polite"></div><div class="dlg-actions" id="dlg-actions"></div></div></div></div>`, 'dialogue-overlay');
     const name = $('#dlg-name', el), tx = $('#dlg-text', el), actions = $('#dlg-actions', el);
-    name.innerHTML = `${esc(speakerName(v.speaker))}${place ? ' · ' + place : ''}${v.title ? ' · ' + esc(v.title) : ''}${v.realData ? ' <span class="tag emb">REAL DATA</span>' : ''}${learnButton(v.learnId)}`; bindLearning(el);
+    name.innerHTML = `${esc(speakerName(v.speaker))}${place ? ' · ' + place : ''}${v.title ? ' · ' + esc(v.title) : ''}${learnButton(v.learnId)}`; bindLearning(el);
     let i = 0, timer = 0, full = '', countdown = 0;
     const finish = (id: string) => { clearInterval(timer); clearInterval(countdown); UI.close('dlg'); runPending.next = null; resolve(id); };
     // A timed decision (the Storm Call): countdown bar, a pause for young players, timeout = the default choice.

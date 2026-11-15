@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import './ui/holo.css';
 import { WorldScene, keys, joy } from './game/WorldScene';
 import { initMenu, menuControls } from './ui/menu';
 import { $, UI, head, overlay, toast } from './ui/ui';
@@ -7,7 +6,7 @@ import { music, settings, sfx } from './ui/audio';
 import { loadFromStorage, newSession, saveToStorage, type Session } from './core/session';
 import { openControl } from './ui/panels';
 import { runPending } from './ui/ui';
-import { chosenSun, openWiki, showOpeningCard } from './ui/episode';
+import { chosenSun, showOpeningCard } from './ui/episode';
 import { confirmOverwrite, showCreator } from './ui/creator';
 import { openJournal } from './ui/journal';
 
@@ -60,13 +59,12 @@ const refreshTopButton = () => {
 };
 function openPause() {
   if (UI.blocking()) return;
-  const el = overlay('pause', `<div class="holo-panel pause-panel">${head('clock', 'Paused', false)}<div class="panel-body"><p class="why">Take a breather. Mars will wait for you.</p><div class="optlist"><button class="holo-btn primary" data-pause="resume">RESUME MISSION</button><button class="holo-btn" data-pause="sound">${soundIcon(!settings.sound)}<span>${settings.sound ? 'SOUND: ON' : 'SOUND: OFF'}</span></button><button class="holo-btn" data-pause="save">SAVE GAME</button><button class="holo-btn" data-pause="journal">MY JOURNAL</button><button class="holo-btn" data-pause="map">MARS MAP</button><button class="holo-btn" data-pause="wiki">LIVING IN SPACE: NASA WIKI</button><button class="holo-btn amber" data-pause="menu">SAVE & RETURN TO MENU</button></div></div></div>`);
+  const el = overlay('pause', `<div class="holo-panel pause-panel">${head('clock', 'Paused', false)}<div class="panel-body"><p class="why">Take a breather. Mars will wait for you.</p><div class="optlist"><button class="holo-btn primary" data-pause="resume">RESUME MISSION</button><button class="holo-btn" data-pause="sound">${soundIcon(!settings.sound)}<span>${settings.sound ? 'SOUND: ON' : 'SOUND: OFF'}</span></button><button class="holo-btn" data-pause="save">SAVE GAME</button><button class="holo-btn" data-pause="journal">MY JOURNAL</button><button class="holo-btn" data-pause="map">MARS MAP</button><button class="holo-btn amber" data-pause="menu">SAVE & RETURN TO MENU</button></div></div></div>`);
   el.querySelectorAll('[data-pause]').forEach(button => ((button as HTMLElement).onclick = () => {
     const action = (button as HTMLElement).dataset.pause;
     if (action === 'resume') { sfx.click(); UI.close('pause'); }
     if (action === 'sound') { music.toggle(); if (settings.sound) sfx.ok(); openPause(); refreshTopButton(); }
     if (action === 'save' && scene) { sfx.ok(); saveToStorage(scene.sess); toast('Game saved.', { kind: 'good' }); }
-    if (action === 'wiki') { sfx.click(); UI.close('pause'); openWiki(); }
     if ((action === 'journal' || action === 'map') && scene) { sfx.click(); UI.close('pause'); const sc = scene; openJournal(() => sc.sess.state, () => saveToStorage(sc.sess), action === 'map' ? 'map' : 'photos'); }
     if (action === 'menu' && scene) { sfx.click(); saveToStorage(scene.sess); UI.close('pause'); toMenu(); }
   }));

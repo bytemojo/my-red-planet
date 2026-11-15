@@ -23,6 +23,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/ui/holo.css" />
 </head>
 <body>
 <div id="app">
@@ -38,12 +39,16 @@
         <button class="holo-btn primary" data-act="continue" id="btn-continue" hidden><svg viewBox="0 0 20 20"><path d="M5 3l12 7-12 7z" fill="currentColor"/></svg>Continue</button>
         <button class="holo-btn primary" data-act="play" id="btn-play"><svg viewBox="0 0 20 20"><path d="M5 3l12 7-12 7z" fill="currentColor"/></svg>Episode 1: The Storm</button>
         <button class="holo-btn" data-act="awards"><svg viewBox="0 0 20 20"><path d="M10 2l2.4 5 5.4.7-4 3.7 1 5.4L10 14.2 5.2 16.8l1-5.4-4-3.7 5.4-.7z" fill="currentColor"/></svg>Your awards</button>
+        <button class="holo-btn" data-act="wiki"><span data-ic="doc"></span>Living in space: NASA wiki</button>
         <button class="holo-btn" data-act="board"><svg viewBox="0 0 20 20"><path d="M3 17V9h4v8zm5 0V3h4v14zm5 0v-6h4v6z" fill="currentColor"/></svg>Leaderboard</button>
         <button class="holo-btn" data-act="help"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7.6 8a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2.9-1.2 1.8M10 14.2v1.6" fill="none" stroke="currentColor" stroke-width="2"/></svg>Help</button>
         <button class="holo-btn" data-act="settings"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 1.5v3M10 15.5v3M1.5 10h3M15.5 10h3M4 4l2 2M14 14l2 2M16 4l-2 2M6 14l-2 2" stroke="currentColor" stroke-width="2"/></svg>Settings</button>
       </nav>
     </div>
-    <div class="sun-card" id="sun-card" aria-live="polite">Loading solar forecast from NASA DONKI…</div>
+    <button class="sun-card" id="sun-card" type="button" aria-live="polite" aria-label="Solar forecast loading" aria-busy="true">
+      <svg class="sun-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="currentColor"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.93 4.93l2.12 2.12m9.9 9.9 2.12 2.12m0-14.14-2.12 2.12m-9.9 9.9-2.12 2.12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <span id="sun-label">CHECKING</span>
+    </button>
     <div id="modal-host"></div>
   </section>
   <button id="sound-toggle" class="sound-toggle" aria-label="Mute all sound" aria-pressed="false"><span aria-hidden="true">♪</span></button>
@@ -64,9 +69,7 @@
         <button class="meter" data-m="food" aria-label="Food. Tap for details."></button>
         <button class="meter" data-m="water" aria-label="Water. Tap for details."></button>
         <button class="meter" data-m="power" aria-label="Power. Tap for details."></button>
-        <div class="clock">
-          <svg class="aclock" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="2"/><line id="hh" x1="16" y1="16" x2="16" y2="9" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><line id="mh" x1="16" y1="16" x2="16" y2="5" stroke="#ffb340" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="16" r="1.8" fill="currentColor"/></svg>
-          <b id="clock">8:00 AM</b><span id="clock-ico"></span><span>Sol <b id="sol">1</b></span>
+        <div class="hud-resources">
           <div class="outside" id="energy-wrap"><div class="mini" id="en-m"><div class="mt"><span class="mic" data-ic="bulb"></span><span id="en-v">100</span></div><div class="bar"><i></i></div></div></div>
           <div class="outside" id="outside" hidden>
             <div class="mini" id="suit-m"><div class="mt"><span class="mic" data-ic="suit"></span><span id="suit-v">100</span></div><div class="bar"><i></i></div></div>
@@ -78,37 +81,41 @@
     </header>
     <div id="stage">
       <div id="phaser"></div>
-      <div id="radar" class="radar" role="img" aria-label="Station radar. Cyan dot is your location; amber shows your current objective." title="Station radar · cyan: you · amber: current objective">
+      <div id="radar" class="radar" role="img" aria-label="Radar showing your position and current objective">
         <div class="radar-map" aria-hidden="true">
-          <span class="radar-poi" data-location="sick" style="left:12.2%;top:38.8%" title="Intercom"></span>
-          <span class="radar-poi" data-location="farm" style="left:14.9%;top:14.4%" title="Greenhouse"></span>
-          <span class="radar-poi" data-location="hatch" style="left:20.3%;top:38.8%" title="Meal hatch"></span>
-          <span class="radar-poi" data-location="control" style="left:32.4%;top:10%" title="Control Module"></span>
-          <span class="radar-poi" data-location="ls" style="left:50%;top:16%" title="Life support"></span>
-          <span class="radar-poi" data-location="comms" style="left:50%;top:50.4%" title="Comms console"></span>
-          <span class="radar-poi" data-location="bands" style="left:73%;top:13.2%" title="Resistance bands"></span>
-          <span class="radar-poi" data-location="bike" style="left:80.8%;top:15.6%" title="Cycle ergometer"></span>
-          <span class="radar-poi" data-location="rower" style="left:89.2%;top:15.6%" title="Rowing machine"></span>
-          <span class="radar-poi" data-location="lab" style="left:75.7%;top:51.2%" title="Science lab"></span>
-          <span class="radar-poi" data-location="bath" style="left:90.5%;top:51.2%" title="Bathroom"></span>
-          <span class="radar-poi" data-location="solar" style="left:40.5%;top:90.4%" title="Solar farm"></span>
-          <span class="radar-poi" data-location="rover" style="left:82.4%;top:84%" title="Rover bay"></span>
-          <span class="radar-poi" data-location="cave" style="left:94.6%;top:94%" title="Candidate cave"></span>
+          <span class="radar-poi" data-location="sick" style="left:12.2%;top:38.8%"></span>
+          <span class="radar-poi" data-location="farm" style="left:14.9%;top:14.4%"></span>
+          <span class="radar-poi" data-location="hatch" style="left:20.3%;top:38.8%"></span>
+          <span class="radar-poi" data-location="control" style="left:32.4%;top:10%"></span>
+          <span class="radar-poi" data-location="ls" style="left:50%;top:16%"></span>
+          <span class="radar-poi" data-location="comms" style="left:50%;top:50.4%"></span>
+          <span class="radar-poi" data-location="bands" style="left:73%;top:13.2%"></span>
+          <span class="radar-poi" data-location="bike" style="left:80.8%;top:15.6%"></span>
+          <span class="radar-poi" data-location="rower" style="left:89.2%;top:15.6%"></span>
+          <span class="radar-poi" data-location="lab" style="left:75.7%;top:51.2%"></span>
+          <span class="radar-poi" data-location="bath" style="left:90.5%;top:51.2%"></span>
+          <span class="radar-poi" data-location="solar" style="left:40.5%;top:90.4%"></span>
+          <span class="radar-poi" data-location="rover" style="left:82.4%;top:84%"></span>
+          <span class="radar-poi" data-location="cave" style="left:94.6%;top:94%"></span>
+          <span class="radar-poi" data-location="suit" style="left:32.4%;top:58.4%"></span>
           <span class="radar-player" id="radar-player"></span>
         </div>
-        <div class="radar-legend"><span><i class="you"></i>YOU</span><span><i class="goal"></i>OBJECTIVE</span></div>
+      </div>
+      <div class="sol-time" aria-label="Mars local time and Sol">
+        <svg class="aclock" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="2"/><line id="hh" x1="16" y1="16" x2="16" y2="9" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><line id="mh" x1="16" y1="16" x2="16" y2="5" stroke="#ffb340" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="16" r="1.8" fill="currentColor"/></svg>
+        <b id="clock">8:00 AM</b><span>Sol <b id="sol">1</b></span>
       </div>
       <div id="joy-base"></div><div id="joy-knob"></div>
       <div id="touch-hint" hidden>Tap to walk · tap a station to use it</div>
       <button id="act" hidden></button>
       <div id="toasts"></div>
       <div class="ep-bar" id="ep-bar" hidden>
-        <div class="epm" id="epm-energy"><span class="epl">BASE ENERGY</span><div class="bar"><i></i></div><b>0</b></div>
-        <div class="epm" id="epm-health"><span class="epl">YOUR HEALTH</span><div class="bar"><i></i></div><b>0</b></div>
-        <div class="epm" id="epm-morale"><span class="epl">TEAM MORALE</span><div class="bar"><i></i></div><b>0</b></div>
-        <div class="sw" id="ep-alert" title="Space weather alert: a game model based on a real NASA DONKI solar flare">SPACE WEATHER · LOW</div>
+        <div class="epm" id="epm-energy" role="meter" aria-label="Base energy" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="epm-top"><span class="ep-icon" data-ic="battery" aria-hidden="true"></span></div><div class="bar"><i></i></div></div>
+        <div class="epm" id="epm-health" role="meter" aria-label="Your health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="epm-top"><span class="ep-icon" data-ic="heart" aria-hidden="true"></span></div><div class="bar"><i></i></div></div>
+        <div class="epm" id="epm-morale" role="meter" aria-label="Team morale" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="epm-top mood-icons" id="epm-morale-icon" data-mood="neutral" aria-hidden="true"><span data-ic="neutral"></span></div><div class="bar"><i></i></div></div>
+        <div class="epm solar-meter low" id="ep-alert" role="meter" aria-label="Solar Alert" aria-valuemin="0" aria-valuemax="100" aria-valuenow="20"><div class="epm-top"><span class="ep-icon" data-ic="sun" aria-hidden="true"></span></div><div class="bar"><i></i></div></div>
       </div>
-      <div class="ring" id="ring" hidden><button class="ring-ico" id="ring-btn" aria-label="Intercom is ringing: Captain Reyes is calling"><img src="/crew/reyes.png" alt=""><span>INTERCOM<br><b>CAPT. REYES</b></span></button><button class="ring-mute" id="ring-mute" aria-label="Mute the ringing">🔕</button></div>
+      <div class="ring" id="ring" hidden><button class="ring-ico" id="ring-btn" aria-label="Intercom is ringing: Captain Reyes is calling"><img src="/crew/reyes.png" alt=""><span>INTERCOM<br><b>CAPT. REYES</b></span></button></div>
     </div>
   </section>
   <div id="overlays"></div><!-- outside both screens so learning cards and the wiki also show over the menu -->

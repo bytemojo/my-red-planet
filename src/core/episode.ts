@@ -32,9 +32,9 @@ export const envFor = (s: GameState): Env => (s.ep ? episodeEnv(s.sol) : envForS
 
 // Space-weather alert (a game model inspired by the real DONKI flare). The flare class sets how bad the peak gets.
 export function alertLevel(sol: number, hour: number, classType = 'X'): Alert {
-  const top: Alert = classType.startsWith('X') ? 'storm' : classType.startsWith('M') ? 'high' : 'elevated';
-  if (sol <= 1) return hour < 13 ? 'low' : hour < 17 ? 'elevated' : top === 'elevated' ? 'elevated' : 'high';
-  if (isStormSol(sol)) return hash01(sol * 97 + Math.floor(hour)) > 0.55 && top !== 'high' ? top : top === 'elevated' ? 'elevated' : 'high';
+  const top: Alert = classType.startsWith('X') ? 'storm' : classType.startsWith('M') ? 'high' : 'low';
+  if (sol <= 1) return hour < 13 || top === 'low' ? 'low' : hour < 17 ? 'elevated' : top === 'storm' ? 'high' : top;
+  if (isStormSol(sol)) return top === 'storm' ? (hash01(sol * 97 + Math.floor(hour)) > 0.55 ? 'storm' : 'high') : top;
   return 'low';
 }
 export const alertFor = (s: GameState): Alert => (s.ep ? alertLevel(s.sol, s.hour, s.ep.sun.classType) : 'low');

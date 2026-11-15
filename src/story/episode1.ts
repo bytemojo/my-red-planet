@@ -33,7 +33,7 @@ export const EP_EVENTS: EventDef[] = [
     journal: { why: 'Solar panels make power only when sunlight reaches them. Dust storms block the Sun and can bury panels.', science: 'In 2018 a global dust storm blocked so much sunlight that NASA\'s solar-powered Opportunity rover could not recharge and went silent.', sourceId: 'mars-2018-global-dust-storm', learnId: 'mars_dust', realData: true } },
   { id: 'radiation_peak', title: 'Radiation peak tonight', speaker: 'sofia',
     weight: s => (s.ep && s.sol === 2 && s.ep.shield === null ? 100 : 0),
-    text: s => `Sofia: "The space weather alert goes to its peak tonight. Our storm is modelled on a real solar flare in NASA's DONKI catalogue: class ${s.ep?.sun.classType ?? 'X9.0'} on ${s.ep?.sun.date ?? '2024-10-03'}. These walls are thin. How do we shield everyone?"`,
+    text: () => 'The space weather alert goes to its peak tonight. How should we prepare?',
     choices: [
       { id: 'water_wall', label: 'Fill the water walls', hint: `Water stops radiation. Costs ${EP.WATER_WALL.water} water and ${EP.WATER_WALL.power} power.`, effects: { res: { water: -EP.WATER_WALL.water, power: -EP.WATER_WALL.power } } },
       { id: 'corner', label: 'Sleep in the storage corner', hint: 'Free, but squeezed in: the crew will be grumpy.', effects: {} },
