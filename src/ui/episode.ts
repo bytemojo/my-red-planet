@@ -1,5 +1,5 @@
 // Episode 1 screens: opening card, ringing intercom, the three HUD meters, comms static, the debrief with the
-// decision tree, the NASA wiki, and the "Today's Sun" DONKI card. Reads state only; actions go through the Host.
+// decision tree, the NASA wiki, and the "Solar Forecast" DONKI card. Reads state only; actions go through the Host.
 import { ICON } from './icons';
 import { $, UI, bindLearning, clamp, esc, head, learnButton, overlay } from './ui';
 import { settings, sfx } from './audio';
@@ -96,7 +96,7 @@ export function openWiki(section?: string) {
   if (section) $(`#wiki-${section}`, el)?.scrollIntoView();
 }
 
-// ---------- Today's Sun (NASA DONKI, live when online) ----------
+// ---------- Solar forecast (NASA DONKI, live when online) ----------
 export type Sun = EpisodeState['sun'];
 const rank = (c: string) => ('ABCMX'.indexOf(c[0]) + 1) * 100 + parseFloat(c.slice(1) || '0');
 export async function fetchTodaysSun(): Promise<{ sun: Sun; count: number; fetchedAt: Date } | null> {
@@ -112,20 +112,18 @@ export async function fetchTodaysSun(): Promise<{ sun: Sun; count: number; fetch
     return { sun: { source: 'live', flrID: top.flrID, classType: top.classType, date: top.peakTime.slice(0, 10) }, count: list.length, fetchedAt: new Date() };
   } catch { return null; }
 }
-export const sunChoice: { sun: Sun; useLive: boolean } = { sun: ARCHIVED_SUN, useLive: true };
+export const sunChoice: { sun: Sun } = { sun: ARCHIVED_SUN };
 export async function initSunCard() {
   const card = $('#sun-card'); if (!card) return;
   const live = await fetchTodaysSun();
   if (live) {
     sunChoice.sun = live.sun;
     const peak = live.sun.classType[0] === 'X' ? 'STORM' : live.sun.classType[0] === 'M' ? 'HIGH' : 'ELEVATED';
-    card.innerHTML = `<b>Today's Sun</b> <span class="tag live">LIVE · NASA DONKI</span><br>Strongest flare in the last 30 days: <b>class ${esc(live.sun.classType)}</b> on ${esc(live.sun.date)} (${live.count} flares). Fetched ${live.fetchedAt.toLocaleTimeString()}.<br>With this Sun your storm's radiation peak will be <b>${peak}</b>.
-      <label><input type="checkbox" id="sun-use" checked> Use today's real Sun for my storm (unticked: the archived X9.0 flare of 3 Oct 2024)</label>`;
-    ($('#sun-use', card) as HTMLInputElement).onchange = e => { sunChoice.useLive = (e.target as HTMLInputElement).checked; };
+    card.innerHTML = `<b>Solar Forecast</b> <span class="tag live">LIVE · NASA DONKI</span><br>Strongest flare in the last 30 days: <b>class ${esc(live.sun.classType)}</b> on ${esc(live.sun.date)} (${live.count} flares). Fetched ${live.fetchedAt.toLocaleTimeString()}.<br>This flare sets the storm's modeled radiation peak to <b>${peak}</b>.`;
   } else {
-    sunChoice.sun = ARCHIVED_SUN; sunChoice.useLive = false;
-    card.innerHTML = `<b>Today's Sun</b> <span class="tag arch">ARCHIVED</span><br>Could not reach NASA DONKI (offline?). Your storm is modelled on the real <b>X9.0</b> flare of 3 Oct 2024 from the DONKI catalogue. Nothing here is live data.`;
+    sunChoice.sun = ARCHIVED_SUN;
+    card.innerHTML = `<b>Solar Forecast</b> <span class="tag arch">ARCHIVED</span><br>Could not reach NASA DONKI (offline?). Your storm is modelled on the real <b>X9.0</b> flare of 3 Oct 2024 from the DONKI catalogue. Nothing here is live data.`;
   }
 }
-export const chosenSun = (): Sun => (sunChoice.useLive ? sunChoice.sun : ARCHIVED_SUN);
+export const chosenSun = (): Sun => sunChoice.sun;
 export { plantHealth };

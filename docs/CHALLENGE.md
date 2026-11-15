@@ -27,7 +27,7 @@ Caption errors: "death storm" = **dust storm**, "donkey" = **DONKI**. The speake
 | One tense, fair 10-second decision | Storm episode exists only as an idea; panels can only be cleaned | Build "The Storm Call" (Task 1 in HANDOFF.md) |
 | Comms delay as gameplay | Only a line of dialogue and the shipment | "Ask Earth" whose reply arrives after the timer (Task 1) |
 | Radiation shielding as a real trade-off | Radiation resets nightly, nothing to plan | Make shielding a planned spend (Task 3) |
-| Today's real solar activity changes risk | Flare dates typed from memory, climate table invented | Verify DONKI, add "Today's Sun" (Task 2) |
+| Today's real solar activity changes risk | Flare dates typed from memory, climate table invented | Verify DONKI, add the "Solar Forecast" card (Task 2) |
 | Own your consequences | Journal exists, no cause-and-effect view | Debrief screen + replay (Task 4) |
 | 2-3 core resources | Seven bars on screen | Decision for the owner (Task 5) |
 

@@ -1,4 +1,4 @@
-// Episode 1 targeted browser checks (18). Needs: npm i --no-save playwright-core, Chrome, and the dev server on port 5179.
+// Episode 1 targeted browser checks (20). Needs: npm i --no-save playwright-core, Chrome, and the dev server on port 5179.
 // Usage: node scripts/ep1-checks.mjs <outdir>
 import { chromium } from 'playwright-core';
 const out = process.argv[2], URL = 'http://localhost:5179/';
@@ -36,6 +36,7 @@ async function startQuick(page) {
   await page.waitForFunction(() => !document.querySelector('#sun-card')?.textContent.includes('Checking'), null, { timeout: 15000 }).catch(() => {});
   const txt = (await page.textContent('#sun-card')) || '';
   ok('Menu shows LIVE DONKI data when online', /LIVE/.test(txt) && /class [ABCMX]/.test(txt), txt.replace(/\s+/g, ' ').slice(0, 140));
+  ok('Solar Forecast has no live-data checkbox', /Solar Forecast/.test(txt) && await page.$('#sun-use') === null);
   ok('Quick Start button is removed from the menu', await page.$('#btn-quick') === null);
   await page.screenshot({ path: `${out}/c1-menu-live.png` });
   // wiki from Help
@@ -58,6 +59,7 @@ async function startQuick(page) {
   await page.waitForFunction(() => !document.querySelector('#sun-card')?.textContent.includes('Checking'), null, { timeout: 15000 }).catch(() => {});
   const txt = (await page.textContent('#sun-card')) || '';
   ok('Menu falls back to ARCHIVED when DONKI is unreachable', /ARCHIVED/.test(txt) && !/LIVE/.test(txt), txt.replace(/\s+/g, ' ').slice(0, 140));
+  ok('Archived Solar Forecast has no live-data checkbox', /Solar Forecast/.test(txt) && await page.$('#sun-use') === null);
   await page.screenshot({ path: `${out}/c3-menu-offline.png` });
   // Internal test fixture uses the archived flare without exposing Quick Start in the menu.
   await startQuick(page);

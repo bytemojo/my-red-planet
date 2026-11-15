@@ -1,6 +1,6 @@
 # HANDOFF (update at the end of every session)
 
-Last updated 2026-11-15 by Copilot (gameplay UI fixes and quarantine dialogue portraits).
+Last updated 2026-11-15 by Copilot (Solar Forecast menu polish).
 
 ## START HERE
 Read: `AGENTS.md` (rules) → this file → `docs/CHALLENGE.md` (what the judges want) → `docs/NASA_SOURCES.md` (every real-data point, for judges) → `docs/DESIGN.md`. `docs/PROMPT_PACK.md` is the owner's long Episode 1 brief — reference for wording/intent, not the task order; this file sets the order.
@@ -9,7 +9,12 @@ Read: `AGENTS.md` (rules) → this file → `docs/CHALLENGE.md` (what the judges
 **Git:** branch `visual-pass-a` tracks `origin/visual-pass-a`. Includes the owner's GitHub update (crew portraits, commit `c6a6cb4`) already merged. The user has GitHub access to `bytemojo/my-red-planet`. **Do not** run `vercel`, push unless asked, or open/commit `.env.local` or `.vercel/`.
 **Always:** `npm run check` must pass before you call anything done. Commit after each task. Update this file honestly.
 
-## Latest session (2026-11-15): gameplay UI + quarantined crew portraits
+## Latest session (2026-11-15): Solar Forecast menu card
+- Renamed the menu card to **Solar Forecast**, removed the live-data checkbox and its copy, and made the fetched DONKI flare drive the storm automatically. The archived flare remains the offline fallback.
+- Moved the card to the desktop menu's upper-left corner; it remains below the menu on mobile.
+- Validation: `npm run check` passed (76 tests, type-check, production build). Browser-checked live and archived card content, absence of the checkbox, and card placement at 1280px desktop and 390px mobile widths. Real-device checks remain untested.
+
+## Previous session (2026-11-15): gameplay UI + quarantined crew portraits
 - Simplified the pass-out message; the checkpoint recovery and suit-rack tip remain.
 - Added a circular HUD radar with player location, key station markers, and the current objective highlighted. Verified at desktop and 390px mobile width.
 - Crew chat choices are stored in `GameState` and saves (SAVE_VERSION 4); old saves and rewind snapshots migrate with empty chat records. David's reply was browser-tested after leaving and reopening the intercom. Chat profile photos remain the regular crew portraits.
@@ -21,7 +26,7 @@ Read: `AGENTS.md` (rules) → this file → `docs/CHALLENGE.md` (what the judges
 ## What this session built: Episode 1 "The Storm" (the whole thing)
 The owner's goal (message 2026-11-14): "one level done well." The challenge author's signature scene (dust storm about to bury the panels, 10 seconds to decide) is now the centrepiece. Flow, all implemented:
 
-1. **Menu** → "Today's Sun" card fetches the last 30 days of **real NASA DONKI flares live** (CORS ok, no key); labelled LIVE, with an ARCHIVED fallback (the real X9.0 flare of 2024-10-03). A toggle picks which Sun drives the storm.
+1. **Menu** → "Solar Forecast" card fetches the last 30 days of **real NASA DONKI flares live** (CORS ok, no key); labelled LIVE, with an ARCHIVED fallback (the real X9.0 flare of 2024-10-03). The fetched flare drives the storm automatically when available.
 2. **Episode 1: The Storm** button → backstory holo card (owner's verbatim text, Hebrus Valles, 2036).
 3. Base starts at **50% power**, dusty panels, seedlings in the beds, crew quarantined. **Intercom rings** (sound + shaking icon + mute, goes quiet after 5 real min). Walk to the hallway intercom, press E, **pick Reyes** from the crew (wrong person = gentle "no answer").
 4. Reyes' call → objective **"CHECK ALL CORE SYSTEMS (0/5)": air, water, plants, comms, solar**. Each panel has a "✓ CHECK" button; solar is outside, so you must put the **suit** on at the rack first (suit rack is a new interactable in the hallway).
@@ -34,7 +39,7 @@ The owner's goal (message 2026-11-14): "one level done well." The challenge auth
 ### Code map (Episode 1)
 - `src/core/episode.ts` — **pure rules** (storm timeline, alert levels, Storm Call, nightly consequences, decision tree, scoring). `src/core/constants.ts` → `EP` block.
 - `src/story/episode1.ts` — beats + decision cards (content). `src/story/wiki.ts` — the wiki links. `src/story/learning.ts` — new learning cards (space_radiation, comms_delay, donki_live, exercise, water_recycling, moxie, nuclear_power, hebrus).
-- `src/ui/episode.ts` — opening card, ringing intercom, 3 HUD meters, comms static, debrief, wiki, "Today's Sun" DONKI fetch.
+- `src/ui/episode.ts` — opening card, ringing intercom, 3 HUD meters, comms static, debrief, wiki, "Solar Forecast" DONKI fetch.
 - Wired into: `src/core/director.ts` (ep beats/events + `onResolve`), `src/core/sim.ts` (`newGame({mode:'storm'})`, new actions: `answer check suit panels repair_watering`, `feed`; **SAVE_VERSION = 3**), `src/core/session.ts` (checkpoints: `saveCheckpoint`/`reloadCheckpoint`), `src/ui/panels.ts`, `src/ui/hud.ts`, `src/ui/ui.ts` (timed dialogue + {name}), `src/game/WorldScene.ts` (suit zone, storm lock, `passOut`, debrief), `src/game/world.ts` (suit rack + stowed-panel art), `src/ui/menu.ts`, `src/main.ts`.
 - Data: `src/data/manifest.json` + `src/data/solar-events.json` — the two DONKI flares are now **verified: true** with exact flrIDs and peak times. `docs/NASA_SOURCES.md` is the judge-facing source list.
 

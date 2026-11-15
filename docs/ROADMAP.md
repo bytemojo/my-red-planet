@@ -36,7 +36,7 @@ Legend: [x] done and tested · [~] exists but not fully verified · [ ] not star
 ## Episode 1 "The Storm" (2026-11-14)
 - [x] Core rules + decision tree + scoring (54 unit tests)
 - [x] Opening card, ringing intercom, 5-system check, suit rack, timed Storm Call, Ask Earth delay, 3 storm Sols, radiation-shield choice, faults, after-storm repairs, debrief + replay (browser-verified, 17 checks + full playthrough)
-- [x] Live DONKI "Today's Sun" with ARCHIVED fallback (browser-verified online and blocked)
+- [x] Live DONKI "Solar Forecast" with ARCHIVED fallback (browser-verified online and blocked)
 - [x] NASA wiki (30 checked links) + docs/NASA_SOURCES.md
 - [x] Owner decisions D1-D4 applied (Hebrus Valles text, Reyes, subtitle, cuts)
 - [x] Character creator (Step 3): name rule, skin, body style, hair wheel, live preview, overwrite confirm (16 browser checks)
