@@ -38,13 +38,21 @@ export const sfx = {
   ok: () => { beep(660, 0.1, 'triangle', 0.06); beep(990, 0.16, 'triangle', 0.06, 0.1); },
   warn: () => { beep(300, 0.18, 'sawtooth', 0.05); beep(240, 0.22, 'sawtooth', 0.05, 0.18); },
   blip: () => beep(880, 0.03, 'square', 0.015),
+  // Step 27c: quiz sounds. A soft two-note chime for a right answer, a low gentle tone for a miss (never harsh for kids).
+  chime: () => { beep(784, 0.16, 'sine', 0.045); beep(1175, 0.26, 'sine', 0.04, 0.11); },
+  miss: () => { beep(330, 0.2, 'sine', 0.035); beep(262, 0.26, 'sine', 0.03, 0.14); },
   win: () => [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.18, 'triangle', 0.06, i * 0.12)),
+  // Step 22b: a bonus star lands. Low, short, no audio file.
+  thump: () => { beep(120, 0.2, 'sine', 0.12); beep(64, 0.32, 'sine', 0.1, 0.03); },
   plant: () => beep(420, 0.08, 'triangle', 0.05),
   water: () => { beep(700, 0.05, 'sine', 0.04); beep(540, 0.08, 'sine', 0.04, 0.05); },
   harvest: () => { beep(600, 0.08, 'triangle', 0.06); beep(900, 0.12, 'triangle', 0.06, 0.08); },
   ring: () => { for (let i = 0; i < 3; i++) { beep(880, 0.12, 'square', 0.035, i * 0.18); beep(660, 0.12, 'square', 0.03, i * 0.18 + 0.09); } },
   alarm: () => { beep(980, 0.14, 'sawtooth', 0.04); beep(740, 0.14, 'sawtooth', 0.04, 0.16); },
   tick: () => beep(1200, 0.025, 'square', 0.02),
+  refill: (air: number) => { beep(380 + air * 4, 0.06, 'sine', 0.022); beep(300 + air * 4, 0.1, 'triangle', 0.012, 0.05); },
+  hum: () => { beep(110, 0.5, 'sine', 0.012); beep(165, 0.5, 'sine', 0.006); },
+  cough: () => { beep(140, 0.07, 'sawtooth', 0.04); beep(110, 0.09, 'sawtooth', 0.035, 0.09); beep(95, 0.1, 'sawtooth', 0.03, 0.2); },
   // Radio static: a short burst of filtered noise (generated, no audio file).
   static: (secs = 0.9) => {
     if (!settings.sound) return;

@@ -4,37 +4,47 @@ import { ICON } from './icons';
 import { $, UI, bindLearning, clamp, esc, head, learnButton, overlay } from './ui';
 import { settings, sfx } from './audio';
 import { fillName } from '../story/name';
-import { ALERT_LABEL, ARCHIVED_SUN, alertFor, baseEnergy, plantHealth } from '../core/episode';
+import { refreshObjectives } from './hud';
+import { charsShown } from '../core/typewriter';
+import { ALERT_LABEL, ARCHIVED_SUN, alertFor, baseEnergy, plantHealth, playerHunger } from '../core/episode';
+import { MAX_SCORE, MEASURE_LABELS, masteryDetail, masteryLine, masteryScore, WEIGHTS, bonusCount, bonusResults, computeScore, type MeasureId } from '../core/score';
+import { bestAndTip, consequenceLines } from '../story/consequences';
+import { SHARE_NETWORKS, SHARE_TEXT, type ShareNetworkId } from '../core/share';
 import { teamMorale } from '../core/crewlife';
 import { WIKI } from '../story/wiki';
 import type { EpisodeState, GameState, TreeNode } from '../core/types';
 
 // {name} in any line becomes the player's name (Settings > Callsign).
 export const withName = (t: string) => fillName(t, settings.name);
-export function bonusGoals(s: GameState): { label: string; done: boolean }[] {
-  return [
-    { label: 'Keep team morale high', done: teamMorale(s) >= 70 },
-    { label: 'Write a note in your journal', done: !!s.notes?.some(n => n.text.trim()) },
-    { label: 'Read a NASA source', done: sessionStorage.getItem('ep1_wiki_read') === '1' },
-    { label: 'Share the mission with a friend', done: sessionStorage.getItem('ep1_shared') === '1' },
-    { label: 'Keep the plants healthy', done: plantHealth(s) >= 75 },
-  ];
-}
 export function resetBonusProgress(): void {
   sessionStorage.removeItem('ep1_wiki_read');
   sessionStorage.removeItem('ep1_shared');
+  sessionStorage.removeItem('ep1_shared_at'); // Step 22b: when the share happened (ms); the bonus star counts one hour later (core/score.ts)
 }
 
 export const BACKSTORY = [
-  'The year is 2036. You are part of a NASA mission to explore the Hebrus Valles region on Mars and build the foundation for future human habitation.',
-  'But soon after landing, the flu leaves everyone on your team sick except you. As the only healthy crew member on the base and a radiation storm approaching, the future of humanity on Mars now rests on you. Do your best, recruit.',
+  'The year is 2036. You are part of a small crew that has just landed in Hebrus Valles on Mars. Your mission is to explore this region and build the first home for future explorers.',
+  'But soon after landing, a flu spreads and everyone on your team gets sick, except you. They rest in quarantine while a radiation storm races toward the base.',
+  'You are the only healthy crew member. Feed everyone, fix what breaks, and watch your meters. The future of humans on Mars rests on you, recruit.',
 ];
+/** Step 26a: the opening is a typewriter scene (about 25 characters a second). Tap or any key finishes the text, SKIP always works, CONTINUE is always there. Reduced motion shows everything at once. */
 export function showOpeningCard(): Promise<void> {
   return new Promise(res => {
-    const el = overlay('opening', `<div class="holo-panel holo-card">${head('base', 'EPISODE 1 · THE STORM', false)}<div class="panel-body"><div class="story">${BACKSTORY.map(p => `<p>${esc(p)}</p>`).join('')}</div>
+    const full = BACKSTORY.join('\n'), reduced = reducedMotion();
+    const el = overlay('opening', `<div class="holo-panel holo-card">${head('base', 'EPISODE 1 · THE STORM', false)}<div class="panel-body"><div class="story" id="op-story" aria-label="${esc(BACKSTORY.join(' '))}"></div>
       <p class="why">Tip: every choice costs something. Watch the three meters on the left and the space weather alert.</p>
-      <div class="row" style="justify-content:flex-end"><button class="holo-btn primary" id="op-go">CONTINUE ▸</button></div></div></div>`);
-    $('#op-go', el).onclick = () => { sfx.ok(); UI.close('opening'); res(); };
+      <div class="row" style="justify-content:flex-end;gap:8px"><button class="holo-btn small" id="op-skip" type="button">SKIP</button><button class="holo-btn primary" id="op-go" type="button">CONTINUE ▸</button></div></div></div>`);
+    const box = $('#op-story', el), skip = $('#op-skip', el); box.setAttribute('role', 'text');
+    const draw = (n: number) => { const parts = full.slice(0, n).split('\n'); box.innerHTML = parts.map((p, i) => `<p>${esc(p)}${i === parts.length - 1 && n < full.length ? '<span class="tw-caret" aria-hidden="true"></span>' : ''}</p>`).join(''); };
+    let raf = 0, t0 = 0, done = false;
+    const finish = () => { if (done) return; done = true; cancelAnimationFrame(raf); draw(full.length); skip.hidden = true; document.removeEventListener('keydown', onKey, true); };
+    const onKey = () => { if (!done) finish(); };
+    const tick = (now: number) => { if (!t0) t0 = now; const n = charsShown(now - t0, full.length); draw(n); if (n >= full.length) finish(); else raf = requestAnimationFrame(tick); };
+    const leave = () => { sfx.ok(); finish(); UI.close('opening'); res(); };
+    skip.onclick = () => { sfx.click(); finish(); };
+    box.onclick = () => { if (!done) finish(); };
+    $('#op-go', el).onclick = leave;
+    if (reduced) finish(); else { draw(0); document.addEventListener('keydown', onKey, true); raf = requestAnimationFrame(tick); }
   });
 }
 
@@ -64,7 +74,7 @@ export function refreshEpHud(s: GameState) {
     (el.querySelector('.bar i') as HTMLElement).style.width = clamp(v, 0, 100) + '%';
     el.setAttribute('aria-valuenow', String(Math.round(v)));
   };
-  set('epm-energy', baseEnergy(s)); set('epm-health', s.health); set('epm-morale', teamMorale(s));
+  set('epm-energy', baseEnergy(s)); set('epm-health', s.health); set('epm-hunger', 100 - playerHunger(s)); set('epm-morale', teamMorale(s));
   const morale = teamMorale(s), moraleMeter = $('#epm-morale');
   const mood = morale < 35 ? 'angry' : morale >= 65 ? 'happy' : 'neutral';
   moraleMeter.dataset.mood = mood;
@@ -99,29 +109,72 @@ function renderTree(tree: TreeNode[]): string {
   const roots = tree.filter(n => !n.cause || !ids.has(n.cause));
   return roots.map(node).join('');
 }
+// Step 22c: original line glyphs (not brand logos), 16px, drawn with currentColor.
+const svg16 = (d: string) => `<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const SHARE_ICON: Record<ShareNetworkId | 'link', string> = {
+  whatsapp: svg16('<path d="M2.5 13.5l.9-3A5.6 5.6 0 1 1 5.5 12.6z"/><path d="M6 6.2c.2 1.6 1.6 3 3.4 3.6"/>'),
+  x: svg16('<path d="M3 3l10 10M13 3L3 13"/>'),
+  facebook: svg16('<circle cx="8" cy="8" r="6.2"/><path d="M9.6 13.8V8.6h1.6M6.8 8.6h4.4M8.6 8.6V6.9c0-1 .5-1.5 1.5-1.5h.8"/>'),
+  email: svg16('<rect x="2" y="3.5" width="12" height="9" rx="1.5"/><path d="M2.5 4.5L8 9l5.5-4.5"/>'),
+  link: svg16('<path d="M6.8 9.2a2.6 2.6 0 0 0 3.7 0l2-2a2.6 2.6 0 0 0-3.7-3.7l-.8.8"/><path d="M9.2 6.8a2.6 2.6 0 0 0-3.7 0l-2 2a2.6 2.6 0 0 0 3.7 3.7l.8-.8"/>'),
+};
+const meterClass = (n: number) => (n < 35 ? 'low' : n < 65 ? 'mid' : 'high');
+const reducedMotion = () => document.documentElement.dataset.reduce === '1' || (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion:reduce)').matches);
+const readSharedAt = (): number | null => { const v = sessionStorage.getItem('ep1_shared_at'); const n = v === null ? NaN : Number(v); return Number.isFinite(n) ? n : null; };
 export function showDebrief(s: GameState, onReplay: () => void, onMenu: () => void): void {
-  const ep = s.ep!, r = ep.result!;
-  const bonusRows = () => {
-    return `<div class="bonus-grid">${bonusGoals(s).map(({ label, done }) => `<div class="bonus-goal ${done ? 'earned' : ''}"><span>${done ? '★' : '☆'}</span>${esc(label)}</div>`).join('')}</div>`;
-  };
-  const shareText = 'Play this fun Mars colony game with me at https://myredplanet.vercel.app/';
-  const shareLink = encodeURIComponent('https://myredplanet.vercel.app/');
-  const shareCopy = encodeURIComponent(shareText);
+  const ep = s.ep!;
+  const sc = computeScore(s), { best, tip } = bestAndTip(sc.measures), conseq = consequenceLines(s);
+  const reduce = reducedMotion();
+  const bonus = () => bonusResults(s, { wikiRead: sessionStorage.getItem('ep1_wiki_read') === '1', sharedAt: readSharedAt(), now: Date.now() });
+  const bonusSlots = (rs: ReturnType<typeof bonus>, animate: boolean) => `<div class="bonus-sky" id="bonus-sky">${rs.map((b, i) => `<div class="bstar ${b.done ? 'earned' : 'missed'}${b.done && animate ? ' pending' : ''}" data-i="${i}"><span class="bs-star" aria-hidden="true">${b.done ? '★' : '☆'}</span><span class="bs-label">${esc(b.label)}${b.done ? '' : '<small>Not earned yet</small>'}</span></div>`).join('')}</div>`;
+  const shareNote = (rs: ReturnType<typeof bonus>) => { const sh = rs.find(r => r.id === 'share'); return sh && sh.done && !sh.counts ? 'The share star is lit now and counts toward your bonus total one hour after you shared.' : ''; };
+  const shareText = SHARE_TEXT;
   UI.close('inspect'); UI.close('control'); // the panel used for the last action should not sit under the debrief
   sfx.win();
-  const el = overlay('debrief', `<div class="holo-panel holo-card">${head('sun', 'EPISODE 1 COMPLETE', false)}<div class="panel-body">
-    <div class="stars" aria-label="${r.stars} of 3 stars">${'★'.repeat(r.stars)}<span style="opacity:.25">${'★'.repeat(3 - r.stars)}</span></div>
-    <div class="metrics"><div>Team morale<b>${r.morale}</b></div><div>Base energy<b>${r.power}</b></div><div>Plant health<b>${r.plants}</b></div><div>Your health<b>${r.health}</b></div></div>
-    <p class="line"><b>${esc(r.best)}</b> ${esc(r.tip)}</p>
-    <h4>Bonus objectives</h4>${bonusRows()}
+  const rs0 = bonus();
+  const ids = Object.keys(WEIGHTS) as MeasureId[];
+  const el = overlay('debrief', `<div class="holo-panel holo-card mission-card">${head('sun', 'EPISODE 1 COMPLETE', false)}<div class="panel-body">
+    <div class="stars" aria-label="${sc.stars} of 3 stars">${'★'.repeat(sc.stars)}<span style="opacity:.25">${'★'.repeat(3 - sc.stars)}</span></div>
+    <div class="score-line" aria-label="Score ${sc.score} out of ${MAX_SCORE}">SCORE <b>${sc.score}</b> / ${MAX_SCORE}</div>
+    <div class="mastery-badge" aria-label="${masteryLine(s)}, ${masteryDetail(s)}"><b>${masteryScore(s)}</b><span>${masteryLine(s)}<small>${masteryDetail(s)}</small></span></div>
+    <div class="measure-bars" role="list">${ids.map(id => `<div class="mbar ${meterClass(sc.measures[id])}" role="listitem" aria-label="${MEASURE_LABELS[id]} ${sc.measures[id]} out of 100"><span class="ml">${MEASURE_LABELS[id]}</span><div class="mtrack"><i style="--w:${sc.measures[id]}%"></i></div><b>${sc.measures[id]}</b></div>`).join('')}</div>
+    <p class="line"><b>${esc(best.text)}</b> Next time: ${esc(tip.text)}</p>
+    <h4>What your choices caused</h4><ul class="conseq">${conseq.map(c => `<li><b>${esc(c.topic)}</b>${esc(c.text)}</li>`).join('')}</ul>
+    <h4>Bonus stars <span class="bonus-count" id="bonus-count">${bonusCount(rs0)} of ${rs0.length}</span></h4><div id="bonus-wrap">${bonusSlots(rs0, !reduce)}</div><p class="share-note" id="share-note">${esc(shareNote(rs0))}</p>
+    <div class="share-card"><b>SHARE YOUR MISSION</b><p>${esc(shareText)}</p><div class="share-actions">${SHARE_NETWORKS.map(n => `<a class="holo-btn small share-btn" ${n.external ? 'target="_blank" rel="noopener" ' : ''}href="${n.href}" data-share aria-label="Share on ${n.label}">${SHARE_ICON[n.id]}<span>${n.label}</span></a>`).join('')}<button class="holo-btn small share-btn" id="db-copy" aria-label="Copy link">${SHARE_ICON.link}<span>COPY LINK</span></button></div><div id="share-status" aria-live="polite"></div></div>
+    <button class="holo-btn amber play-again" id="db-replay">PLAY AGAIN ▸</button><p class="play-again-note">A clean Episode 1. Your awards and leaderboard stay.</p>
     <h4>Your decisions and what they caused</h4><div class="tree">${renderTree(ep.tree)}</div>
     <p class="why">${ep.passOuts ? `You passed out ${ep.passOuts} time${ep.passOuts > 1 ? 's' : ''} and restarted from a checkpoint. ` : ''}The storm was modelled on a real solar flare in NASA's DONKI catalogue (class ${esc(ep.sun.classType)}, ${esc(ep.sun.date)}, ${ep.sun.source === 'live' ? 'read live' : 'archived'}). ${learnButton('donki_live')}</p>
-    <div class="share-card"><b>SHARE YOUR MISSION</b><p>${esc(shareText)}</p><div class="share-actions"><a class="holo-btn small" target="_blank" rel="noopener" href="https://wa.me/?text=${shareCopy}" data-share>WhatsApp</a><a class="holo-btn small" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?text=${shareCopy}" data-share>𝕏</a><a class="holo-btn small" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=${shareLink}" data-share>Facebook</a><button class="holo-btn small" id="db-copy">COPY LINK</button></div><div id="share-status" aria-live="polite"></div></div>
-    <div class="db-actions"><button class="holo-btn small" id="db-wiki">${ICON.doc} NASA WIKI</button><div class="grp"><button class="holo-btn small" id="db-menu">MAIN MENU</button><button class="holo-btn small amber" id="db-replay">PLAY AGAIN ▸</button></div></div></div></div></div>`);
+
+    <div class="db-actions"><button class="holo-btn small" id="db-wiki">${ICON.doc} NASA WIKI</button><button class="holo-btn small" id="db-menu">MAIN MENU</button></div></div></div></div></div>`);
   bindLearning(el);
-  const markShared = () => { sessionStorage.setItem('ep1_shared', '1'); const status = $('#share-status', el); if (status) status.textContent = '★ Share bonus earned!'; const goals = el.querySelector('.bonus-grid'); if (goals) goals.outerHTML = bonusRows(); };
+  // Bars fill, then each earned bonus star zooms in from far away with a glowing trail, a thump and a small shake. Missed goals stay dim.
+  const card = el.querySelector('.mission-card') as HTMLElement, live = () => el.isConnected;
+  const run = (ms: number, fn: () => void) => { if (reduce) fn(); else window.setTimeout(() => { if (live()) fn(); }, ms); };
+  run(80, () => el.querySelectorAll('.mbar').forEach(b => b.classList.add('go')));
+  const earned = Array.from(el.querySelectorAll<HTMLElement>('.bstar.pending'));
+  earned.forEach((n, k) => run(1100 + k * 750, () => {
+    n.classList.remove('pending'); n.classList.add('zoom'); sfx.thump();
+    card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+    window.setTimeout(() => card.classList.remove('shake'), 340);
+  }));
+  const markShared = () => {
+    sessionStorage.setItem('ep1_shared', '1'); if (readSharedAt() === null) sessionStorage.setItem('ep1_shared_at', String(Date.now()));
+    const status = $('#share-status', el); if (status) status.textContent = '★ Share star lit!';
+    const rs = bonus(); $('#bonus-wrap', el).innerHTML = bonusSlots(rs, false); $('#bonus-count', el).textContent = `${bonusCount(rs)} of ${rs.length}`; $('#share-note', el).textContent = shareNote(rs);
+    el.querySelectorAll('.bstar.earned').forEach(n => n.classList.add('zoom', 'settled'));
+  };
   el.querySelectorAll('[data-share]').forEach(a => (a as HTMLElement).addEventListener('click', markShared));
-  $('#db-copy', el).onclick = async () => { try { await navigator.clipboard.writeText(shareText); $('#share-status', el).textContent = 'Link copied. ★ Share bonus earned!'; markShared(); } catch { $('#share-status', el).textContent = shareText; } };
+  $('#db-copy', el).onclick = async () => {
+    const status = $('#share-status', el);
+    let ok = false;
+    try { await navigator.clipboard.writeText(shareText); ok = true; } catch { /* clipboard blocked: try the old way below */ }
+    if (!ok) { // fallback: select the text in a hidden field and copy it
+      try { const t = document.createElement('textarea'); t.value = shareText; t.setAttribute('readonly', ''); t.style.cssText = 'position:fixed;opacity:0;top:0;left:0'; document.body.appendChild(t); t.select(); ok = document.execCommand('copy'); t.remove(); } catch { ok = false; }
+    }
+    if (ok) { markShared(); status.textContent = 'Link copied. ★ Share star lit!'; }
+    else status.textContent = `Could not copy here. Copy this by hand: ${shareText}`; // honest: no star until it was really shared
+  };
   $('#db-wiki', el).onclick = () => { sfx.click(); openWiki(); };
   $('#db-replay', el).onclick = () => { sfx.ok(); UI.close('debrief'); onReplay(); };
   $('#db-menu', el).onclick = () => { sfx.click(); UI.close('debrief'); onMenu(); };
@@ -135,7 +188,7 @@ export function openWiki(section?: string) {
     <div class="row">${WIKI.map(w => `<button class="holo-btn small" data-jump="${w.id}">${esc(w.title.split(':')[0])}</button>`).join('')}</div>
     ${WIKI.map(sec).join('')}</div></div>`);
   el.querySelectorAll('[data-jump]').forEach(b => ((b as HTMLElement).onclick = () => { sfx.click(); $(`#wiki-${(b as HTMLElement).dataset.jump}`, el)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
-  el.querySelectorAll('.wiki a').forEach(a => a.addEventListener('click', () => sessionStorage.setItem('ep1_wiki_read', '1')));
+  el.querySelectorAll('.wiki a').forEach(a => a.addEventListener('click', () => { sessionStorage.setItem('ep1_wiki_read', '1'); refreshObjectives(); }));
   if (section) $(`#wiki-${section}`, el)?.scrollIntoView();
 }
 
@@ -185,7 +238,7 @@ export function openSolarForecast() {
     ${sourceTag}
     <div class="card solar-status" data-alert="${warning.level}"><h3>${warning.alert}</h3>${flareDetails}</div>
     <div><h4>What you can do</h4><p class="why">${guidance}</p></div>
-    <p class="why">DONKI records solar flares observed near Earth; it does not measure radiation at Mars.</p>
+    <p class="why">DONKI records solar flares observed near Earth; it does not measure radiation at Mars. This card is information only: the Solar Alert in the game follows its own script and is never changed by live data.</p>
     <a class="holo-btn small amber" href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank" rel="noopener noreferrer">OPEN NASA DONKI ↗</a>
     <a class="holo-btn small" href="https://www.nasa.gov/science-research/heliophysics/real-martians-how-to-protect-astronauts-from-space-radiation-on-mars/" target="_blank" rel="noopener noreferrer">READ NASA RADIATION GUIDANCE ↗</a>
   </div></div>`);

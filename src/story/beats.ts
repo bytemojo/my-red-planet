@@ -11,7 +11,7 @@ export const BEATS: Beat[] = [
       "But now, rookie... you're the only one who is not sick.",
       'The whole crew is quarantined with the flu. Earth is more than 33 million miles away, and help is not coming soon.',
       'The mission\'s success depends on you.',
-      'Start by checking the farm, the air and water, comms and solar power. The solar farm is outside, so use the airlock and watch your suit air.'],
+      'Start by checking the farm, the air and water, comms and solar power. The solar farm is outside, so use the airlock.'],
     effects: { flag: { intro_done: true }, friend: { crew: 'reyes', n: 1 } } },
   { id: 'aiko_seeds', speaker: 'aiko', when: s => seen(s, 'intro') && s.sol >= 2,
     lines: ['Hi from the sick bay window! Take my seed packets. Pick one to plant first.'],

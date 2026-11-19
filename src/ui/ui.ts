@@ -1,4 +1,5 @@
 import { ICON } from './icons';
+import { MORNING_STEP_MS, STATUS_LABEL, morningCards } from '../story/morning';
 import { sfx } from './audio';
 import type { PendingView } from '../core/director';
 import type { CrewId, GameState } from '../core/types';
@@ -8,6 +9,7 @@ import { LEARNING } from '../story/learning';
 import { settings } from './audio';
 
 import { fillName } from '../story/name';
+import { buildPopQuestion } from '../core/quiz';
 const withName = (t: string) => fillName(t, settings.name);
 
 export const $ = (s: string, r: ParentNode = document) => r.querySelector(s) as HTMLElement;
@@ -33,6 +35,12 @@ export function overlay(id: string, html: string, cls = ''): HTMLElement {
 export function toast(html: string, o: { kind?: string; ms?: number } = {}) {
   const el = document.createElement('div'); el.className = 'toast ' + (o.kind || ''); el.innerHTML = html;
   $('#toasts').appendChild(el); setTimeout(() => el.remove(), o.ms ?? 2800);
+}
+// A readable card that always sits ABOVE every other layer (chat, panels), with an OK button. Used for notices that must not hide behind a modal.
+export function noticeCard(msg: string, title = 'Please note') {
+  const el = overlay('notice', `<div class="holo-panel notice-card" role="alertdialog" aria-live="assertive"><div class="panel-body"><h2>${esc(title)}</h2><p>${esc(msg)}</p><button class="holo-btn primary" type="button" data-close>OK</button></div></div>`, 'notice-overlay');
+  (el.querySelector('[data-close]') as HTMLElement | null)?.focus();
+  return el;
 }
 export const head = (ic: string, title: string, close = true) =>
   `<div class="panel-head"><span class="hico">${ICON[ic] ?? ''}</span><h2>${esc(title)}</h2>${close ? '<button class="close-x" data-close aria-label="Close">×</button>' : ''}</div>`;
@@ -63,6 +71,7 @@ export const crewPortrait = (id: CrewId, className = 'crew-avatar') =>
   `<img class="${className}" src="/crew/${id}.png" alt="${esc(CREW[id].name)}">`;
 
 export function runPending(v: PendingView, quarantineOver = false): Promise<string> {
+  if (v.popQuiz && Object.prototype.hasOwnProperty.call(CREW, v.speaker)) return runPopQuiz(v);
   return new Promise(resolve => {
     const portraitId = Object.prototype.hasOwnProperty.call(CREW, v.speaker) ? v.speaker as CrewId : null;
     const place = v.speaker === 'reyes' ? 'QUARANTINE BAY' : v.speaker === 'system' ? '' : 'SICK BAY';
@@ -70,11 +79,14 @@ export function runPending(v: PendingView, quarantineOver = false): Promise<stri
     const portraitSrc = portraitId ? sickPortrait ?? `/crew/${portraitId}.png` : '';
     const portraitClass = portraitId ? `dlg-cutout dlg-cutout-${portraitId}` : '';
     const portrait = portraitId ? `<img class="${portraitClass}" src="${portraitSrc}" alt="">` : '';
+    // A story choice (Storm Call, Dish Decision, panel plan, Aoki) is a SCENE: speaker cutout on the left, nameplate, one line, then the cards.
+    const scene = !!portraitId && v.choices.length > 0;
+    const plate = scene ? `<div class="dlg-plate"><b>${esc(speakerName(v.speaker))}</b><small>${esc([place, v.title].filter(Boolean).join(' · '))}</small></div>` : '';
     const boxClass = portraitId ? 'dlg-box dlg-box-character' : 'holo-panel dlg-box dlg-box-system';
-    const el = overlay('dlg', `<div class="dlg-stage ${portraitId ? 'with-portrait' : ''}">${portrait}
+    const el = overlay('dlg', `<div class="dlg-stage ${portraitId ? 'with-portrait' : ''}${scene ? ' dlg-scene' : ''}">${portrait}${plate}
       <div class="${boxClass}"><div class="dlg-main"><div class="dlg-name" id="dlg-name"></div><div class="dlg-text" id="dlg-text" aria-live="polite"></div><div class="dlg-actions" id="dlg-actions"></div></div></div></div>`, 'dialogue-overlay');
     const name = $('#dlg-name', el), tx = $('#dlg-text', el), actions = $('#dlg-actions', el);
-    name.innerHTML = `${esc(speakerName(v.speaker))}${place ? ' · ' + place : ''}${v.title ? ' · ' + esc(v.title) : ''}${learnButton(v.learnId)}`; bindLearning(el);
+    name.innerHTML = scene ? learnButton(v.learnId) : `${esc(speakerName(v.speaker))}${place ? ' · ' + place : ''}${v.title ? ' · ' + esc(v.title) : ''}${learnButton(v.learnId)}`; if (scene && !v.learnId) name.hidden = true; bindLearning(el);
     let i = 0, timer = 0, full = '', countdown = 0;
     const finish = (id: string) => { clearInterval(timer); clearInterval(countdown); UI.close('dlg'); runPending.next = null; resolve(id); };
     // A timed decision (the Storm Call): countdown bar, a pause for young players, timeout = the default choice.
@@ -93,6 +105,7 @@ export function runPending(v: PendingView, quarantineOver = false): Promise<stri
       const last = i >= v.lines.length - 1;
       actions.innerHTML = '';
       if (!last) actions.innerHTML = `<button class="skip" id="dlg-skip">Skip</button><button class="holo-btn small amber" id="dlg-next">NEXT ▸</button>`;
+      else if (v.choices.length && v.choices.filter(c => c.id !== v.timer?.timeoutChoice).every(c => c.card)) { actions.innerHTML = `<div class="optlist decision-cards" style="width:100%">${v.choices.filter(c => c.id !== v.timer?.timeoutChoice).map(c => `<button class="opt decision-card" data-choice="${esc(c.id)}" ${c.disabled ? 'disabled' : ''}><span class="opt-top"><b>${esc(c.label)}</b></span><span class="dc-row dc-good"><i>IMMEDIATE BENEFIT</i>${esc(c.card!.benefit)}</span><span class="dc-row dc-cost"><i>IMMEDIATE COST</i>${esc(c.card!.cost)}</span><span class="dc-row dc-risk"><i>RISK</i>${esc(c.card!.risk)}</span>${c.card!.meters?.length ? `<span class="dc-meters">${c.card!.meters.map(m => `<em class="dm-${m.dir}" title="${esc(m.meter)} goes ${m.dir}"><span aria-hidden="true">${m.dir === 'up' ? '▲' : '▼'}</span> ${esc(m.meter)}<span class="sr"> goes ${m.dir}</span></em>`).join('')}</span>` : ''}</button>`).join('')}</div>`; if (v.timer && !countdown) startTimer(); }
       else if (v.choices.length) { actions.innerHTML = `<div class="optlist" style="width:100%">${v.choices.filter(c => c.id !== v.timer?.timeoutChoice).map(c => `<button class="opt" data-choice="${esc(c.id)}" ${c.disabled ? 'disabled' : ''}><span class="opt-top"><b>${esc(c.label)}</b></span>${c.hint ? `<span class="why">${esc(c.hint)}</span>` : ''}</button>`).join('')}</div>`; if (v.timer && !countdown) startTimer(); }
       else actions.innerHTML = `<span></span><button class="holo-btn small amber" id="dlg-next">GOT IT ▸</button>`;
       actions.querySelectorAll('[data-choice]').forEach(b => ((b as HTMLElement).onclick = () => {
@@ -116,14 +129,25 @@ export function runPending(v: PendingView, quarantineOver = false): Promise<stri
 }
 runPending.next = null as null | (() => void);
 
+/** Step 27j: an event shown as ONE pop quiz question in the quiz UI. The picked answer maps back to the story choice id, so the same flag is set. */
+async function runPopQuiz(v: PendingView): Promise<string> {
+  const { openQuiz } = await import('./quiz');
+  const pq = v.popQuiz!, built = buildPopQuestion(pq, v.seed ?? 0, v.sol ?? 1, v.id);
+  const attempt = { crew: v.speaker as CrewId, level: 1, sol: v.sol ?? 1, questions: [built.question] };
+  for (;;) {   // no way to skip the decision: closing without an answer shows the question again
+    const run = await openQuiz(attempt, '', undefined, { explanation: pq.explanation });
+    const k = run.picks[0];
+    if (k !== null && k !== undefined) return built.choiceIds[k];
+  }
+}
+
 // ---------- report, journal, result ----------
 export function showReport(s: GameState): Promise<void> {
   const r = s.lastReport; if (!r) return Promise.resolve();
   return new Promise(res => {
     const el = overlay('report', `<div class="holo-panel">${head('sun', `MY LITTLE RED PLANET · SOL ${String(r.sol).padStart(3, '0')}`, false)}<div class="panel-body">
       <p class="line" style="margin:0;font-size:20px">Good morning, Commander.</p>
-      <div class="optlist">${r.lines.map(l => `<div class="msg2"><span class="face">${ICON.ping}</span><span>${esc(l)}</span></div>`).join('')}</div>
-      <div class="fact">${ICON.bulb}<span><b>Today's mission:</b> ${esc(r.mission)}</span>${learnButton(STAGES[s.stage - 1]?.learnId)}</div>
+      <div class="mcards" role="list">${morningCards(r).map((c, i) => `<div class="mcard st-${c.status}" role="listitem" style="--i:${i};--step:${MORNING_STEP_MS}ms"><span class="mc-ico" aria-hidden="true">${ICON[c.icon] ?? ICON.ping}</span><span class="mc-body"><b>${esc(c.title)}</b><span>${esc(c.line)}</span></span><span class="mc-pill">${STATUS_LABEL[c.status]}</span>${c.status === 'now' ? learnButton(STAGES[s.stage - 1]?.learnId) : ''}</div>`).join('')}</div>
       <div class="row" style="justify-content:flex-end"><button class="holo-btn small amber" id="rep-go">START THE DAY ▸</button></div></div></div>`);
     bindLearning(el); $('#rep-go', el).onclick = () => { sfx.ok(); UI.close('report'); res(); };
   });
@@ -153,6 +177,10 @@ export function showStageResult(s: GameState, finished: number): Promise<void> {
       <div class="row" style="justify-content:flex-end"><button class="holo-btn small amber" id="r-go">KEEP EXPLORING ▸</button></div></div></div>`);
     bindLearning(el); $('#r-go', el).onclick = () => { sfx.click(); UI.close('result'); res(); };
   });
+}
+/** Step 7b: amber flash on the HUD parts that went into a WARNING state (a few pulses, then it stops). */
+export function warnFlash(selectors: string[]) {
+  for (const q of selectors) { const el = document.querySelector(q); if (!el) continue; el.classList.remove('warn-flash'); void (el as HTMLElement).offsetWidth; el.classList.add('warn-flash'); setTimeout(() => el.classList.remove('warn-flash'), 2600); }
 }
 export function flashMeter(k: string) {
   const el = document.querySelector(`.meter[data-m="${k}"]`); if (!el) return;

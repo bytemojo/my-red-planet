@@ -2,12 +2,43 @@
 // Pure: no Phaser, no DOM. The world layer reads these to choose animations and bubbles.
 import { CREW_LIFE as C } from './constants';
 import { clamp } from './util';
-import type { CrewId, CrewState, GameState } from './types';
+import type { CropId, CrewId, CrewState, GameState } from './types';
 
 export const CREW_IDS: CrewId[] = ['reyes', 'aiko', 'david', 'sofia'];
 export type Mood = 'sad' | 'neutral' | 'happy';
 
 export const newCrewState = (): CrewState => ({ friendship: 0, met: false, morale: C.MORALE_START, hunger: C.HUNGER_START });
+// ---------- Step 10a: the crop unlock ladder (reuses the crew hearts = CrewState.friendship, no second system) ----------
+/** The botanist who gives the seeds. In the code and the crew list she is Aiko Tanaka (id 'aiko'); the menu text calls the botanist "Dr Aoki". */
+export const BOTANIST: CrewId = 'aiko';
+export const MAX_HEARTS = 5;
+/** Hearts with the botanist needed for each crop. Lettuce, potato and bean need none. */
+export const CROP_UNLOCK_HEARTS: Readonly<Partial<Record<CropId, number>>> = { tomato: 2, carrot: 4, spinach: 4, wheat: 5 };
+export const heartsOf = (s: Pick<GameState, 'crew'>, id: CrewId): number => Math.min(MAX_HEARTS, Math.max(0, Math.floor(s.crew[id]?.friendship ?? 0)));
+const unlockFlag = (c: CropId) => `unlock_${c}`;
+/** Crops the botanist's hearts have earned so far, whatever the flags say. */
+export const cropsEarned = (s: Pick<GameState, 'crew'>): CropId[] =>
+  (Object.keys(CROP_UNLOCK_HEARTS) as CropId[]).filter(c => heartsOf(s, BOTANIST) >= CROP_UNLOCK_HEARTS[c]!);
+/**
+ * Makes the unlock flags match the hearts and returns the crops that became available just now.
+ * An unlock is permanent (a flag in GameState.flags, so saves and rewinds carry it together with the hearts that earned it).
+ * Safe to call any time; also adopts the older tomato_unlocked flag so old saves and the campaign story keep working.
+ */
+export function syncCropUnlocks(s: GameState): CropId[] {
+  const fresh: CropId[] = [];
+  if (s.flags.tomato_unlocked) s.flags[unlockFlag('tomato')] = true;
+  for (const c of cropsEarned(s)) if (!s.flags[unlockFlag(c)]) { s.flags[unlockFlag(c)] = true; fresh.push(c); }
+  if (s.flags[unlockFlag('tomato')]) s.flags.tomato_unlocked = true;                // the campaign planting check still reads this flag
+  return fresh;
+}
+/** The next rung of the ladder: how many hearts and which crops. null when every crop is open. */
+export function nextCropUnlock(s: GameState): { hearts: number; crops: CropId[] } | null {
+  const waiting = (Object.keys(CROP_UNLOCK_HEARTS) as CropId[]).filter(c => !s.flags[unlockFlag(c)]);
+  if (!waiting.length) return null;
+  const hearts = Math.min(...waiting.map(c => CROP_UNLOCK_HEARTS[c]!));
+  return { hearts, crops: waiting.filter(c => CROP_UNLOCK_HEARTS[c] === hearts) };
+}
+
 // Hunger only matters while the crew is quarantined; once well again they cook for themselves.
 export const crewNeedsCare = (s: GameState) => !s.flags.quarantine_over;
 
@@ -23,12 +54,14 @@ export function crewTick(s: GameState, hours: number): void {
   for (const id of CREW_IDS) {
     const c = s.crew[id];
     c.hunger = clamp(c.hunger + C.HUNGER_RATE * hours, 0, 100);
+    if (c.hunger >= C.HUNGRY_AT) c.morale = clamp(c.morale - C.HUNGRY_MORALE_DRAIN * hours, 0, 100);   // Step 11b: unfed crew slowly lose morale
     if (c.hunger >= 100) c.morale = clamp(c.morale - C.STARVING_DROP * hours, 0, 100);
   }
 }
 
 // Called from endSol() BEFORE the Sol's tmp_ flags are cleared (it reads tmp_talk_<id>).
 export function crewOvernight(s: GameState): void {
+  syncCropUnlocks(s);                                                // catches saves from before the ladder existed
   for (const id of CREW_IDS) {
     const c = s.crew[id];
     if (!s.flags[`tmp_talk_${id}`]) c.morale = clamp(c.morale - C.NO_TALK_DROP, 0, 100);

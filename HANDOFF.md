@@ -1,6 +1,44 @@
 # HANDOFF (update at the end of every session)
 
-Last updated 2026-11-15 by Codex and Copilot (Episode UI, objectives, meal flow and bonus rewards).
+Last updated 2026-11-16 by Claude (Master Build Prompt Step 1; see the first section below).
+
+## Latest session (2026-11-16, later): STEP 2a kitchen rebuild (art and walls only)
+**Status: `npm run check` passes (123 tests, tsc, vite build). NOT run in a browser.** Only `src/game/world.ts` changed (plus STATE/HANDOFF/docs).
+- Found: the old kitchen was a 2x2 walkable pocket; its art was drawn at depth 100, under the wall rows, so the microwave and heater were hidden, and both labels sat at depth 3 (also hidden). The prep island had no collision.
+- Now: interior x15-16,y7-9, door (14,8). Counter row y7 (blocked): hotplate on the left under a wall microwave, sink on the right under two ingredient bins, KITCHEN sign. Small white table at (16,8), now blocked. Walkable cells: (15,8), (15,9), (16,9). Cook marker (15.5,8.6) is directly in front of the hotplate. South wall (15,10),(16,10) is a glass serving window with an ELECTRIC / NO FLAME sign readable from the corridor. Tile-checker floor, runner, hazard threshold and a green status light at the door. Electric only, no flame.
+- Depths: wall-face art 7*T+1, counter 8*T, counter items 8*T+1, table 9*T, glow 8*T+2, floor 1.
+- Checked: collision grid regenerated from world.ts (table and glass appear, all three walkable cells reachable from the door) and the art rendered offline to `docs/playtest/kitchen-2a-render.png` (stub scene + PIL, approximate fonts).
+- Needs a human in the browser: art depth against the player at (15,8), (15,9), (16,9); tap-to-walk into the kitchen; cook animation still plays; sign text readable; glass window look from the corridor.
+- Not done (Step 2b): any kitchen interaction change, tray carry, using the tray prop.
+
+## Latest session (2026-11-16): Master Build Prompt STEP 1 (action animation foundation)
+**Status: code written, unit-tested, NOT run in a browser. Treat every visual item below as UNTESTED until someone plays it.**
+The sandbox had no network, so `npm install` failed (Vite, Vitest and Phaser could not be installed). `npm run check` and `npm run dev` were NOT run. What WAS run: all 123 unit tests (79 old + 44 new) through a throwaway vitest shim on node:test (not committed), a mutation check proving the new tests catch a broken runner, and `tsc` with Phaser stubbed (no errors in new code). The pose and prop art was rendered to PNG and checked by eye.
+
+### What was added
+- `src/core/actions.ts` (pure): `ACTION_DEFS` (pull_bands, pick_up, put_down), `ActionRunner` (walking -> posing -> idle; beat fires exactly once; `finish()` never skips the beat; walk timeout 8 s; `forceUnlock()` for world resets), `buildTimeline`, `canStartAction`/`applyActionBeat` (energy is checked at start, charged only at the beat), reduced-motion scaling (x0.35).
+- `src/core/inventory.ts` (pure): one held item (`pickUp`, `putDown`, `PROP_IDS`). Runtime only: NOT in GameState, so not saved or rewound. Resetting the player empties the hands. Step 3 should extend this file with stock counts rather than create a new one.
+- `src/game/actions.ts`: `playAction(scene, id, {stand, face, onBeat, onDone, onAbort})`, `stepAction`, `drawPlayer`. The header comment documents how to add an animated interaction.
+- `src/game/pixelart.ts`: 7 poses (reach, crouch, pour, kneel, pull, suitup, sleep; 4-5 frames each), carry-walk frames (3 dirs x 3), hand anchors per frame, 5 prop sprites (tray, sprinkler, seed packet, spare part, ice sample). `src/game/sprites.ts`: second sheet `player_act` (kept apart from `player` to stay under GPU texture-width limits), `props` sheet.
+- `src/game/effects.ts`: dustPuff, waterDroplets, sparkle, steam, holoFlicker, amberBlink (all respect prefers-reduced-motion).
+- `src/game/racks.ts`: data-driven wall racks (`PROP_RACKS`) on the greenhouse west wall: TOOLS (sprinkler), SEEDS (seed packet), PARTS (spare part). Stand tiles (5,4), (5,5), (5,6) were checked against the walkability grid computed from world.ts.
+- `WorldScene.ts`: action runner + held prop wired in; keys/joystick/taps ignored while an action runs; `resetPlayer` always unlocks and empties the hands.
+- Proof 1: Resistance Bands now plays kneel/pull (bands snap taut at the beat), THEN opens the workout panel. Proof 2: the three racks (pick up with a reach animation, carry visibly, put back; "Put your item down first" if hands are full; 1 energy to pick up, charged at the beat).
+
+### Needs a human in the browser (UNTESTED)
+1. Bands: press E at the gym bands; the explorer should walk to the spot, kneel/pull, and the panel opens afterwards.
+2. Racks: greenhouse west wall (tiles x=4, y=4..6). Pick up each prop, walk 10+ tiles, put it back. Check the prop sits in the hand facing left AND right, indoors and in the EVA suit (the suit is still a panel toggle until Step 8).
+3. Rack art depth: drawn at depth (y+1)*32+1 over the wall; confirm it is not hidden or overlapping the beds at x=6.
+4. Reduced motion: enable the OS setting; animations should be short but still work.
+5. Press Esc mid-action: controls must come back and nothing double-fires.
+6. `npm install && npm run check` on a machine with network.
+
+### Notes and honest deviations
+- The racks are a foundation for Steps 3/6, so picking up a prop does nothing else yet. The owner's Step 1 asked for a rack carry proof. Step 3 should MOVE them into the storage room by editing `PROP_RACKS` (and the zones/markers derive from it).
+- Only the bands (not the bike or rower) got the pre-workout animation, as specified.
+- Poses are side-view and mirrored for left. Targets north/south of the explorer will look sideways; choose a stand-point so the object is left or right.
+- The new tray prop art exists but nothing uses it yet; Step 2 will.
+- Existing kitchen verification from the previous session is still pending.
 
 ## START HERE
 Read: `AGENTS.md` (rules) → this file → `docs/CHALLENGE.md` (what the judges want) → `docs/NASA_SOURCES.md` (every real-data point, for judges) → `docs/DESIGN.md`. `docs/PROMPT_PACK.md` is the owner's long Episode 1 brief — reference for wording/intent, not the task order; this file sets the order.
@@ -16,6 +54,13 @@ Read: `AGENTS.md` (rules) → this file → `docs/CHALLENGE.md` (what the judges
 - Polished the Episode HUD: colorful icon-and-meter rows without numbers or card backgrounds, one colored morale face, the requested resource/Solar Alert color scales, and a circular radar showing the player and current objective. The Sol clock is outside the radar at the screen's bottom-right, without a card background and with a subtle blurred shadow.
 - Moved the NASA wiki button to the home menu immediately after Your awards and removed its dedicated pause-menu button. The global mute remains; the Reyes intercom has no separate mute button.
 - Validation: `npm run check` passed (79 tests, type-check, production build); `git diff --check` passed. Browser-tested at `http://127.0.0.1:5175/`: menu placement and wiki modal, radiation dialogue wording and comic styling, Learn More icon and NASA learning modal, absence of the dialogue REAL DATA chip and Reyes intercom mute button, and Sol-clock positioning/transparent background with drop-shadow. Real-device touch/audio remain untested.
+
+## Kitchen vertical slice (2026-11-15): dedicated room implemented, browser/build validation blocked
+- Replaced the ugly corridor kitchenette with a dedicated four-by-four room immediately east of the greenhouse in `src/game/world.ts`, including a doorway, floor runner, counter wall, microwave, electric heater, sink/tap, storage lockers, ingredient bins, prep island, serving tray, status lights, and `KITCHEN` / `ELECTRIC · NO FLAME` labels. No open flame was added.
+- Added a dedicated `Cook in Kitchen` world interaction and objective guidance in `src/game/WorldScene.ts`. The existing meal hatch remains the delivery point and can still open the same tray menu during Episode 1.
+- Updated the meal panel copy in `src/ui/panels.ts` to present the loop as `SELECT → COOK → DELIVER`, while preserving the existing five-portion atomic meal rules, limited stock, water/power costs, and disabled-state advice.
+- Cooking now visibly prepares the tray with steam, switches to the tray pose, carries the player to the quarantine hatch, and shows `TRAY DELIVERED` before control returns. The core state update remains in `cook_serve`, so existing meal tests and checkpoint semantics are preserved.
+- `npx tsc --noEmit` passed and `git diff --check` passed. `npm run check`, `npm run build`, and `npm run dev` are currently blocked before project compilation by Vitest/Vite/esbuild reporting `Cannot read directory "../../..": Access is denied` while resolving `vite.config.ts`; browser validation is therefore pending. The pre-existing uncommitted solar-panel layout files are still present and were not folded into this kitchen change.
 
 ## Previous session (2026-11-15): gameplay UI + quarantined crew portraits
 - Simplified the pass-out message; the checkpoint recovery and suit-rack tip remain.
@@ -91,7 +136,7 @@ Play → (asks "Start a new game?" if a save exists) → **creator** → backsto
 2. ~~Gym + health loop, bathroom, science lab~~ **DONE** (see below).
 3. ~~Mars map + journal photos~~ **DONE** (see below).
 4. ~~Judge package~~ **DONE**: `docs/DEMO_SCRIPT.md` (2-minute video, opens on the Storm Call); README points judges to `docs/NASA_SOURCES.md`.
-5. The owner's original visual note also asked for a **kitchen with cooking on an electric heater** and on-screen animations for **watering** and **repairs**. Not built yet; it was not in the D4 question, so ask the owner whether it is still wanted for Level 1.
+5. **Kitchen vertical slice DONE in source, not browser-verified yet:** dedicated greenhouse-adjacent room art, kitchen interaction, five-portion menu copy, cooking/steam/tray carry animation, and physical carry-to-hatch delivery are implemented. Remaining kitchen work: original food card art, farm produce in the same menu, and physical watering/planting/repair animations.
 6. Not yet checked by a human: touch/joystick play on a real phone or tablet; the sound of the ring/alarm/static (headless runs are silent).
 
 ### Codex continuation (2026-11-15)

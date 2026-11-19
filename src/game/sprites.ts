@@ -3,7 +3,7 @@
 // The tiny source grids deliberately use hard pixel edges: Phaser's camera rounds
 // pixels, so they remain crisp at every supported zoom.
 // @ts-nocheck
-import { AW, AH, bubble, character, icon, type CharSpec, type Dir, type Pixels, type Pose } from './pixelart';
+import { FOOD_ART_IDS, foodFrameName, foodPixels, CROP_KINDS, CROP_PALETTE, cropFrameName, cropRows, harvestFrameName, harvestRows, seedFrameName, seedPalette, seedRows, ITEM_PALETTE, type CropKind, AW, AH, ACTION_FRAME_COUNT, actFrameName, actionFrame, bubble, carryFrame, carryFrameName, character, icon, propGrip, propPixels, PROP_ART, type ActionPoseName, type CharSpec, type Dir, type Hand, type Pixels, type Pose, type PropArt } from './pixelart';
 
 type Palette = Record<string, number>;
 
@@ -22,41 +22,7 @@ const texture = (scene: any, key: string, rows: string[], colors: Palette, scale
   g.destroy();
 };
 
-const crop = (scene: any, kind: string, stage: number) => {
-  const palette: Record<string, Palette> = {
-    lettuce: { d: 0x573e28, m: 0x356c39, l: 0x7fdf77, h: 0xd4ffd0, f: 0xeaffd0 },
-    tomato: { d: 0x573e28, m: 0x2c6a3a, l: 0x60c764, h: 0xa8ed91, f: 0xff5b4c },
-    bean: { d: 0x573e28, m: 0x316b37, l: 0x8ccf64, h: 0xd1f59e, f: 0xd2e97c },
-    potato: { d: 0x573e28, m: 0x305f37, l: 0x67b862, h: 0xa2e691, f: 0xd7ad6e },
-  };
-  const rows = Array.from({ length: 16 }, (_, y) => y > 11 ? 'dddddddddddddddd' : '                ');
-  const put = (x: number, y: number, c: string) => { const a = [...rows[y]]; a[x] = c; rows[y] = a.join(''); };
-  // Stem and leaves become denser at each state; ripe crops add a distinct fruit color.
-  if (stage > 0) { put(8, 11, 'm'); put(8, 10, 'm'); }
-  if (stage > 1) {
-    [[6, 10], [7, 9], [9, 9], [10, 10], [5, 10], [11, 10]].forEach(([x, y]) => put(x, y, 'l'));
-    [[7, 10], [9, 10], [8, 8]].forEach(([x, y]) => put(x, y, 'h'));
-  }
-  if (stage > 2) {
-    [[4, 9], [5, 8], [6, 8], [7, 7], [9, 7], [10, 8], [11, 8], [12, 9], [6, 6], [10, 6]].forEach(([x, y]) => put(x, y, 'l'));
-    [[5, 9], [7, 8], [9, 8], [11, 9], [8, 6]].forEach(([x, y]) => put(x, y, 'h'));
-  }
-  if (stage === 3) {
-    const fruit = kind === 'lettuce' ? [[8, 6]] : kind === 'bean' ? [[5, 9], [11, 8]] : [[6, 9], [10, 9], [8, 6]];
-    fruit.forEach(([x, y]) => { put(x, y, 'f'); if (x + 1 < 16) put(x + 1, y, 'f'); });
-  }
-  texture(scene, `crop_${kind}_${stage}`, rows, palette[kind], 2);
-};
-
-const machine = (scene: any, key: string, accent: number, screen: number) => {
-  const rows = [
-    '    mmmmmmmm    ', '   mhhhhhhhm    ', '  mhhhhhhhhhm   ', '  mhssssssshm   ',
-    '  mhsccccshm   ', '  mhsccccshm   ', '  mhssssssshm   ', '  mhhhhhhhhhm   ',
-    '  mmmmmmmmmmm   ', '  mbbbbbbbbbm   ', '  mbbbaabbbbm   ', '  mbbbbbbbbbm   ',
-    '  mmm mmmm mm   ', '  xx  mmmm  xx  ',
-  ];
-  texture(scene, key, rows, { m: 0x17243d, h: 0x7e93b5, s: 0x0c1830, c: screen, b: 0x3c5277, a: accent, x: 0x202a3c }, 2);
-};
+const crop = (scene: any, kind: CropKind, stage: number | 'wilted') => texture(scene, cropFrameName(kind, stage), cropRows(kind, stage), CROP_PALETTE[kind], 2);
 
 
 // Each character becomes one canvas texture with named frames, e.g. 'crew_aiko' frame 'side_step1'.
@@ -96,9 +62,31 @@ const charFrames = (spec: CharSpec, prefix = ''): [string, Pixels][] => {
   if (!spec.eva) for (const p of EXTRA) out.push([prefix + p, character(spec, p === 'tray' ? 'up' : 'side', p)]);
   return out;
 };
-// Rebuild the player's sheet (indoor clothes + EVA suit). Call again when the look changes.
+// Action poses (reach, crouch, pour, kneel, pull, suit-up, sleep) and carry-walk frames live on a second
+// sheet, 'player_act', so neither texture gets near a GPU's maximum width. Frame names are prefixed
+// 'in_' (indoor clothes) or 'ev_' (EVA suit), e.g. 'in_act_reach_3' or 'ev_carry_side_step1'.
+// FRAME_HANDS[name without prefix] = where the hand is (art pixels), so a held prop sits in the hand.
+export const FRAME_HANDS: Record<string, Hand> = {};
+export const PLAYER_ACT = 'player_act';
+const POSES = Object.keys(ACTION_FRAME_COUNT) as ActionPoseName[];
+const actFrames = (spec: CharSpec, prefix: string): [string, Pixels][] => {
+  const out: [string, Pixels][] = [];
+  for (const pose of POSES) for (let i = 0; i < ACTION_FRAME_COUNT[pose]; i++) { const f = actionFrame(spec, pose, i); FRAME_HANDS[actFrameName(pose, i)] = f.hand; out.push([prefix + actFrameName(pose, i), f.px]); }
+  for (const d of DIRS) for (const w of WALK) { const f = carryFrame(spec, d, w); FRAME_HANDS[carryFrameName(d, w)] = f.hand; out.push([prefix + carryFrameName(d, w), f.px]); }
+  return out;
+};
+// Rebuild the player's sheets (indoor clothes + EVA suit). Call again when the look changes.
 export function buildPlayerSheet(scene: any, look: CharSpec = PLAYER_LOOK) {
   sheet(scene, 'player', [...charFrames(look, 'in_'), ...charFrames({ ...look, eva: true }, 'ev_')]);
+  sheet(scene, PLAYER_ACT, [...actFrames(look, 'in_'), ...actFrames({ ...look, eva: true }, 'ev_')]);
+}
+
+// Props the explorer can carry. Frame name = prop id. PROP_GRIPS[id] = the grip point in WORLD pixels.
+export const PROP_GRIPS: Record<string, Hand> = {};
+export function buildPropSheet(scene: any) {
+  const ids = Object.keys(PROP_ART) as PropArt[];
+  ids.forEach(id => { const g = propGrip(id); PROP_GRIPS[id] = [g[0] * PX, g[1] * PX]; });
+  sheet(scene, 'props', ids.map(id => [id, propPixels(id)] as [string, Pixels]));
 }
 
 // Soft radial light used for lamps and outdoor lights at night.
@@ -112,12 +100,13 @@ export function createGlowTexture(scene: any) {
 export const createPixelSprites = (scene: any) => {
   createGlowTexture(scene);
   buildPlayerSheet(scene);
+  buildPropSheet(scene);
   for (const [id, spec] of Object.entries(CREW_LOOKS)) sheet(scene, `crew_${id}`, charFrames(spec));
   sheet(scene, 'icons', [
     ...['happy', 'neutral', 'sad', 'heart', 'zzz'].map(n => [`mood_${n}`, icon(n)] as [string, Pixels]),
     ...['food', 'water', 'ready', 'heart'].map(n => [`bubble_${n}`, bubble(n)] as [string, Pixels]),
   ]);
-  ['lettuce', 'tomato', 'bean', 'potato'].forEach(k => [0, 1, 2, 3].forEach(stage => crop(scene, k, stage)));
-  machine(scene, 'machine_oxygen', 0x5ee7ce, 0x46d8ff);
-  machine(scene, 'machine_water', 0x79b9ff, 0x4c8eff);
+  CROP_KINDS.forEach(k => [0, 1, 2, 3, 4, 'wilted'].forEach(stage => crop(scene, k, stage)));
+  CROP_KINDS.forEach(k => { texture(scene, seedFrameName(k), seedRows(k), seedPalette(k), 2); texture(scene, harvestFrameName(k), harvestRows(k), ITEM_PALETTE[k], 2); }); // Step 5c item sprites
+  for (const size of ['card', 'tray'] as const) sheet(scene, `food_${size}`, FOOD_ART_IDS.map(id => [foodFrameName(id, size), foodPixels(id, size)] as [string, Pixels])); // Step 9b: frames food_card_<id> (64px) / food_tray_<id> (32px)
 };

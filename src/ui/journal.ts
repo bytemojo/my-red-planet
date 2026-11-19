@@ -5,6 +5,7 @@ import { $, UI, bindLearning, esc, learnButton, overlay } from './ui';
 import { sfx } from './audio';
 import { PHOTOS, MARS_MAP } from '../story/photos';
 import { HEBRUS_VALLES, mapXY } from '../core/marsmap';
+import { refreshObjectives } from './hud';
 import { addNote, deleteNote, NOTE_MAX } from '../core/notes';
 import { openWiki } from './episode';
 import type { GameState } from '../core/types';
@@ -42,7 +43,7 @@ export function openJournal(getState: () => GameState, save: () => void, tab: Jo
     el.querySelectorAll('[data-tab]').forEach(b => ((b as HTMLElement).onclick = () => { sfx.click(); tab = (b as HTMLElement).dataset.tab as JournalTab; render(); }));
     el.querySelectorAll('[data-del]').forEach(b => ((b as HTMLElement).onclick = () => { sfx.click(); if (deleteNote(getState(), (b as HTMLElement).dataset.del!)) save(); render(); }));
     const add = el.querySelector('[data-j="add"]') as HTMLElement | null;
-    if (add) add.onclick = () => { const t = ($('#j-note', el) as HTMLTextAreaElement).value; if (addNote(getState(), t)) { sfx.ok(); save(); render(); } else sfx.warn(); };
+    if (add) add.onclick = () => { const t = ($('#j-note', el) as HTMLTextAreaElement).value; if (addNote(getState(), t)) { sfx.ok(); save(); render(); refreshObjectives(); } else sfx.warn(); };
     const ta = el.querySelector('#j-note') as HTMLTextAreaElement | null;
     if (ta) ta.addEventListener('keydown', e => e.stopPropagation()); // typing must not move the explorer
     const wk = el.querySelector('[data-j="wiki"]') as HTMLElement | null; if (wk) wk.onclick = () => { sfx.click(); openWiki(); };

@@ -1,3 +1,9 @@
+import '@fontsource/orbitron/latin-500.css';
+import '@fontsource/orbitron/latin-700.css';
+import '@fontsource/orbitron/latin-900.css';
+import '@fontsource/rajdhani/latin-500.css';
+import '@fontsource/rajdhani/latin-600.css';
+import '@fontsource/rajdhani/latin-700.css';
 import Phaser from 'phaser';
 import { WorldScene, keys, joy } from './game/WorldScene';
 import { initMenu, menuControls } from './ui/menu';
@@ -9,6 +15,8 @@ import { runPending } from './ui/ui';
 import { chosenSun, resetBonusProgress, showOpeningCard } from './ui/episode';
 import { confirmOverwrite, showCreator } from './ui/creator';
 import { openJournal } from './ui/journal';
+import { HOW_TO_PLAY } from './story/howto';
+import { masteryDetail, masteryLine, masteryScore } from './core/score';
 
 let game: Phaser.Game | null = null;
 let scene: WorldScene | null = null;
@@ -58,16 +66,22 @@ const refreshTopButton = () => {
   soundToggle.title = playing ? 'Pause' : settings.sound ? 'Mute sound' : 'Turn sound on';
   soundToggle.innerHTML = playing ? pauseIcon : soundIcon(!settings.sound);
 };
+function openHowTo() {
+  const el = overlay('howto', `<div class="holo-panel pause-panel">${head('clock', 'How to play', false)}<div class="panel-body"><div class="optlist">${HOW_TO_PLAY.map(([t, l]) => `<p class="why"><b>${t}.</b> ${l}</p>`).join('')}<button class="holo-btn primary" data-howto="back">BACK</button></div></div></div>`);
+  (el.querySelector('[data-howto]') as HTMLElement).onclick = () => { sfx.click(); UI.close('howto'); openPause(); };
+}
 function openPause() {
   if (UI.blocking()) return;
-  const el = overlay('pause', `<div class="holo-panel pause-panel">${head('clock', 'Paused', false)}<div class="panel-body"><p class="why">Take a breather. Mars will wait for you.</p><div class="optlist"><button class="holo-btn primary" data-pause="resume">RESUME MISSION</button><button class="holo-btn" data-pause="sound">${soundIcon(!settings.sound)}<span>${settings.sound ? 'SOUND: ON' : 'SOUND: OFF'}</span></button><button class="holo-btn" data-pause="save">SAVE GAME</button><button class="holo-btn" data-pause="journal">MY JOURNAL</button><button class="holo-btn" data-pause="map">MARS MAP</button><button class="holo-btn amber" data-pause="menu">SAVE & RETURN TO MENU</button></div></div></div>`);
+  scene?.autosave(); // Step 24a: opening the pause menu saves the exact live spot
+  const el = overlay('pause', `<div class="holo-panel pause-panel">${head('clock', 'Paused', false)}<div class="panel-body"><p class="why">Take a breather. Mars will wait for you.</p>${scene ? `<div class="mastery-badge" aria-label="${masteryLine(scene.sess.state)}, ${masteryDetail(scene.sess.state)}"><b>${masteryScore(scene.sess.state)}</b><span>${masteryLine(scene.sess.state)}<small>${masteryDetail(scene.sess.state)}</small></span></div>` : ''}<div class="optlist"><button class="holo-btn primary" data-pause="resume">RESUME MISSION</button><button class="holo-btn" data-pause="sound">${soundIcon(!settings.sound)}<span>${settings.sound ? 'SOUND: ON' : 'SOUND: OFF'}</span></button><button class="holo-btn" data-pause="howto">HOW TO PLAY</button><button class="holo-btn" data-pause="save">SAVE GAME</button><button class="holo-btn" data-pause="journal">MY JOURNAL</button><button class="holo-btn" data-pause="map">MARS MAP</button><button class="holo-btn amber" data-pause="menu">SAVE & RETURN TO MENU</button></div></div></div>`);
   el.querySelectorAll('[data-pause]').forEach(button => ((button as HTMLElement).onclick = () => {
     const action = (button as HTMLElement).dataset.pause;
     if (action === 'resume') { sfx.click(); UI.close('pause'); }
     if (action === 'sound') { music.toggle(); if (settings.sound) sfx.ok(); openPause(); refreshTopButton(); }
-    if (action === 'save' && scene) { sfx.ok(); saveToStorage(scene.sess); toast('Game saved.', { kind: 'good' }); }
+    if (action === 'howto') { sfx.click(); UI.close('pause'); openHowTo(); }
+    if (action === 'save' && scene) { sfx.ok(); scene.autosave(); toast('Game saved.', { kind: 'good' }); }
     if ((action === 'journal' || action === 'map') && scene) { sfx.click(); UI.close('pause'); const sc = scene; openJournal(() => sc.sess.state, () => saveToStorage(sc.sess), action === 'map' ? 'map' : 'photos'); }
-    if (action === 'menu' && scene) { sfx.click(); saveToStorage(scene.sess); UI.close('pause'); toMenu(); }
+    if (action === 'menu' && scene) { sfx.click(); scene.autosave(); UI.close('pause'); toMenu(); }
   }));
 }
 refreshTopButton();
@@ -79,7 +93,7 @@ addEventListener('keydown', e => {
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k) && !(e.target && (e.target as HTMLElement).tagName === 'INPUT')) e.preventDefault();
   if (UI.stack.includes('dlg')) { if (['e', ' ', 'enter'].includes(k)) { e.preventDefault(); runPending.next?.(); } return; }
   // Escape closes whatever is on top (the newest closable overlay); with nothing open it pauses.
-  if (k === 'escape') { const top = [...UI.stack].reverse().find(id => ['pause', 'learn', 'wiki', 'journal', 'inspect', 'control', 'simple', 'result'].includes(id)); if (top) UI.close(top); else if (!UI.blocking()) openPause(); return; }
+  if (k === 'escape') { const top = [...UI.stack].reverse().find(id => ['howto', 'pause', 'learn', 'wiki', 'journal', 'inspect', 'control', 'simple', 'result'].includes(id)); if (top) UI.close(top); else if (!UI.blocking()) openPause(); return; }
   if (UI.blocking()) return;
   if (k === 'e' || k === 'enter' || k === ' ') scene?.doAct(); else if (k === 'c' && scene) openControl(scene.host);
   keys[k] = true;
@@ -99,3 +113,12 @@ stage.addEventListener('pointerdown', e => { if ((e.target as HTMLElement).close
 stage.addEventListener('pointermove', e => { if (Math.hypot(e.clientX - tapX, e.clientY - tapY) > 12) dragged = true; if (e.pointerId !== joy.id) return; let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy; const m = Math.hypot(dx, dy), R = 46; if (m > R) { dx *= R / m; dy *= R / m; } joy.x = dx / R; joy.y = dy / R; const r = stage.getBoundingClientRect(); jk.style.left = joy.ox - r.left + dx + 'px'; jk.style.top = joy.oy - r.top + dy + 'px'; });
 const joyEnd = (e: PointerEvent) => { if (!dragged && !(e.target as HTMLElement).closest('button')) scene?.tapAt(e.clientX, e.clientY, stage.getBoundingClientRect()); if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; jb.style.display = jk.style.display = 'none'; };
 stage.addEventListener('pointerup', joyEnd); stage.addEventListener('pointercancel', joyEnd);
+
+
+// Step 23b: offline support. The service worker (public/sw.js) caches this site's own files after the first visit. Production only, no network calls to other sites.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}); });
+
+// Step 24a: autosave when the tab is hidden and every 20 seconds while playing, so CONTINUE resumes exactly where you stopped.
+document.addEventListener('visibilitychange', () => { if (document.hidden && scene && !$('#game').hidden) scene.autosave(); });
+window.addEventListener('pagehide', () => { if (scene && !$('#game').hidden) scene.autosave(); });
+setInterval(() => { if (scene && !$('#game').hidden && !document.hidden) scene.autosave(); }, 20000);

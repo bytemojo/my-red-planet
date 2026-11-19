@@ -4,12 +4,17 @@
 import { CREW_LIFE, EP } from './constants';
 import { envForSol } from './env';
 import { hash01 } from './rng';
+import { scriptedAlert } from '../story/alert';
 import { clamp, addLog } from './util';
 import { teamMorale } from './crewlife';
 import { gymNight, outsideDrainFactor } from './gym';
+import { missedRounds, pumpRunning } from './watering';
 import type { Alert, Env, EpisodeResult, EpisodeState, GameState, SystemId, TreeNode } from './types';
 
-export const SYSTEMS: SystemId[] = ['air', 'water', 'plants', 'comms', 'solar'];
+import { SYSTEMS } from './episode-systems';
+import { ICE_COLLECTED, ICE_DELIVERED, ICE_OBJECTIVE, ICE_TASKS, WATER_MAKER_OFF } from './icerun';
+import { DISH_BROKEN_FLAG, FAULT_FLAG, chooseDish, dishChoice, raiseDish, waterLossPerNight, type DishBranch } from './dish';
+export { SYSTEMS };
 export const SYSTEM_NAME: Record<SystemId, string> = { air: 'air', water: 'water', plants: 'plants', comms: 'comms', solar: 'solar panels' };
 // The storm in this episode is modelled on a real flare in NASA's DONKI catalogue (verified 2026-11-14, see docs/NASA_SOURCES.md).
 export const ARCHIVED_SUN = { source: 'archived' as const, flrID: '2024-10-03T12:08:00-FLR-001', classType: 'X9.0', date: '2024-10-03' };
@@ -30,18 +35,13 @@ export function episodeEnv(sol: number): Env {
 }
 export const envFor = (s: GameState): Env => (s.ep ? episodeEnv(s.sol) : envForSol(s.sol));
 
-// Space-weather alert (a game model inspired by the real DONKI flare). The flare class sets how bad the peak gets.
-export function alertLevel(sol: number, hour: number, classType = 'X'): Alert {
-  const top: Alert = classType.startsWith('X') ? 'storm' : classType.startsWith('M') ? 'high' : 'low';
-  if (sol <= 1) return hour < 13 || top === 'low' ? 'low' : hour < 17 ? 'elevated' : top === 'storm' ? 'high' : top;
-  if (isStormSol(sol)) return top === 'storm' ? (hash01(sol * 97 + Math.floor(hour)) > 0.55 ? 'storm' : 'high') : top;
-  return 'low';
-}
-export const alertFor = (s: GameState): Alert => (s.ep ? alertLevel(s.sol, s.hour, s.ep.sun.classType) : 'low');
+// Space-weather alert (Step 16c): comes ONLY from the authored table in src/story/alert.ts. It never reads live NASA data.
+export const alertLevel = (sol: number, hour: number): Alert => scriptedAlert(sol, hour);
+export const alertFor = (s: GameState): Alert => (s.ep ? scriptedAlert(s.sol, s.hour) : 'low');
 export const ALERT_LABEL: Record<Alert, string> = { low: 'LOW', elevated: 'ELEVATED', high: 'HIGH', storm: 'STORM' };
 
 // ---------- mission diary (auto journal entries, first person, no dates or Sol numbers) ----------
-export const DIARY_LEARN: Record<string, string> = { call: 'hebrus', checks: 'water_recycling', storm_call: 'mars_dust', storm_over: 'space_radiation', panels: 'nuclear_power', watering: 'space_crops', done: 'donki_live' };
+export const DIARY_LEARN: Record<string, string> = { call: 'hebrus', checks: 'water_recycling', storm_call: 'mars_dust', dish: 'comms_delay', storm_over: 'space_radiation', panels: 'nuclear_power', watering: 'space_crops', water_off: 'water_recycling', done: 'donki_live' };
 export function diary(s: GameState, key: string, text: string): void {
   const id = `diary:${key}`;
   if (s.journal.some(j => j.id === id)) return; // exactly one entry per objective
@@ -63,10 +63,11 @@ export function objective(s: GameState): { title: string; detail: string } {
   const ep = s.ep!;
   switch (ep.phase) {
     case 'call': return { title: 'TALK TO CAPTAIN REYES', detail: 'The intercom is ringing. Walk to it in the hallway outside the med bay and press E.' };
-    case 'check': return { title: `CHECK ALL CORE SYSTEMS (${ep.checked.length}/5)`, detail: `Still to check: ${SYSTEMS.filter(x => !ep.checked.includes(x)).map(x => SYSTEM_NAME[x]).join(', ')}. The solar panels are outside: put on your suit at the rack first.` };
+    case 'check': return { title: `CHECK ALL CORE SYSTEMS (${ep.checked.length}/5)`, detail: `Still to check: ${SYSTEMS.filter(x => !ep.checked.includes(x)).map(x => SYSTEM_NAME[x]).join(', ')}. The solar panels are outside, through the airlock.` };
     case 'prep': return { title: 'GET READY FOR THE STORM', detail: 'Water the plants and feed the crew. The storm arrives this evening.' };
     case 'storm': return { title: `SURVIVE THE STORM (SOL ${s.sol - 1} OF 3)`, detail: 'The airlock is sealed. Keep power up, water the plants, feed the crew, and exercise once or twice in the gym.' };
-    case 'after': return { title: 'AFTER THE STORM', detail: `${ep.panelsCleaned ? '✓' : '•'} Clean the solar panels (outside, suit on)   ${ep.wateringFixed ? '✓' : '•'} Repair the watering system (farm pump)` };
+    case 'after': return { title: 'AFTER THE STORM', detail: `${ep.panelsCleaned ? '✓' : '•'} Clean the solar panels (outside)   ${ep.wateringFixed ? '✓' : '•'} Repair the watering system (farm pump)` };
+    case 'ice': return { title: ICE_OBJECTIVE.title, detail: ICE_OBJECTIVE.detail };
     default: return { title: 'MISSION COMPLETE', detail: 'See your results.' };
   }
 }
@@ -85,17 +86,19 @@ export function objectiveTasks(s: GameState): ObjectiveTask[] {
       { label: 'Water the crop beds by hand', done: ep.wateringFixed || watered },
       { label: 'Feed the crew', done: !hungry },
       { label: 'Make your panel plan when Reyes calls at 7 PM', done: !!ep.stormCall },
+      ...(ep.stormCall === 'stow' ? [{ label: 'Pull the panel lever in the Control Module', done: ep.panelsStowed }] : []),
     ];
     case 'storm': return [
       { label: `Stay inside for storm Sol ${Math.min(3, s.sol - 1)} of 3`, done: !s.outside },
       { label: 'Water the crop beds by hand', done: ep.wateringFixed || watered },
       { label: 'Feed the crew before they get hungry', done: !hungry },
-      { label: 'Rest at the Control Module to advance the Sol', done: false },
+      { label: 'Sleep in the sleep pod in the Rec Room to advance the Sol', done: false },
     ];
     case 'after': return [
-      { label: 'Put on your EVA suit and clean the solar panels', done: ep.panelsCleaned },
+      ep.panelsStowed ? { label: 'Pull the panel lever to put the stowed panels out', done: false } : { label: 'Clean the solar panels outside', done: ep.panelsCleaned },
       { label: 'Repair the watering pump in the farm', done: ep.wateringFixed },
     ];
+    case 'ice': return [{ label: ICE_TASKS[0], done: !!s.flags[ICE_COLLECTED] }, { label: ICE_TASKS[1], done: !!s.flags[ICE_DELIVERED] }];
     case 'done': return [{ label: 'Review your mission results', done: true }];
   }
 }
@@ -107,19 +110,34 @@ export function checkSystem(s: GameState, sys: SystemId): boolean {
     ep.phase = 'prep';
     addNode(s, { kind: 'choice', text: 'You checked every core system before the storm.', tone: 'good', tag: 'check' });
     diary(s, 'checks', 'I checked every core system before the storm: air, water, plants, comms and the solar panels.');
+    raiseDish(s);
   }
   return true;
 }
 
 // ---------- hourly tick (called from advance) ----------
+// ---------- Step 11b: your own hunger ----------
+export const playerHunger = (s: Pick<GameState, 'flags'>): number => Number(s.flags.player_hunger ?? EP.PLAYER_HUNGER_START);
+/** Hunger rises every awake hour. Hungry = health drains slowly (never an instant failure; core/failure.ts needs a sustained critical state). Fed + inside = health slowly recovers. */
+export function playerHungerTick(s: GameState, hours: number): void {
+  const h = clamp(playerHunger(s) + EP.PLAYER_HUNGER_RATE * hours, 0, 100);
+  s.flags.player_hunger = h;
+  if (h >= EP.PLAYER_HUNGRY_AT) s.health = clamp(s.health - EP.HUNGER_HEALTH_DRAIN * hours, 0, 100);
+  else if (h < EP.PLAYER_FED_AT && !s.outside) s.health = clamp(s.health + EP.FED_HEALTH_REGEN * hours, 0, 100);
+}
+
 export function episodeTick(s: GameState, hours: number): void {
   const ep = s.ep; if (!ep) return;
+  playerHungerTick(s, hours);
   if (s.outside) {
-    if (!s.suitOn) { s.flags.tmp_passout = 'suit'; return; }
-    s.health = clamp(s.health - EP.HEALTH_DRAIN[alertFor(s)] * outsideDrainFactor(s.health) * hours, 0, 100);
-    if (s.health <= 0) s.flags.tmp_passout = 'health';
+    if (!s.suitOn) s.health = clamp(s.health - EP.NO_SUIT_DRAIN * hours, 0, 100); // Step 8c: no instant pass-out; NO_SUIT fails at the critical threshold (core/failure.ts)
+    else {
+      s.health = clamp(s.health - EP.HEALTH_DRAIN[alertFor(s)] * outsideDrainFactor(s.health) * hours, 0, 100);
+      if (s.health <= 0) s.flags.tmp_passout = 'health';
+    }
   }
   if (s.pending) return;
+  if (raiseDish(s)) return; // quick start: all systems are pre-checked, so the fault shows on the first tick
   if (s.sol === 1 && s.hour >= EP.STORM_CALL_HOUR && ep.stormCall === null) { s.pending = { kind: 'event', id: 'storm_call' }; return; }
   if (ep.phase === 'storm' && s.res.power < 20 && !s.flags.tmp_power_fault) { s.flags.tmp_power_fault = true; s.pending = { kind: 'event', id: 'power_fault' }; }
 }
@@ -130,11 +148,18 @@ export function onResolve(s: GameState, kind: 'beat' | 'event', id: string, choi
   if (id === 'ep_call') { ep.phase = ep.checked.length >= SYSTEMS.length ? 'prep' : 'check'; diary(s, 'call', 'I answered Captain Reyes. The whole crew is sick, so the base is counting on me.'); return; }
   if (id === 'storm_call') {
     ep.stormCall = choice as EpisodeState['stormCall'];
-    ep.panelsStowed = choice === 'stow';
+    // Step 16a: the choice is only the PLAN. The panels move when the player pulls the lever (act 'panels'), never by themselves.
     const text = { stow: 'You stowed the solar panels before the dust hit.', out: 'You left the solar panels out to keep some power.', ask: 'You asked Earth what to do, so the panels stayed out while you waited.', wait: 'The timer ran out, so the panels stayed out.' }[choice] ?? '';
     addNode(s, { kind: 'choice', text, tone: choice === 'stow' ? 'mixed' : choice === 'out' ? 'mixed' : 'bad', tag: 'panels' });
     if (ep.phase !== 'storm') ep.phase = 'prep';
     diary(s, 'storm_call', { stow: 'I stowed the solar panels before the dust hit. They stayed safe, but the battery had to carry everything.', out: 'I left the solar panels out to keep some power coming in, even though the dust could bury them.', ask: 'I asked Earth what to do, but the answer was still travelling when the storm hit. Out here we decide for ourselves.', wait: 'I could not decide in time, so the panels stayed out in the dust.' }[choice] ?? 'I made the storm call.');
+    return;
+  }
+  if (id === 'dish_decision') {
+    if (choice !== 'comms' && choice !== 'dish') return;
+    chooseDish(s, choice);
+    addNode(s, { kind: 'choice', tag: 'dish', tone: 'mixed', text: choice === 'comms' ? 'Only one fault could be fixed before the storm: you chose the comms console. Earth stays in reach, but the water maker stays damaged.' : 'Only one fault could be fixed before the storm: you chose the dish and water-maker link. Water is restored, but comms stay unreliable.' });
+    diary(s, 'dish', choice === 'comms' ? 'Reyes said we could only fix one fault before the storm. I chose the comms console, so we can still reach Earth, but water will be tight.' : 'Reyes said we could only fix one fault before the storm. I chose the dish and water-maker link, so we have water, but Earth will be hard to hear.');
     return;
   }
   if (id === 'radiation_peak') {
@@ -172,16 +197,25 @@ export function togglePanels(s: GameState): string {
 // ---------- end of a Sol (called from endSol BEFORE crops grow and before the Sol number changes) ----------
 export function episodeNight(s: GameState): void {
   const ep = s.ep; if (!ep) return;
+  s.flags.player_hunger = Math.max(playerHunger(s), CREW_LIFE.OVERNIGHT_HUNGER); // you wake up a little hungry too
   s.flags.ep_gym_msg = gymNight(s); // health from the day's workouts (core/gym.ts); shown in the morning report
   // plant health: water and light keep plants healthy
   for (const p of s.plots) {
     if (!p.crop) continue;
-    const watered = p.watered || ep.wateringFixed;
-    p.health = clamp((p.health ?? 80) + (watered ? 0 : -EP.DRY_PLANT) + (s.farm === 'off' ? -EP.LIGHTS_OFF_PLANT : watered ? EP.GROW_PLANT : 0), 0, 100);
-    if (ep.wateringFixed) p.watered = true;
+    // Step 15a: automatic = the pump keeps every bed watered; manual = each missed round (morning, evening) costs half a dry day
+    const auto = pumpRunning(s);
+    const missed = auto ? 0 : missedRounds(p);
+    const watered = auto || missed === 0;
+    p.health = clamp((p.health ?? 80) - missed * (EP.DRY_PLANT / 2) + (s.farm === 'off' ? -EP.LIGHTS_OFF_PLANT : watered ? EP.GROW_PLANT : 0), 0, 100);
+    if (auto) p.watered = true;
   }
   if (s.sol === 1 && ep.checked.length < SYSTEMS.length) addNode(s, { kind: 'choice', text: `You skipped checking the ${SYSTEMS.filter(x => !ep.checked.includes(x)).map(x => SYSTEM_NAME[x]).join(', ')} before the storm.`, tone: 'bad', tag: 'check' });
   if (!isStormSol(s.sol)) return;
+  const lost = waterLossPerNight(s);
+  if (lost > 0) {
+    s.res.water = clamp(s.res.water - lost, 0, 100);
+    if (s.sol === 2) addNode(s, { kind: 'effect', tone: 'bad', cause: lastTagged(s, 'dish'), text: 'The water maker stayed damaged because you fixed the comms console first. Water ran lower each night.' });
+  } else if (dishChoice(s) === 'dish' && s.sol === 2 && s.flags.broken_comms) addNode(s, { kind: 'effect', tone: 'mixed', cause: lastTagged(s, 'dish'), text: 'The comms console stayed broken because you fixed the dish first. Messages from Earth came in as static, and late.' });
   const callId = lastTagged(s, 'panels');
   // the dust storm at night: panels left out get buried
   const bury = EP.BURY[s.sol] ?? 0;
@@ -209,14 +243,23 @@ export function episodeMorning(s: GameState): void {
   else if (s.sol >= EP.AFTER_SOL && ep.phase === 'storm') {
     ep.phase = 'after';
     diary(s, 'storm_over', 'I got through three days of storm without stepping outside. I handled my first solar storm.');
-    if (ep.panelsStowed) { ep.panelsStowed = false; addNode(s, { kind: 'effect', text: 'The storm cleared. The stowed panels unfolded clean and ready.', tone: 'good' }); }
+    // Step 16b: nothing unfolds by itself. Stowed panels wait for the lever; panels left out must be dug out and cleaned by hand.
+    addNode(s, { kind: 'effect', text: ep.panelsStowed ? 'The storm cleared. The panels are still folded away: pull the lever to put them out.' : 'The storm cleared. The panels you left out are covered in dust and need cleaning by hand.', tone: 'mixed' });
   }
+}
+
+/** Called when the ONE critical fault has been repaired (comms console for branch A, dish for branch B). */
+export function onFaultRepaired(s: GameState, branch: DishBranch): void {
+  s.flags[FAULT_FLAG] = 1;
+  if (branch === 'dish') s.flags[DISH_BROKEN_FLAG] = 0;
+  if (!s.ep) return;
+  addNode(s, { kind: 'choice', tone: 'good', cause: lastTagged(s, 'dish'), text: branch === 'comms' ? 'You repaired the comms console by hand.' : 'You repaired the dish by hand.' });
 }
 
 // ---------- after the storm ----------
 export function afterStormAction(s: GameState, what: 'clean' | 'water'): { ok: boolean; msg: string; energy: number; power: number } {
   const ep = s.ep!;
-  if (what === 'water') { ep.wateringFixed = true; addNode(s, { kind: 'choice', text: 'You repaired the automatic watering system.', tone: 'good' }); diary(s, 'watering', 'I fixed the watering pump. The plants can drink on their own again.'); }
+  if (what === 'water') { ep.wateringFixed = true; s.wateringMode = 'automatic'; addNode(s, { kind: 'choice', text: 'You repaired the automatic watering system.', tone: 'good' }); diary(s, 'watering', 'I fixed the watering pump. The plants can drink on their own again.'); }
   else {
     const buried = ep.panelDamage > 0;
     ep.panelsCleaned = true; s.panelDust = 0;
@@ -229,9 +272,31 @@ export function afterStormAction(s: GameState, what: 'clean' | 'water'): { ok: b
   maybeFinish(s);
   return { ok: true, msg: what === 'water' ? 'Watering system repaired.' : 'Solar panels cleaned.', energy: 0, power: 0 };
 }
+/** Step 16b: deploying stowed panels at the lever after the storm. Clean panels: power returns with no dust damage. Panels stowed too late may still be buried: those need digging out. */
+export function deployAfterStorm(s: GameState): string {
+  const ep = s.ep!; ep.panelsStowed = false;
+  if (ep.panelDamage > 0) { addNode(s, { kind: 'choice', tone: 'mixed', text: 'You put the panels out, but dust had already buried some. Go outside and dig them out.' }); return 'Panels out. Some are buried: dig them out outside.'; }
+  ep.panelsCleaned = true; s.panelDust = 0;
+  addNode(s, { kind: 'choice', tone: 'good', text: 'You put the stowed panels back out. They were safe, so there is no dust damage and the power is back.' });
+  diary(s, 'panels', 'I put the folded solar panels back out with the lever. They were safe from the dust, so the power came back.');
+  maybeFinish(s); return 'Panels out: power is back, no dust damage.';
+}
 export function maybeFinish(s: GameState): boolean {
   const ep = s.ep!;
   if (ep.phase !== 'after' || !ep.wateringFixed || !ep.panelsCleaned) return false;
+  // Step 21a: the clean-up no longer ends the episode. The water maker shuts down and the ice run starts.
+  ep.phase = 'ice'; s.flags[WATER_MAKER_OFF] = 1;
+  addNode(s, { kind: 'effect', tone: 'bad', text: 'The water maker shut down. Reyes asked you to collect emergency water from the candidate ice sheet.' });
+  diary(s, 'water_off', 'The water maker shut down on its own. I need to bring emergency water from the candidate ice sheet.');
+  addLog(s, 'WATER', 'The water maker is OFF. Emergency water needed.');
+  if (!s.pending) s.pending = { kind: 'event', id: 'water_shutdown' };
+  return false;
+}
+/** The ice container was delivered to the water-maker intake (Step 21b calls this at the animation beat). Ends the episode. */
+export function deliverIce(s: GameState): boolean {
+  const ep = s.ep; if (!ep || ep.phase !== 'ice') return false;
+  s.flags[ICE_DELIVERED] = 1; s.flags[WATER_MAKER_OFF] = 0; s.res.water = clamp(s.res.water + EP.ICE_WATER, 0, 100);
+  addNode(s, { kind: 'choice', tone: 'good', text: 'You brought emergency water back from the candidate ice sheet. The water maker is running again.' });
   ep.phase = 'done'; ep.result = computeResult(s);
   diary(s, 'done', 'Mission complete. I kept the base running through the storm, and the crew is getting better.');
   addLog(s, 'MISSION', 'Episode 1 complete.');

@@ -4,7 +4,7 @@ import { act, advance } from '../src/core/sim';
 import { describePending, poll, resolve } from '../src/core/director';
 import { HEBRUS_VALLES, mapXY } from '../src/core/marsmap';
 import { addNote, deleteNote, NOTE_MAX } from '../src/core/notes';
-import { DIARY_LEARN, SYSTEMS } from '../src/core/episode';
+import { DIARY_LEARN, SYSTEMS, deliverIce } from '../src/core/episode';
 import { deserialize, newSession, serialize, sleep, type Session } from '../src/core/session';
 import { LEARNING } from '../src/story/learning';
 import { MARS_MAP, PHOTOS } from '../src/story/photos';
@@ -62,7 +62,8 @@ describe('mission diary', () => {
     playSol(sess, { storm_call: 'out' });
     for (let i = 0; i < 3; i++) playSol(sess, { radiation_peak: 'water_wall' });
     story(sess);
-    s.res.power = 50; act(s, 'repair_watering'); s.suitOn = true; s.outside = true; s.hour = 9; act(s, 'clean_panels');
+    s.res.power = 50; act(s, 'repair_watering', { part: 'spare_part' }); s.suitOn = true; s.outside = true; s.hour = 9; act(s, 'clean_panels');
+    expect(s.ep!.phase).toBe('ice'); deliverIce(s);
     const diary = s.journal.filter(j => j.id.startsWith('diary:'));
     const keys = diary.map(j => j.id.slice(6));
     expect(keys.sort()).toEqual(Object.keys(DIARY_LEARN).sort());

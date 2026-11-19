@@ -71,7 +71,7 @@ function showHelp() {
   const tag = (k: string, v: boolean) => k === 'dev-fallback' ? '<span class="tag arch">DEV FALLBACK</span>' : `<span class="tag ${v ? 'live' : 'emb'}">${v ? 'VERIFIED' : 'NOT YET VERIFIED'}</span>`;
   const h = menuModal('Help', `<div class="help"><h4>Your job</h4><p>Episode 1: a radiation storm and a dust storm hit at the same time while the crew is sick. Check the systems, decide what to do with the solar panels, keep power up, water the plants and feed the crew. Every choice costs something.</p>
     <h4>Controls</h4><ul><li>Click or tap the ground: walk there</li><li>Click or tap a station: walk over and use it</li><li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows: walk</li><li><kbd>E</kbd>: use the nearby station</li><li><kbd>C</kbd>: Control Module</li><li>Phone or tablet: drag to walk too</li></ul>
-    <h4>Rules of Mars</h4><ul><li>Every action costs your energy. Sleep to refill.</li><li>Nothing is free. Every choice costs something.</li><li>Outside, watch suit air and radiation.</li><li>The Time Machine lets you rewind your choices, never the weather.</li></ul>
+    <h4>Rules of Mars</h4><ul><li>Every action costs your energy. Sleep to refill.</li><li>Nothing is free. Every choice costs something.</li><li>Outside, watch your meters.</li><li>The Time Machine lets you rewind your choices, never the weather.</li></ul>
     <h4>Go deeper</h4><p><button class="holo-btn small amber" id="help-wiki">LIVING IN SPACE: THE NASA WIKI</button></p>
     <h4>Data sources</h4>${manifest.datasets.map(d => `<div class="src"><b>${esc(d.name)} ${tag(d.kind, d.verified)}</b><span>${esc(d.limitations)}</span></div>`).join('')}</div>`);
   ($('#help-wiki', h) as HTMLElement).onclick = () => { sfx.click(); openWiki(); };

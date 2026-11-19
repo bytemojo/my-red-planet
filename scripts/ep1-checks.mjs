@@ -2,7 +2,7 @@
 // Usage: node scripts/ep1-checks.mjs <outdir>
 import { chromium } from 'playwright-core';
 const out = process.argv[2], URL = 'http://localhost:5179/';
-const browser = await chromium.launch({ channel: 'chrome', headless: true });
+const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--no-sandbox'] });
 const results = [];
 const ok = (name, pass, info = '') => { const l = `${pass ? 'PASS' : 'FAIL'}  ${name}${info ? '  — ' + info : ''}`; results.push(l); console.log(l); };
 
@@ -16,7 +16,7 @@ async function newPage(block = false) {
   return { ctx, page, errs };
 }
 const sc = (page, fn, arg) => page.evaluate(([f, a]) => { const s = window.__game.scene.getScene('World'); return new Function('sc', 'st', 'a', f)(s, s.sess.state, a); }, [fn, arg]);
-const tp = (page, x, y) => sc(page, `const pl = sc.children.list.find(c => c.texture && c.texture.key === 'player'); pl.x = a[0]*32; pl.y = a[1]*32; sc.moveTarget = null;`, [x, y]);
+const tp = (page, x, y) => page.evaluate(async ([x, y]) => { const { world } = await import('/src/game/world.ts'); const s = window.__game.scene.getScene('World'); world.player.x = x * 32; world.player.y = y * 32; s.moveTarget = null; }, [x, y]);
 async function startQuick(page) {
   await page.click('[data-act="play"]'); await page.waitForTimeout(800);
   if (await page.$('#cr-in')) { await page.fill('#cr-in', 'Ada'); await page.click('#cr-go'); await page.waitForTimeout(700); }
@@ -83,13 +83,17 @@ async function startQuick(page) {
   const st0 = await sc(page, `return { phase: st.ep.phase, checked: st.ep.checked.length, hour: st.hour, call: st.ep.call }`);
   ok('Storm test fixture starts with systems checked before the storm', st0.phase === 'prep' && st0.checked === 5 && st0.call === 'answered' && st0.hour > 18, JSON.stringify(st0));
   await page.screenshot({ path: `${out}/c4-quick.png` });
+  // Step 14: the dish decision comes first. Pick REPAIR THE COMMS (stays inside), then the Storm Call appears.
+  const dishCard = await page.waitForSelector('#dlg [data-choice="comms"]', { timeout: 20000 }).catch(() => null); if (dishCard) { await page.click('#dlg [data-choice="comms"]').catch(() => {}); await page.waitForTimeout(900); }
+  // The clock is paused while the dish card is open, so jump to 19:00 (Storm Call hour); the story loop raises the card itself.
+  await sc(page, `st.hour = Math.max(st.hour, 19.05); sc.afterAction();`);
   await page.waitForSelector('#dlg [data-choice="ask"]', { timeout: 20000 });
   ok('Storm Call appears on its own in the test fixture', true);
   await page.click('#dlg [data-choice="ask"]'); await page.waitForTimeout(400);
   const sent = await page.$('#dlg .sent');
   ok('Ask Earth shows "message sent" and the card stays open', !!sent && !!(await page.$('#dlg')));
   await page.screenshot({ path: `${out}/c5-ask-sent.png` });
-  await page.waitForSelector('#dlg', { state: 'detached', timeout: 20000 });
+  await page.waitForSelector('#dlg', { state: 'detached', timeout: 60000 });
   const st1 = await sc(page, `return { call: st.ep.stormCall, stowed: st.ep.panelsStowed, reply: st.seenBeats.includes('earth_reply') }`);
   ok('When time runs out, the panels stay out and Earth has NOT replied yet', st1.call === 'ask' && st1.stowed === false && !st1.reply, JSON.stringify(st1));
   await sc(page, `st.hour = 23.95;`); await page.waitForTimeout(1500);
@@ -116,14 +120,17 @@ async function startQuick(page) {
   await page.click('[data-act="play"]'); await page.waitForTimeout(800);
   if (await page.$('#cr-in')) { await page.fill('#cr-in', 'Ada'); await page.click('#cr-go'); await page.waitForTimeout(700); }
   await page.click('#op-go'); await page.waitForTimeout(800);
-  const before = await sc(page, `return { suit: st.suitOn, hour: st.hour }`);
-  await tp(page, 16, 20.5); await page.waitForTimeout(1200);
-  const box = await page.$('#fail');
-  ok('Going outside without the suit makes you pass out', !!box && /forgot your suit/i.test((await box.textContent()) || ''), `suit was ${before.suit}`);
+  const before = await sc(page, `return { suit: st.suitOn, hour: st.hour, health: st.health }`);
+  await tp(page, 16, 20.5); await page.waitForTimeout(3000);
+  const mid = await sc(page, `return { health: st.health, outside: st.outside }`);
+  ok('Step 8c: outside without the suit the health drains (no instant pass-out)', mid.outside === true && mid.health < before.health && mid.health > 0 && !(await page.$('#fail')), JSON.stringify({ before: before.health, mid }));
+  const box = await page.waitForSelector('#fail', { timeout: 150000 }).catch(() => null);
+  const failText = box ? ((await box.textContent()) || '') : '';
+  ok('Staying out without the suit ends in the NO_SUIT failure with its reason and tip', /without your EVA suit/i.test(failText) && /walk to the suit rack/i.test(failText) && /always pay attention to your meters/i.test(failText), failText.slice(0, 160));
   await page.screenshot({ path: `${out}/c7-passout.png` });
   if (box) { await page.click('#po-go'); await page.waitForTimeout(800); }
-  const after = await sc(page, `const pl = sc.children.list.find(c => c.texture && c.texture.key === 'player'); return { outside: st.outside, passOuts: st.ep.passOuts, phase: st.ep.phase, py: Math.round(pl.y / 32) }`);
-  ok('Checkpoint reloaded: back inside, pass-out counted', after.outside === false && after.passOuts === 1 && after.py < 18, JSON.stringify(after));
+  const after = await sc(page, `return { outside: st.outside, phase: st.ep.phase, health: Math.round(st.health), failed: !!st.failed }`);
+  ok('Checkpoint reloaded: back inside with health restored', after.outside === false && after.health > 15 && !after.failed, JSON.stringify(after));
   // learning link on the objective hint
   await page.click('#obj-toggle'); await page.waitForTimeout(300);
   const learn = await page.$('#obj-hint [data-learn]');

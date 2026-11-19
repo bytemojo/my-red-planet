@@ -1,6 +1,7 @@
 import { MAX_SNAPSHOTS } from './constants';
 import { SAVE_VERSION, endSol, newGame, type NewGameOpts } from './sim';
 import { CREW_IDS, newCrewState } from './crewlife';
+import { newQuizState } from './quiz';
 import type { DailyReport, Decision, GameState, SolSummary } from './types';
 
 // Upgrade an older state in place. Returns null if it cannot be read safely.
@@ -19,13 +20,37 @@ export function migrateState(s: GameState | null | undefined): GameState | null 
     s.crewChats = s.crewChats ?? {};
     s.version = 4;
   }
+  if (s.version < 5) { // v4 -> v5: meal variety memory
+    s.recentMeals = s.recentMeals ?? [];
+    s.version = 5;
+  }
+  if (s.version < 6) { // v5 -> v6: watering mode. A repaired pump meant automatic watering before, so keep that for old saves.
+    s.wateringMode = s.ep?.wateringFixed ? 'automatic' : 'manual';
+    s.version = 6;
+  }
+  if (s.version < 7) { // v6 -> v7: crew quiz progress
+    s.quiz = s.quiz ?? newQuizState();
+    s.version = 7;
+  }
   return s;
 }
 
 // A Session wraps the live state with the rewind timeline. Rewind restores the MORNING of an earlier Sol.
 // NASA-derived environment is a pure function of the Sol number (see env.ts), so it is never rewritten.
 export interface Branch { fromSol: number; toSol: number; history: SolSummary[]; decisions: Decision[] }
-export interface Session { state: GameState; snapshots: Record<number, string>; branches: Branch[]; checkpoint?: string }
+/** Step 24a: where the player stood and what they held when the game was last saved, so CONTINUE resumes exactly there (checkpoints are for failures only). */
+export interface LiveSpot { x: number; y: number; held: { item: string | null; crop?: string | null } }
+export interface Session { state: GameState; snapshots: Record<number, string>; branches: Branch[]; checkpoint?: string; live?: LiveSpot }
+/** Remember the live spot on the session (pure). Ignores bad numbers. */
+export function captureLive(sess: Session, x: number, y: number, held: { item: string | null; crop?: string | null }): void {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+  sess.live = { x, y, held: { item: held.item ?? null, crop: held.crop ?? null } };
+}
+/** The saved spot if it is valid, else null. */
+export function liveSpot(sess: Session): LiveSpot | null {
+  const l = sess.live; if (!l || !Number.isFinite(l.x) || !Number.isFinite(l.y) || typeof l.held !== 'object' || !l.held) return null;
+  return l;
+}
 
 const clone = (s: GameState): GameState => JSON.parse(JSON.stringify(s));
 

@@ -20,9 +20,6 @@
   <meta name="twitter:description" content="Run a Mars outpost through a storm built on real NASA solar flare data. No choice is free." />
   <meta name="twitter:image" content="https://myredplanet.vercel.app/og-image.png" />
   <meta name="twitter:image:alt" content="Junior astronauts explore a colorful Mars colony with greenhouses beneath the My Little Red Planet title." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/ui/holo.css" />
 </head>
 <body>
@@ -69,10 +66,13 @@
         <button class="meter" data-m="food" aria-label="Food. Tap for details."></button>
         <button class="meter" data-m="water" aria-label="Water. Tap for details."></button>
         <button class="meter" data-m="power" aria-label="Power. Tap for details."></button>
+        <div class="mini food-sols" id="food-sols" role="status"><div class="mt"><span class="mic" data-ic="food"></span><span id="food-sols-t">FOOD: 180 Sols left</span></div><div class="bar"><i></i></div></div>
         <div class="hud-resources">
           <div class="outside" id="energy-wrap"><div class="mini" id="en-m"><div class="mt"><span class="mic" data-ic="bulb"></span><span id="en-v">100</span></div><div class="bar"><i></i></div></div></div>
+          <div class="outside" id="tank-wrap" hidden>
+            <div class="mini" id="suit-m" title="Oxygen tank" aria-label="Oxygen tank"><div class="mt"><span class="mic" data-ic="suit"></span><span id="suit-v">100</span></div><div class="bar"><i></i></div></div>
+          </div>
           <div class="outside" id="outside" hidden>
-            <div class="mini" id="suit-m"><div class="mt"><span class="mic" data-ic="suit"></span><span id="suit-v">100</span></div><div class="bar"><i></i></div></div>
             <div class="mini" id="rad-m"><div class="mt"><span class="mic" data-ic="rad"></span><span id="rad-v">100</span></div><div class="bar"><i></i></div></div>
           </div>
           <button class="ctrl-btn" id="ctrl-btn" aria-label="Open Control Module"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 20h8M12 16v4" stroke="currentColor" stroke-width="2"/><path d="M6 12l3-3 3 2 4-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>CONTROL</button>
@@ -98,6 +98,8 @@
           <span class="radar-poi" data-location="rover" style="left:82.4%;top:84%"></span>
           <span class="radar-poi" data-location="cave" style="left:94.6%;top:94%"></span>
           <span class="radar-poi" data-location="suit" style="left:32.4%;top:58.4%"></span>
+          <span class="radar-target" id="radar-target"></span>
+          <span class="radar-edge" id="radar-edge"></span>
           <span class="radar-player" id="radar-player"></span>
         </div>
       </div>
@@ -112,6 +114,9 @@
       <div class="ep-bar" id="ep-bar" hidden>
         <div class="epm" id="epm-energy" role="meter" aria-label="Base energy" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="epm-top"><span class="ep-icon" data-ic="battery" aria-hidden="true"></span></div><div class="bar"><i></i></div></div>
         <div class="epm" id="epm-health" role="meter" aria-label="Your health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="epm-top"><span class="ep-icon" data-ic="heart" aria-hidden="true"></span></div><div class="bar"><i></i></div></div>
+        <div class="epm" id="epm-hunger" role="meter" aria-label="Your hunger: full means fed" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div class="epm-top"><span class="ep-icon" data-ic="food" aria-hidden="true"></span></div><div class="bar"><i></i></div></div>
+        <div class="water-me" id="water-me" role="status" hidden><span class="ep-icon" data-ic="water" aria-hidden="true"></span><span id="water-me-text">WATER ME</span></div>
+        <div class="epm" id="epm-tank" role="meter" aria-label="Oxygen tank" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" hidden><div class="epm-top"><span class="ep-icon" data-ic="suit" aria-hidden="true"></span></div><div class="bar"><i></i></div></div>
         <div class="epm" id="epm-morale" role="meter" aria-label="Team morale" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="epm-top mood-icons" id="epm-morale-icon" data-mood="neutral" aria-hidden="true"><span data-ic="neutral"></span></div><div class="bar"><i></i></div></div>
         <div class="epm solar-meter low" id="ep-alert" role="meter" aria-label="Solar Alert" aria-valuemin="0" aria-valuemax="100" aria-valuenow="20"><div class="epm-top"><span class="ep-icon" data-ic="sun" aria-hidden="true"></span></div><div class="bar"><i></i></div></div>
       </div>

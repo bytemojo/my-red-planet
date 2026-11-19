@@ -1,17 +1,23 @@
 import { ACTION_ENERGY, BUILDINGS, CAVE_MAX, CROPS, DAY_END, DAY_START, EP, FARM, K, LS, SELF_SUFFICIENT_GOAL, STAGES, ActionName } from './constants';
 import { forecastLabel } from './env';
 import { MACHINES, workout, type Machine } from './gym';
-import { ALERT_LABEL, SYSTEM_NAME, afterStormAction, alertFor, checkSystem, envFor, episodeMorning, episodeNight, episodeTick, lockedIn, maybeFinish, newEpisodeState, togglePanels } from './episode';
+import { dishChoice, dishProblem } from './dish';
+import { ALERT_LABEL, SYSTEM_NAME, onFaultRepaired, afterStormAction, deployAfterStorm, deliverIce, alertFor, checkSystem, envFor, episodeMorning, episodeNight, episodeTick, lockedIn, maybeFinish, newEpisodeState, togglePanels } from './episode';
 import { clamp, caveTotal, flagNum, hasBuilding, addLog } from './util';
 import { poll, rollEvent } from './director';
-import { talkLine } from '../story/crew';
+import { hungryRefusal, talkLine } from '../story/crew';
+import { aokiTalk } from '../story/aoki';
 import { unlockDiscovery } from '../story/discoveries';
 import { CAVERN_NEEDED, CREW_LIFE } from './constants';
-import { cookServe } from './meals';
-import { CREW_IDS, crewNeedsCare, crewOvernight, crewTalked, crewTick, newCrewState, serveMeal } from './crewlife';
-import type { CropId, CrewId, DailyReport, Env, GameState, Plot, ResKey, SystemId } from './types';
+import { cookServe, serveTray } from './meals';
+import { ICE_COLLECTED, iceProblem, pourProblem, waterMakerOff } from './icerun';
+import { alreadyWatered, clearWatered, markWatered, pumpRunning, wateringLoad, wateringModeProblem } from './watering';
+import { MACHINE_NAMES, NEED_PART_MSG, NO_PARTS_MSG, fixMachine, isBroken, isMachineId, stockOf } from './inventory';
+import { newQuizState } from './quiz';
+import { CREW_IDS, crewNeedsCare, crewOvernight, crewTalked, crewTick, isHungry, newCrewState, serveMeal } from './crewlife';
+import type { CropId, CrewId, DailyReport, Env, GameState, Plot, ResKey, SystemId, WateringMode } from './types';
 
-export const SAVE_VERSION = 4; // bump when GameState changes shape; migrate in session.ts
+export const SAVE_VERSION = 7; // bump when GameState changes shape; migrate in session.ts
 
 // NOTE: functions here MUTATE the GameState you pass in. State is plain JSON; clone with JSON.parse(JSON.stringify()).
 export interface NewGameOpts { mode?: 'campaign' | 'storm'; sun?: import('./types').EpisodeState['sun']; quick?: boolean }
@@ -21,12 +27,12 @@ export function newGame(seed = 1, opts: NewGameOpts = {}): GameState {
   const s: GameState = {
     version: SAVE_VERSION, seed, sol: 1, hour: DAY_START, energy: 100,
     res: { o2: 78, food: 72, water: 66, power: 80 }, suit: 100, rad: 100, outside: false,
-    farm: 'dim', ls: 'bal', panelDust: 0.1, plots, buildings: [], stage: 1, crew, crewChats: {}, flags: {},
+    farm: 'dim', ls: 'bal', panelDust: 0.1, plots, buildings: [], stage: 1, crew, crewChats: {}, wateringMode: 'manual', recentMeals: [], flags: {},
     seenBeats: [], discovered: [], pending: null, lastEventSol: 0,
     cave: { explore: 0, excavate: 0, pressurize: 0, shield: 0 },
     solsSinceShipment: 0, bestSelfSufficient: 0, shipmentArrivesSol: 0, campaignComplete: false,
     decisions: [], journal: [], history: [], log: [], lastReport: null, failed: null,
-    ep: null, suitOn: false, health: 100,
+    ep: null, suitOn: false, health: 100, quiz: newQuizState(),
   };
   if (opts.mode === 'storm') startEpisode(s, opts);
   poll(s);
@@ -60,13 +66,13 @@ export interface Rates { gen: number; load: number; on: boolean; power: number; 
 export function rates(s: GameState, env: Env = envFor(s)): Rates {
   const f = FARM[s.farm], l = LS[s.ls];
   const gen = solarGen(s, env);
-  const load = K.BASE_POWER + f.power + K.LS_POWER + K.COMMS_POWER + (s.flags.tmp_heating ? 0.8 : 0);
+  const load = K.BASE_POWER + f.power + K.LS_POWER + K.COMMS_POWER + (s.flags.tmp_heating ? 0.8 : 0) + wateringLoad(s);
   const on = s.res.power > 0.01 || gen >= load;
   const waterUse = K.WATER_USE * (hasBuilding(s, 'recycler') ? 0.7 : 1);
   return {
     gen, load, on, power: (gen - load) * (s.ep ? EP.POWER_SCALE : 1),
     o2: -K.O2_USE + (on ? K.OXMAX * l.ox : 0),
-    water: -waterUse + (on ? -f.water + K.WMAX * (1 - l.ox) : 0),
+    water: -waterUse + (on ? -f.water + (waterMakerOff(s) ? 0 : K.WMAX * (1 - l.ox)) : 0), // Step 21a: no production while the water maker is off
     food: -K.FOOD_USE,
   };
 }
@@ -84,7 +90,7 @@ export function advance(s: GameState, dtHours: number): AdvanceResult {
     (['o2', 'water', 'food'] as ResKey[]).forEach(k => { s.res[k] = clamp(s.res[k] + r[k] * step, 0, 100); });
     s.res.power = clamp(s.res.power + r.power * step, 0, 100);
     if (s.outside) {
-      s.suit = clamp(s.suit - K.SUIT_USE * step, 0, 100);
+      if (s.suitOn || !s.ep) s.suit = clamp(s.suit - K.SUIT_USE * step, 0, 100); // Episode 1: the tank only drains while the suit is worn (without it, health drains instead, Step 8c)
       const mult = env.flare && !s.flags.tmp_delay_outdoor ? env.flare.mult : 1;
       const shield = hasBuilding(s, 'shelter') ? 0.5 : 1;
       s.rad = clamp(s.rad - K.RAD_USE * mult * shield * step, 0, 100);
@@ -146,7 +152,7 @@ export function endSol(s: GameState): DailyReport {
   let grew = 0;
   for (const p of s.plots) {
     if (p.crop && p.watered) { p.growth += FARM[s.farm].growth; grew++; }
-    p.watered = false;
+    clearWatered(p);
   }
   const todayEnv = envFor(s);
   if (!s.ep?.panelsStowed) s.panelDust = clamp(s.panelDust + 0.02 + todayEnv.dust * 0.12, 0, 1);
@@ -185,7 +191,7 @@ export function endSol(s: GameState): DailyReport {
     if (s.ep.phase === 'storm') lines.push(s.ep.panelsStowed ? 'The solar panels are stowed: no solar power.' : 'The solar panels are out in the dust.');
   }
   if (!lines.length) lines.push('A quiet night on Mars. Everything is steady.');
-  s.lastReport = { sol: s.sol, lines, mission: s.ep ? (s.ep.phase === 'storm' ? 'Survive the storm: keep power up, water the plants, feed the crew.' : s.ep.phase === 'after' ? 'Clean the solar panels and repair the watering system.' : 'Get ready for the storm.') : STAGES[s.stage - 1].objective };
+  s.lastReport = { sol: s.sol, lines, mission: s.ep ? (s.ep.phase === 'storm' ? 'Survive the storm: keep power up, water the plants, feed the crew.' : s.ep.phase === 'ice' ? 'Collect emergency water from the candidate ice sheet.' : s.ep.phase === 'after' ? 'Clean the solar panels and repair the watering system.' : 'Get ready for the storm.') : STAGES[s.stage - 1].objective };
   return s.lastReport;
 }
 
@@ -195,7 +201,7 @@ const fail = (msg: string): ActionResult => ({ ok: false, msg });
 const done = (msg: string): ActionResult => ({ ok: true, msg });
 
 const LAB_PLANT_BOOST = 8; // game model: catching plant disease early in the lab
-export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?: CropId; crew?: CrewId; choice?: string; building?: string; verb?: string; system?: SystemId; machine?: string; tray?: string }): ActionResult {
+export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?: CropId; crew?: CrewId; choice?: string; building?: string; verb?: string; system?: SystemId; machine?: string; tray?: string; packet?: CropId; tool?: string; part?: string; held?: string; topic?: string; mode?: WateringMode }): ActionResult {
   const cost = ACTION_ENERGY[name];
   const env = envFor(s);
   if (s.pending) return fail('Finish the conversation first.');
@@ -210,17 +216,29 @@ export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?
       const p = s.plots.find(x => x.id === arg?.plot);
       if (!p || !arg?.crop) return fail('Pick a plot.');
       if (p.crop) return fail('Something is already growing here.');
+      if (arg.packet !== arg.crop) return fail('Hold a seed packet first. Take one from the seed drawer in the storage room.'); // Step 6a: planting REQUIRES the packet in hand
       if (arg.crop === 'tomato' && !s.flags.tomato_unlocked) return fail('You do not have tomato seeds yet.');
+      if (!CROPS[arg.crop as CropId]) return fail('Pick a crop.');
+      { const u = CROPS[arg.crop as CropId].unlock; if (u && !s.flags[u]) return fail(`You do not have ${CROPS[arg.crop as CropId].name.toLowerCase()} seeds yet.`); }
       p.crop = arg.crop; p.growth = 0; p.watered = false; spend();
       if (!s.flags.crop_lesson) { s.flags.crop_lesson = true; s.journal.push({ id: 'lesson:crop-planning', sol: s.sol, title: 'Crop planning', happened: 'You planted your first crop.', decision: `In this game, ${CROPS[arg.crop].name.toLowerCase()} takes ${CROPS[arg.crop].sols} Sols and gives ${CROPS[arg.crop].food} food.`, why: 'Choose between quick food and a bigger later harvest.', science: 'Crop timings are game balance, not a NASA measurement.', learnId: 'space_crops', realData: false, kind: 'lesson' }); }
       return done(`Planted ${CROPS[arg.crop].name}.`);
     }
+    case 'watering_mode': { // Step 15a: the player picks the mode (the walk to the pump control is Step 15b)
+      const mode = arg?.mode as WateringMode;
+      const why = wateringModeProblem(s, mode); if (why) return fail(why);
+      if (s.wateringMode === mode) return fail(mode === 'automatic' ? 'The pump is already on automatic.' : 'Watering is already manual.');
+      s.wateringMode = mode;
+      return done(mode === 'automatic' ? 'Automatic watering is on. The pump uses a lot of power.' : 'Manual watering. The pump is off: water every bed in the morning AND the evening.');
+    }
     case 'water': {
       const p = s.plots.find(x => x.id === arg?.plot);
       if (!p?.crop) return fail('Nothing to water here.');
-      if (p.watered) return fail('Already watered today.');
+      if (arg?.tool !== 'sprinkler') return fail('Hold the sprinkler first. Take the water can from its stand next to the grow beds.'); // Step 6b: watering REQUIRES the sprinkler
+      if (pumpRunning(s)) return fail('The pump is watering the beds automatically.'); // Step 15a
+      if (alreadyWatered(s, p)) return fail(s.ep ? 'Already watered this round.' : 'Already watered today.');
       if (s.res.water < K.PLOT_WATER) return fail('Not enough water in the tank.');
-      s.res.water -= K.PLOT_WATER; p.watered = true; spend();
+      s.res.water -= K.PLOT_WATER; markWatered(s, p); spend();
       return done('Watered.');
     }
     case 'harvest': {
@@ -257,9 +275,13 @@ export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?
     case 'suit':
       if (s.outside) return fail('You can only take the suit off inside.');
       s.suitOn = !s.suitOn; spend();
-      return done(s.suitOn ? 'Suit on. Watch your suit air and the space weather alert.' : 'Suit off and back on the rack.');
+      return done(s.suitOn ? 'Suit on.' : 'Suit off and back on the rack.');
     case 'panels':
-      if (!s.ep || !s.ep.stormCall || s.ep.phase === 'after' || s.ep.phase === 'done') return fail('The panel controls are only needed during the storm.');
+      if (s.ep?.phase === 'after') { // Step 16b: after the storm the lever only DEPLOYS stowed panels
+        if (!s.ep.panelsStowed) return fail('The panels are already out. Go outside and clean them.');
+        spend(); return done(deployAfterStorm(s));
+      }
+      if (!s.ep || !s.ep.stormCall || s.ep.phase === 'done') return fail('The panel controls are only needed during the storm.');
       spend(); return done(togglePanels(s));
     case 'workout': {
       if (!s.ep) return fail('The gym is part of Episode 1.');
@@ -275,20 +297,53 @@ export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?
       for (const p of s.plots) if (p.crop) p.health = clamp((p.health ?? 80) + LAB_PLANT_BOOST, 0, 100);
       return done(`Under the microscope you spotted early leaf spots and treated them (+${LAB_PLANT_BOOST} plant health).`);
     }
+    case 'repair_machine': { // Step 13b: comms console / microwave / heater, same rules as the pump
+      const m = arg?.machine; if (!isMachineId(m)) return fail('Repair what?');
+      if (!isBroken(s, m)) return fail(`The ${MACHINE_NAMES[m].toLowerCase()} already works.`);
+      if (arg?.part !== 'spare_part') return fail(NEED_PART_MSG);
+      if (stockOf(s, 'parts') < 1) return fail(NO_PARTS_MSG);
+      s.flags.stock_parts = stockOf(s, 'parts') - 1; fixMachine(s, m); spend();
+      if (m === 'comms' && dishChoice(s) === 'comms') onFaultRepaired(s, 'comms'); // Step 14a: branch A
+      return done(`${MACHINE_NAMES[m]} repaired.`);
+    }
+    case 'ice_chip': { // Step 21b: kneel at the candidate ice sheet; energy + a little suit air at the beat
+      const why = iceProblem(s, arg?.held || null); if (why) return fail(why);
+      spend(); if (s.suitOn) s.suit = Math.max(0, s.suit - EP.ICE_AIR); s.flags[ICE_COLLECTED] = 1; return done('You chipped ice into the container.');
+    }
+    case 'ice_pour': { // Step 21b: pour the container into the water-maker intake: the water maker restarts and the episode ends
+      const why = pourProblem(s, arg?.held || null); if (why) return fail(why);
+      deliverIce(s); return done('The ice melts into the intake. The water maker is running again.');
+    }
+    case 'repair_dish': { // Step 14a branch B (the animation comes in Step 14c): outside, spare part in hand, costs energy + one part
+      const why = dishProblem(s, arg?.part === 'spare_part', stockOf(s, 'parts')); if (why) return fail(why);
+      s.flags.stock_parts = stockOf(s, 'parts') - 1; spend(); onFaultRepaired(s, 'dish'); return done('Dish repaired.');
+    }
     case 'repair_watering':
       if (!s.ep) return fail('Nothing to repair.');
       if (s.ep.phase !== 'after') return fail('The pump needs parts from outside. It can only be fixed after the storm.');
       if (s.ep.wateringFixed) return fail('The watering system already works.');
-      if (s.res.power < 5) return fail(s.ep.panelsCleaned ? 'Not enough power yet. Wait for the panels to charge the battery.' : 'Not enough power. Clean the solar panels first to get power back.');
-      s.res.power -= 5; spend(); afterStormAction(s, 'water'); return done('Watering system repaired. The beds water themselves again.');
+      if (arg?.part !== 'spare_part') return fail(NEED_PART_MSG); // Step 13a: the pump is fixed by hand with a spare part from storage
+      if (stockOf(s, 'parts') < 1) return fail(NO_PARTS_MSG);
+      s.flags.stock_parts = stockOf(s, 'parts') - 1; spend(); afterStormAction(s, 'water'); return done('Watering system repaired. The beds water themselves again.');
     case 'talk': {
       if (!arg?.crew) return fail('Who?');
       if (arg.choice !== undefined && arg.choice !== '0' && arg.choice !== '1') return fail('Choose one of the replies.');
+      if (s.crew[arg.crew as CrewId] && isHungry(s, s.crew[arg.crew as CrewId])) return fail(hungryRefusal(arg.crew as CrewId)); // 24e: before any energy, chat count or hearts
       if (s.ep && flagNum(s, 'tmp_chats') >= EP.CHATS_PER_SOL) return fail(`You have used today's ${EP.CHATS_PER_SOL} intercom chats. The crew needs to rest. Try again tomorrow.`);
       if (s.ep) s.flags.tmp_chats = flagNum(s, 'tmp_chats') + 1;
       if (arg.choice !== undefined && !s.crewChats[arg.crew]) s.crewChats[arg.crew] = { sol: s.sol, choice: arg.choice === '0' ? 0 : 1 };
       const t = talkLine(s, arg.crew); crewTalked(s, arg.crew, t.gained); spend(); checkProgress(s);
       return done(t.line);
+    }
+    case 'aoki_talk': {
+      if (arg?.choice !== '0' && arg?.choice !== '1') return fail('Choose one of the replies.');
+      if (isHungry(s, s.crew.aiko)) return fail(hungryRefusal('aiko')); // 24e
+      if (s.ep && flagNum(s, 'tmp_chats') >= EP.CHATS_PER_SOL) return fail(`You have used today's ${EP.CHATS_PER_SOL} intercom chats. The crew needs to rest. Try again tomorrow.`);
+      const t = aokiTalk(s, arg.topic ?? '', arg.choice === '0' ? 0 : 1);
+      if (!t.ok) return fail(t.msg);
+      if (s.ep) s.flags.tmp_chats = flagNum(s, 'tmp_chats') + 1;
+      crewTalked(s, 'aiko', t.heart); spend(); checkProgress(s);
+      return done(t.msg);
     }
     case 'build': {
       const b = arg?.building ? BUILDINGS[arg.building] : undefined;
@@ -339,6 +394,11 @@ export function act(s: GameState, name: ActionName, arg?: { plot?: string; crop?
       const result = cookServe(s, tray);
       if (!result.ok) return fail(result.msg);
       spend(); return done(result.msg);
+    }
+    case 'serve_tray': {
+      const r = serveTray(s);
+      if (!r.ok) return fail(r.msg);
+      checkProgress(s); return done(r.msg);
     }
     case 'request_shipment':
       if (s.shipmentArrivesSol > s.sol) return fail('A shipment is already on its way.');

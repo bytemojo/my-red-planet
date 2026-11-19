@@ -5,25 +5,19 @@ import Phaser from 'phaser';
 import { CREW_IDS, BED_ACTIVITIES, isHungry, isNight, lampOn, mood, pickActivity, activitySeconds, type Activity } from '../core/crewlife';
 import { CREW_LOOKS, frameName } from './sprites';
 import type { CrewId, GameState } from '../core/types';
+import { CREW_WORK, PACE_LANE, SPOT, WANDER, centerOfTile, needsNewActivity, pickWorkTile, routeTo, type Blocked, type SpotName } from './crewwalk';
 
 const T = 32;
 export const BAY = { x0: 5 * T, y0: 13 * T, x1: 14 * T, y1: 18 * T };
 const QW = (BAY.x1 - BAY.x0) / 4; // 72px per room
-// Spots inside a room, as [dx from room's left edge, absolute y of the feet].
-const SPOT = { window: [40, 446], mid: [46, 492], rug: [52, 522], bedside: [44, 548], chair: [44, 470], bed: [19, 566] } as const;
-type SpotName = keyof typeof SPOT;
-const WANDER: SpotName[] = ['window', 'mid', 'rug', 'bedside'];
-// After the quarantine ends, each person works somewhere in the base during the day (tile units: x0, y0, x1, y1).
-const WORK: Record<CrewId, [number, number, number, number]> = {
-  reyes: [18.8, 6.6, 27.2, 8.4], aiko: [7.5, 5.6, 11.5, 6.4], david: [19, 10.6, 27, 11.7], sofia: [18.8, 13.6, 27.2, 15.4],
-};
+const GRID_W = 44, GRID_H = 30;
 const NAMES: Record<CrewId, string> = { reyes: 'REYES', aiko: 'AIKO', david: 'DAVID', sofia: 'SOFIA' };
 
 type Mode = 'walk' | 'idle' | 'bed' | 'chair';
 interface Mate {
   id: CrewId; room: number; sprite: Phaser.GameObjects.Sprite; badge: Phaser.GameObjects.Image; lampGlow: Phaser.GameObjects.Image; lampShade: Phaser.GameObjects.Graphics;
   act: Activity; until: number; mode: Mode; path: [number, number][]; dir: 'down' | 'up' | 'side'; flip: boolean; anim: number;
-  react: { kind: string; until: number } | null; atWork: boolean;
+  react: { kind: string; until: number } | null; atWork: boolean; wasHungry: boolean;
 }
 export interface CrewView { update(t: number, dt: number, s: GameState): void; react(id: CrewId, kind: 'heart'): void; positions(): Record<CrewId, { x: number; y: number }> }
 
@@ -73,7 +67,7 @@ function drawRoom(scene: Phaser.Scene, i: number, id: CrewId) {
   const shade = scene.add.graphics().setDepth(469);
   const glow = scene.add.image(qx + 62, 440, 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint(0xffc970).setScale(1.25).setDepth(9510).setAlpha(0);
   // name plate on the wall below the room, out of the way of the faces over their heads
-  scene.add.text(qx + QW / 2, BAY.y1 + 7, NAMES[id], { fontFamily: 'Rajdhani, sans-serif', fontSize: '9px', fontStyle: '700', color: '#' + look.accent.toString(16).padStart(6, '0'), stroke: '#000', strokeThickness: 3 }).setOrigin(0.5).setDepth(9000).setResolution(3).setAlpha(0.95);
+  scene.add.text(qx + QW / 2, BAY.y1 + 7, NAMES[id], { fontFamily: 'Rajdhani, sans-serif', fontSize: '9px', fontStyle: '700', color: '#' + look.accent.toString(16).padStart(6, '0'), stroke: '#000', strokeThickness: 3 }).setOrigin(0.5).setDepth(9000).setResolution(3).setAlpha(0.95).setData('room', 'q_' + id);
   return { glow, shade, qx };
 }
 
@@ -83,14 +77,14 @@ function paintLamp(g: Phaser.GameObjects.Graphics, qx: number, on: boolean, acce
   r2(g, qx + 59, 424, 10, 6, on ? 0xfff0b8 : accent); r2(g, qx + 59, 424, 10, 2, on ? 0xffffff : 0xffffff, on ? 1 : 0.4);
 }
 
-export function buildQuarters(scene: Phaser.Scene): CrewView {
+export function buildQuarters(scene: Phaser.Scene, blocked: Blocked = () => false): CrewView {
   const mates: Mate[] = CREW_IDS.map((id, i) => {
     const room = drawRoom(scene, i, id);
     const [dx, y] = SPOT.mid;
     const sprite = scene.add.sprite(room.qx + dx, y, `crew_${id}`, 'down_stand').setOrigin(0.5, 1);
     const badge = scene.add.image(0, 0, 'icons', 'mood_neutral').setOrigin(0.5, 1).setDepth(9600);
     paintLamp(room.shade, room.qx, false, CREW_LOOKS[id].accent);
-    return { id, room: i, sprite, badge, lampGlow: room.glow, lampShade: room.shade, act: 'stand', until: 0, mode: 'idle', path: [], dir: 'down', flip: false, anim: 0, react: null, atWork: false } as Mate;
+    return { id, room: i, sprite, badge, lampGlow: room.glow, lampShade: room.shade, act: 'stand', until: 0, mode: 'idle', path: [], dir: 'down', flip: false, anim: 0, react: null, atWork: false, wasHungry: false } as Mate;
   });
   const qx = (m: Mate) => BAY.x0 + m.room * QW;
   const spot = (m: Mate, n: SpotName): [number, number] => [qx(m) + SPOT[n][0], SPOT[n][1]];
@@ -102,7 +96,13 @@ export function buildQuarters(scene: Phaser.Scene): CrewView {
     m.mode = 'idle';
   };
   const walkTo = (m: Mate, pts: [number, number][]) => { stand(m); m.path = pts.slice(); m.mode = m.path.length ? 'walk' : 'idle'; };
-  const randomWork = (m: Mate): [number, number] => { const [a, b, c, d] = WORK[m.id]; return [(a + Math.random() * (c - a)) * T, (b + Math.random() * (d - b)) * T]; };
+  // Step 24h: crew obey the player's collision grid. A work spot is always a FREE tile, and they walk there along grid tiles (never through tables or machines).
+  const workTile = (m: Mate) => pickWorkTile(CREW_WORK[m.id], blocked, GRID_W, GRID_H, Math.random);
+  const workWalk = (m: Mate): [number, number][] => {
+    const target = workTile(m); if (!target) return [];
+    return routeTo({ x: m.sprite.x, y: m.sprite.y }, target, blocked, GRID_W, GRID_H).map(tl => { const c = centerOfTile(tl); return [c.x, c.y] as [number, number]; });
+  };
+  const placeAtWork = (m: Mate) => { const tl = workTile(m); if (tl) { const c = centerOfTile(tl); m.sprite.setPosition(c.x, c.y); } };
 
   function choose(m: Mate, t: number, s: GameState) {
     const c = s.crew[m.id], hungry = isHungry(s, c), night = isNight(s.hour), working = !!s.flags.quarantine_over && !night;
@@ -110,19 +110,23 @@ export function buildQuarters(scene: Phaser.Scene): CrewView {
     if (working) m.act = Math.random() < 0.7 ? 'wander' : 'stand';
     m.until = t + activitySeconds(m.act, Math.random()) * 1000;
     // Moving between the base and the quarters happens out of sight (the quarters have no door yet).
-    if (working !== m.atWork) { m.atWork = working; stand(m); const [x, y] = working ? randomWork(m) : spot(m, 'mid'); m.sprite.setPosition(x, y); }
-    if (working) { walkTo(m, m.act === 'wander' ? [randomWork(m)] : []); return; }
+    if (working !== m.atWork) { m.atWork = working; stand(m); if (working) placeAtWork(m); else { const [x, y] = spot(m, 'mid'); m.sprite.setPosition(x, y); } }
+    if (working) { walkTo(m, m.act === 'wander' ? workWalk(m) : []); return; }
     switch (m.act) {
       case 'wander': walkTo(m, [spot(m, WANDER[Math.floor(Math.random() * WANDER.length)])]); break;
-      case 'pace': walkTo(m, [spot(m, 'window'), spot(m, 'bedside'), spot(m, 'window'), spot(m, 'bedside')]); break;
+      case 'pace': { // hungry: slow back-and-forth along the free lane (3 tiles), pause at the end looking toward the hatch (arrive())
+        const x = qx(m) + PACE_LANE.dx, lo: [number, number] = [x, PACE_LANE.yBottom], hi: [number, number] = [x, PACE_LANE.yTop];
+        walkTo(m, [lo, hi, lo, hi]); m.until = Infinity; break;
+      }
       case 'stand': walkTo(m, [spot(m, 'window')]); break;
       case 'write': case 'read': walkTo(m, m.mode === 'chair' ? [] : [spot(m, 'mid'), spot(m, 'chair')]); break;
       default: walkTo(m, m.mode === 'bed' ? [] : [spot(m, 'bedside')]); // lie, nap, sleep
     }
   }
 
-  function arrive(m: Mate) {
+  function arrive(m: Mate, t: number) {
     if (m.atWork) { m.mode = 'idle'; m.dir = 'down'; return; }
+    if (m.act === 'pace') { m.mode = 'idle'; m.dir = 'up'; m.until = t + 1800 + Math.random() * 1400; return; }  // pause, face the meal hatch
     if (BED_ACTIVITIES.includes(m.act)) { const [x, y] = spot(m, 'bed'); m.sprite.setPosition(x, y); m.mode = 'bed'; return; }
     if (m.act === 'write' || m.act === 'read') { const [x, y] = spot(m, 'chair'); m.sprite.setPosition(x, y); m.mode = 'chair'; return; }
     m.mode = 'idle'; m.dir = m.act === 'stand' ? 'down' : m.dir; // at the window, they look out at you
@@ -134,18 +138,18 @@ export function buildQuarters(scene: Phaser.Scene): CrewView {
     update(t, dt, s) {
       for (const m of mates) {
         const c = s.crew[m.id], hungry = isHungry(s, c);
-        const needsNow = (hungry && !['pace', 'wander'].includes(m.act)) || (isNight(s.hour) && !['sleep', 'read'].includes(m.act) && !m.atWork) || (!isNight(s.hour) && m.act === 'sleep');
+        const needsNow = needsNewActivity({ hungry, wasHungry: m.wasHungry, night: isNight(s.hour), act: m.act, atWork: m.atWork }); m.wasHungry = hungry;
         if (t > m.until || needsNow) choose(m, t, s);
         // movement
         if (m.mode === 'walk') {
-          const [tx, ty] = m.path[0], sp = (m.act === 'pace' ? 46 : m.atWork ? 34 : 26) * dt;
+          const [tx, ty] = m.path[0], sp = (m.act === 'pace' ? 30 : m.atWork ? 34 : 26) * dt;
           const dx = tx - m.sprite.x, dy = ty - m.sprite.y, d = Math.hypot(dx, dy);
-          if (d <= sp) { m.sprite.setPosition(tx, ty); m.path.shift(); if (!m.path.length) arrive(m); }
+          if (d <= sp) { m.sprite.setPosition(tx, ty); m.path.shift(); if (!m.path.length) arrive(m, t); }
           else {
             m.sprite.x += (dx / d) * sp; m.sprite.y += (dy / d) * sp;
             if (Math.abs(dx) > Math.abs(dy)) { m.dir = 'side'; m.flip = dx < 0; } else m.dir = dy < 0 ? 'up' : 'down';
           }
-          m.anim += dt * (m.act === 'pace' ? 9 : 6);
+          m.anim += dt * (m.act === 'pace' ? 6 : 6);
         }
         // frame
         let frame: string; let depth = m.sprite.y;

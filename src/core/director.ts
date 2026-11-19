@@ -6,12 +6,13 @@ import { EP } from './constants';
 import { rngFor } from './rng';
 import { applyEffect } from './effects';
 import { addLog } from './util';
-import type { Choice, GameState } from './types';
+import type { Choice, ChoiceCard, GameState, PopQuiz } from './types';
 
 export interface PendingView {
   kind: 'beat' | 'event'; id: string; title: string; speaker: string; lines: string[]; realData: boolean;
-  choices: { id: string; label: string; hint?: string; disabled: boolean }[]; learnId?: string;
+  choices: { id: string; label: string; hint?: string; card?: ChoiceCard; disabled: boolean }[]; learnId?: string;
   timer?: { seconds: number; timeoutChoice: string; askChoice?: string }; // a timed decision (the Storm Call)
+  popQuiz?: PopQuiz; seed?: number; sol?: number;                          // Step 27j: shown as one quiz question
 }
 
 // Beats first (scripted story), otherwise nothing. Events are rolled once each morning in rollEvent().
@@ -56,8 +57,9 @@ export function describePending(s: GameState): PendingView | null {
   const e = eventById(s.pending.id);
   if (!e) return null;
   return { kind: 'event', id: e.id, title: e.title, speaker: e.speaker, lines: [e.text(s, env)], realData: e.journal.realData, learnId: e.journal.learnId,
+    popQuiz: e.popQuiz, seed: s.seed, sol: s.sol,
     timer: e.id === 'storm_call' ? { seconds: EP.CALL_SECONDS, timeoutChoice: 'wait', askChoice: 'ask' } : undefined,
-    choices: e.choices.map(c => ({ id: c.id, label: c.label, hint: c.hint, disabled: c.requires ? !c.requires(s) : false })) };
+    choices: e.choices.map(c => ({ id: c.id, label: c.label, hint: c.hint, card: c.card, disabled: c.requires ? !c.requires(s) : false })) };
 }
 
 // Apply the player's decision. Records it, writes the journal (events), clears pending.
