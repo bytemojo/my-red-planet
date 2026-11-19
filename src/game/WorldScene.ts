@@ -51,7 +51,7 @@ import { openBath, openCave, openComms, openControl, openCrew, openFarm, openGym
 import { playWorkout } from '../ui/gym';
 import type { Machine } from '../core/gym';
 import { recordRun, updateAwards } from '../ui/menu';
-import { sfx, settings } from '../ui/audio';
+import { music, sfx, settings } from '../ui/audio';
 import { runQuizCall } from '../ui/quiz';
 import { callerToday, callLine } from '../core/quiz';
 import { bankFor, hasBank } from '../story/quizbank';
@@ -722,6 +722,7 @@ export class WorldScene extends Phaser.Scene {
     const moving = Math.hypot(dx, dy) > 0.1, step = moving ? [1, 0, 2, 0][Math.floor(this.anim) % 4] : 0;
     const tx = Math.floor(p.x / T), ty = Math.floor(p.y / T), ins = !!(world.inside[ty] && world.inside[ty][tx]);
     if (s.outside === ins) { s.outside = !ins; if (s.outside) { toast('<b>Outside!</b> Watch your meters.', { kind: 'warn' }); sfx.warn(); } else if (s.suitOn) { toast('<b>Inside.</b> Suit refilling.', { kind: 'good' }); sfx.ok(); } refreshHud(s); }
+    music.location(s.outside ? 'outdoor' : 'indoor');
     const pose = (['step1', 'stand', 'step2', 'stand'] as const)[step === 0 ? 1 : step === 1 ? 0 : 2];
     const suited = s.ep ? s.suitOn : s.outside;
     drawPlayer(this, t, suited, pose); this.racks?.setHeld(this.held.item);

@@ -7,8 +7,71 @@ export const settings = (() => {
 export const saveSettings = () => { try { localStorage.setItem('mrp.settings', JSON.stringify(settings)); } catch { /* ignore */ } };
 
 let AC: AudioContext | undefined;
-let musicTimer: number | undefined, musicMode: 'menu' | 'game' | null = null, musicStep = 0;
+let musicMode: 'menu' | 'game' | null = null;
+let musicLocation: 'indoor' | 'outdoor' = 'indoor';
+let musicStarted = false;
+let indoorSource: HTMLAudioElement | null = null;
+let outdoorSource: HTMLAudioElement | null = null;
+let indoorGain: GainNode | null = null;
+let outdoorGain: GainNode | null = null;
+let crossfadeTimer: number | undefined;
 const ensureAudio = () => { const W = window as unknown as { webkitAudioContext?: typeof AudioContext }; AC = AC || new (window.AudioContext || W.webkitAudioContext!)(); if (AC.state === 'suspended') void AC.resume(); return AC; };
+const makeMusicSource = (file: string) => {
+  const el = new Audio(file);
+  el.loop = true;
+  el.preload = 'auto';
+  return el;
+};
+const ensureMusic = () => {
+  if (indoorSource && outdoorSource) return;
+  const ac = ensureAudio();
+  indoorSource = makeMusicSource('./audio/indoor-lofi-jpop.mp3');
+  outdoorSource = makeMusicSource('./audio/outdoor-scifi-mystery.mp3');
+  indoorGain = ac.createGain();
+  outdoorGain = ac.createGain();
+  indoorGain.gain.value = settings.sound ? 1 : 0;
+  outdoorGain.gain.value = 0;
+  const indoorMedia = ac.createMediaElementSource(indoorSource);
+  const outdoorMedia = ac.createMediaElementSource(outdoorSource);
+  indoorMedia.connect(indoorGain).connect(ac.destination);
+  outdoorMedia.connect(outdoorGain).connect(ac.destination);
+};
+const setGain = (gain: GainNode | null, value: number, seconds = 1.8) => {
+  if (!gain || !AC) return;
+  const now = AC.currentTime;
+  gain.gain.cancelScheduledValues(now);
+  gain.gain.setValueAtTime(Math.max(0.0001, gain.gain.value), now);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, value), now + seconds);
+};
+const playMusic = async () => {
+  if (!settings.sound || !musicMode) return;
+  ensureMusic();
+  if (AC?.state === 'suspended') await AC.resume();
+  if (!indoorSource || !outdoorSource) return;
+  try {
+    if (!indoorSource.paused || !outdoorSource.paused) return;
+    await Promise.all([
+      indoorSource.paused ? indoorSource.play() : Promise.resolve(),
+      outdoorSource.paused ? outdoorSource.play() : Promise.resolve(),
+    ]);
+    musicStarted = true;
+  } catch { /* Browser autoplay policy: a later pointer or key gesture retries. */ }
+};
+const crossfadeLocation = (location: 'indoor' | 'outdoor') => {
+  if (!musicMode) return;
+  musicLocation = location;
+  ensureMusic();
+  if (crossfadeTimer) window.clearTimeout(crossfadeTimer);
+  crossfadeTimer = window.setTimeout(() => crossfadeTimer = undefined, 1900);
+  if (!settings.sound) {
+    setGain(indoorGain, 0);
+    setGain(outdoorGain, 0);
+    return;
+  }
+  setGain(indoorGain, location === 'indoor' ? 1 : 0);
+  setGain(outdoorGain, location === 'outdoor' ? 1 : 0);
+  void playMusic();
+};
 function beep(f = 660, d = 0.09, type: OscillatorType = 'sine', v = 0.05, delay = 0) {
   if (!settings.sound) return;
   try {
@@ -18,20 +81,32 @@ function beep(f = 660, d = 0.09, type: OscillatorType = 'sine', v = 0.05, delay 
     o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + d + 0.02);
   } catch { /* audio is optional */ }
 }
-function musicTick() {
-  if (!settings.sound || !AC || !musicMode) return;
-  // A tiny generated lo-fi loop: no downloaded audio, and it starts only after
-  // a player gesture (the browser's autoplay rule).
-  const menu = musicMode === 'menu', notes = menu ? [220, 277, 330, 415, 330, 277] : [196, 247, 294, 370, 330, 294];
-  const n = notes[musicStep++ % notes.length];
-  beep(n, menu ? .42 : .3, 'triangle', .018);
-  beep(n * 1.5, .16, 'sine', .008, .07);
-  if (musicStep % 3 === 0) beep(n / 2, .28, 'sine', .014, .03);
-}
 export const music = {
-  set(mode: 'menu' | 'game' | null) { musicMode = mode; if (musicTimer) { clearInterval(musicTimer); musicTimer = undefined; } if (mode && settings.sound && AC) { musicTick(); musicTimer = window.setInterval(musicTick, mode === 'menu' ? 620 : 460); } },
-  wake() { if (!musicMode || !settings.sound || musicTimer) return; ensureAudio(); musicTick(); musicTimer = window.setInterval(musicTick, musicMode === 'menu' ? 620 : 460); },
-  toggle() { settings.sound = !settings.sound; saveSettings(); if (!settings.sound && musicTimer) { clearInterval(musicTimer); musicTimer = undefined; } if (settings.sound) this.wake(); return settings.sound; },
+  set(mode: 'menu' | 'game' | null) {
+    musicMode = mode;
+    if (!mode) {
+      indoorSource?.pause();
+      outdoorSource?.pause();
+      musicStarted = false;
+      return;
+    }
+    crossfadeLocation(mode === 'menu' ? 'indoor' : musicLocation);
+  },
+  location(location: 'indoor' | 'outdoor') {
+    if (location !== musicLocation) crossfadeLocation(location);
+  },
+  wake() { if (!musicMode || !settings.sound) return; void playMusic(); },
+  toggle() {
+    settings.sound = !settings.sound;
+    saveSettings();
+    if (!settings.sound) {
+      setGain(indoorGain, 0);
+      setGain(outdoorGain, 0);
+    } else {
+      crossfadeLocation(musicLocation);
+    }
+    return settings.sound;
+  },
 };
 export const sfx = {
   click: () => { ensureAudio(); music.wake(); beep(520, 0.06, 'square', 0.03); },
