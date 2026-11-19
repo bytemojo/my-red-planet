@@ -1,6 +1,6 @@
 // My Red Planet offline cache. Only this site's own files (same origin GET). NASA DONKI and other sites are never touched.
-const CACHE = 'mrp-v2';
-self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', './index.html', './audio/indoor-lofi-jpop.mp3', './audio/outdoor-scifi-mystery.mp3']).catch(() => {})).then(() => self.skipWaiting())); });
+const CACHE = 'mrp-v5';
+self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', './index.html', './favicon.svg', './menu-cover.png', './menu-cover-mobile.png', './menu-logo.png', './audio/indoor-lofi-jpop.mp3', './audio/outdoor-scifi-mystery.mp3']).catch(() => {})).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
   const r = e.request, u = new URL(r.url);

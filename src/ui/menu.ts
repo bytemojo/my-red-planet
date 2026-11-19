@@ -34,20 +34,32 @@ export function recordRun(score: number, sols: number) {
 // ---------- starfield (ported) ----------
 let starRAF = 0, starsOn = true, drawStars: (t: number) => void = () => {}, startFrame: () => void = () => {};
 function initStars() {
-  const c = $('#stars') as HTMLCanvasElement, x = c.getContext('2d')!; let w = 0, h = 0, nextShooting = 0, stars: { x: number; y: number; r: number; p: number; s: number }[] = [];
+  const c = $('#stars') as HTMLCanvasElement, x = c.getContext('2d')!;
+  let w = 0, h = 0, nextShooting = 0, streaks: { x: number; y: number; start: number; duration: number; length: number; dx: number; dy: number }[] = [];
+  const mobile = () => matchMedia('(max-width: 620px)').matches;
   const size = () => { const r = Math.min(devicePixelRatio || 1, 2); w = c.clientWidth; h = c.clientHeight; c.width = w * r; c.height = h * r; x.setTransform(r, 0, 0, r, 0, 0);
-    stars = Array.from({ length: Math.round((w * h) / 4200) }, () => ({ x: Math.random() * w, y: Math.random() * h, r: Math.random() * 1.4 + 0.2, p: Math.random() * 6.28, s: Math.random() * 0.7 + 0.2 })); };
+    streaks = []; nextShooting = 0; };
   const draw = (t: number) => {
-    x.clearRect(0, 0, w, h); const R = Math.min(w, h) * 0.75, cx = w * 0.8, cy = h + R * 0.42;
-    for (const s of stars) { const a = .68 + .25 * Math.sin((t / 1400) * s.s + s.p); x.globalAlpha = a; x.fillStyle = s.r > 1.1 ? '#cfeeff' : '#ffffff'; x.beginPath(); x.arc(s.x, s.y, s.r, 0, 6.283); x.fill(); }
-    if (t > nextShooting) { nextShooting = t + 25000 + Math.random() * 50000; const sx = Math.random() * w * .65, sy = 40 + Math.random() * h * .35; x.globalAlpha = .85; x.strokeStyle = '#e9f9ff'; x.lineWidth = 1.2; x.beginPath(); x.moveTo(sx, sy); x.lineTo(sx + 70, sy + 24); x.stroke(); }
-    const g = x.createRadialGradient(cx - R * 0.3, cy - R * 0.45, R * 0.08, cx, cy, R); g.addColorStop(0, '#e5835a'); g.addColorStop(0.55, '#8c3a22'); g.addColorStop(1, '#1d0a08');
-    x.save(); x.beginPath(); x.arc(cx, cy, R, 0, 6.283); x.fillStyle = '#3f130d'; x.fill(); x.fillStyle = g; x.fill(); x.shadowColor = 'rgba(57,217,255,.8)'; x.shadowBlur = 34; x.lineWidth = 3; x.strokeStyle = 'rgba(57,217,255,.6)'; x.stroke(); x.restore();
+    x.clearRect(0, 0, w, h);
+    if (!starsOn || !mobile() || settings.reduce) { streaks = []; x.globalAlpha = 1; return; }
+    if (t >= nextShooting) {
+      streaks.push({ x: Math.random() * w * .65, y: h * (.02 + Math.random() * .06), start: t, duration: 700, length: 42 + Math.random() * 26, dx: 70 + Math.random() * 40, dy: 14 + Math.random() * 18 });
+      nextShooting = t + 1700 + Math.random() * 2600;
+    }
+    streaks = streaks.filter(s => t - s.start <= s.duration);
+    for (const s of streaks) {
+      const progress = Math.max(0, (t - s.start) / s.duration), alpha = Math.sin(progress * Math.PI);
+      const hx = s.x + s.dx * progress, hy = s.y + s.dy * progress, tx = hx - s.length, ty = hy - s.length * .32;
+      const trail = x.createLinearGradient(tx, ty, hx, hy);
+      trail.addColorStop(0, 'rgba(190,235,255,0)'); trail.addColorStop(.72, 'rgba(190,235,255,.5)'); trail.addColorStop(1, '#ffffff');
+      x.save(); x.globalAlpha = alpha; x.strokeStyle = trail; x.lineWidth = 1.5; x.shadowColor = '#8edfff'; x.shadowBlur = 8; x.beginPath(); x.moveTo(tx, ty); x.lineTo(hx, hy); x.stroke(); x.restore();
+    }
     x.globalAlpha = 1;
   };
-  const frame = (t: number) => { if (!starsOn) { starRAF = 0; return; } draw(t); starRAF = settings.reduce ? 0 : requestAnimationFrame(frame); };
-  size(); addEventListener('resize', () => { size(); if (!starRAF) draw(0); });
-  drawStars = draw; startFrame = () => { starsOn = true; if (!starRAF) frame(performance.now()); }; draw(0);
+  const frame = (t: number) => { if (!starsOn) { starRAF = 0; return; } draw(t); starRAF = settings.reduce || !mobile() ? 0 : requestAnimationFrame(frame); };
+  size(); nextShooting = performance.now() + 100;
+  addEventListener('resize', () => { size(); if (starsOn && mobile() && !settings.reduce) startFrame(); else { if (starRAF) cancelAnimationFrame(starRAF); starRAF = 0; draw(0); } });
+  drawStars = draw; startFrame = () => { starsOn = true; if (!starRAF) frame(performance.now()); }; draw(performance.now());
 }
 
 // ---------- menu modal ----------
