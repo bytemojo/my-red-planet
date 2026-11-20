@@ -6,7 +6,8 @@
 - Browser check confirmed the portrait ends at y=900 on a 900px screen and has no CSS animation.
 - Finished the requested preview polish: smaller desktop menu logo, gold animated quiz button, pause close X/mastery placement, right-column microscope controls with arrow-key navigation, quiz-only music and one-time victory audio, desktop cover preload, and delayed pixel-style startup fallback.
 - The intercom alert is at bottom-left and routes directly to the call when clicked (committed separately). Browser checks covered menu/pause, microscope navigation, intercom arrival, fresh startup, and quiz audio playback.
-- Untested: human listening for audio balance and a confirmed Vercel deployment.
+- Production deployment is READY at https://myredplanet.vercel.app; the menu, quiz page, and both quiz audio assets returned HTTP 200.
+- Untested: human listening for audio balance on a device with speakers.
 
 ## Latest session (2026-11-20): merged generated game SFX into snapshot
 **Status: `npm run check` passes (55 test files, 701 passed, 1 skipped, TypeScript, production build).** The preview server responds on port 5181; a fresh browser load shows the menu.
