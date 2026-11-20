@@ -7,6 +7,7 @@ import { head, overlay } from './ui';
 import { sfx } from './audio';
 
 const LENS = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m12.5 12.5 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+const ARROW = (direction: 'left' | 'right') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${direction === 'left' ? 'm14 5-7 7 7 7M7 12h10' : 'm10 5 7 7-7 7M7 12h10'}"/></svg>`;
 const srcOf = (s: MicroscopeSample) => s.file.startsWith('data:') ? s.file : '/microscope/' + encodeURIComponent(s.file);
 
 /** Opens the viewer; resolves when it is closed. With no samples it resolves at once and shows nothing. */
@@ -14,13 +15,20 @@ export function openMicroscope(samples: readonly MicroscopeSample[], onView?: (s
   return new Promise(resolve => {
     const n = samples.length; if (!n) { resolve(); return; }
     const el = overlay('microscope', `<div class="holo-panel mic-panel" role="dialog" aria-label="Microscope">${head('panel', 'Microscope')}<div class="panel-body mic-body">
-      <div class="mic-eye"><div class="mic-view" id="mic-view" tabindex="0" aria-label="Microscope view. Drag to move. Scroll, pinch or use plus and minus to zoom.">
-        <img class="mic-img" id="mic-img" alt="" draggable="false"><div class="mic-load" id="mic-load" role="status">Loading…</div></div><div class="mic-vig" aria-hidden="true"></div></div>
-      <div class="mic-zoom"><button class="holo-btn small" id="mic-out" aria-label="Zoom out">ZOOM −</button><span class="mic-zl" id="mic-z" aria-live="polite">1×</span><button class="holo-btn small" id="mic-in" aria-label="Zoom in">ZOOM +</button></div>
-      <label class="mic-pick"><span id="mic-n"></span><input type="range" id="mic-slider" min="1" max="${n}" step="1" value="1" aria-label="Choose a sample"${n < 2 ? ' disabled' : ''}></label>
-      <div class="mic-cap"><b id="mic-t"></b><p id="mic-c"></p><a class="mic-src" id="mic-src" target="_blank" rel="noopener noreferrer">${LENS}<span id="mic-cr"></span></a></div></div></div>`, 'mic-ov');
+      <div class="mic-workspace">
+        <div class="mic-observation">
+          <div class="mic-eye"><div class="mic-view" id="mic-view" tabindex="0" aria-label="Microscope view. Drag to move. Scroll, pinch or use plus and minus to zoom. Use left and right arrow keys to change samples.">
+            <img class="mic-img" id="mic-img" alt="" draggable="false"><div class="mic-load" id="mic-load" role="status">Loading…</div></div><div class="mic-vig" aria-hidden="true"></div></div>
+          <div class="mic-cap"><b id="mic-t"></b><p id="mic-c"></p><a class="mic-src" id="mic-src" target="_blank" rel="noopener noreferrer">${LENS}<span id="mic-cr"></span></a></div>
+        </div>
+        <aside class="mic-tools" aria-label="Microscope controls">
+          <div class="mic-zoom"><button class="holo-btn small" id="mic-in" aria-label="Zoom in">+</button><span class="mic-zl" id="mic-z" aria-live="polite">1×</span><button class="holo-btn small" id="mic-out" aria-label="Zoom out">−</button></div>
+          <div class="mic-samples"><button class="holo-btn small mic-arrow" id="mic-prev" aria-label="Previous sample"${n < 2 ? ' disabled' : ''}>${ARROW('left')}</button><button class="holo-btn small mic-arrow" id="mic-next" aria-label="Next sample"${n < 2 ? ' disabled' : ''}>${ARROW('right')}</button></div>
+          <span class="mic-count" id="mic-n" aria-live="polite"></span>
+        </aside>
+      </div></div></div>`, 'mic-ov');
     const $ = <T extends HTMLElement>(id: string) => el.querySelector('#' + id) as T;
-    const view = $('mic-view'), img = $<HTMLImageElement>('mic-img'), load = $('mic-load'), slider = $<HTMLInputElement>('mic-slider');
+    const view = $('mic-view'), img = $<HTMLImageElement>('mic-img'), load = $('mic-load');
     let idx = 0, v: View = newView(), size = { w: 1, h: 1 }, token = 0, loaded = false;
     const dia = () => view.clientWidth || 300;
     const apply = () => {
@@ -29,7 +37,7 @@ export function openMicroscope(samples: readonly MicroscopeSample[], onView?: (s
       $('mic-z').textContent = zoomLabel(v.zoom); ($('mic-in') as HTMLButtonElement).disabled = !canZoomIn(v.zoom); ($('mic-out') as HTMLButtonElement).disabled = !canZoomOut(v.zoom);
     };
     const show = (i: number) => {
-      idx = i; const s = samples[i], my = ++token; onView?.(s); loaded = false; v = newView(); slider.value = String(i + 1);
+      idx = i; const s = samples[i], my = ++token; onView?.(s); loaded = false; v = newView();
       img.style.visibility = 'hidden'; img.removeAttribute('src'); img.alt = ''; load.hidden = false; load.textContent = 'Loading…';
       $('mic-n').textContent = `Sample ${i + 1} of ${n}`; $('mic-t').textContent = s.title; $('mic-c').textContent = s.caption;
       const a = $<HTMLAnchorElement>('mic-src'); if (/^https:\/\//.test(s.sourceUrl)) { a.href = s.sourceUrl; a.hidden = false; $('mic-cr').textContent = s.credit; } else { a.removeAttribute('href'); a.hidden = true; }
@@ -41,7 +49,8 @@ export function openMicroscope(samples: readonly MicroscopeSample[], onView?: (s
     const zoom = (f: number, ax = 0, ay = 0) => { if (!loaded) return; v = zoomAt(v, f, ax, ay, size, dia()); apply(); };
     const centre = (cx: number, cy: number) => { const r = view.getBoundingClientRect(); return { x: cx - (r.left + r.width / 2), y: cy - (r.top + r.height / 2) }; };
     $('mic-in').onclick = () => { sfx.click(); zoom(ZOOM.STEP); }; $('mic-out').onclick = () => { sfx.click(); zoom(1 / ZOOM.STEP); };
-    slider.oninput = () => show(Number(slider.value) - 1);
+    $('mic-prev').onclick = () => { sfx.click(); show(stepSample(idx, n, -1)); };
+    $('mic-next').onclick = () => { sfx.click(); show(stepSample(idx, n, 1)); };
     view.addEventListener('wheel', e => { e.preventDefault(); const a = centre(e.clientX, e.clientY); zoom(e.deltaY < 0 ? ZOOM.WHEEL : 1 / ZOOM.WHEEL, a.x, a.y); }, { passive: false });
     // drag to move (one pointer), pinch to zoom (two pointers)
     const ptrs = new Map<number, { x: number; y: number }>(); let lastDist = 0;
@@ -53,14 +62,14 @@ export function openMicroscope(samples: readonly MicroscopeSample[], onView?: (s
     });
     const up = (e: PointerEvent) => { ptrs.delete(e.pointerId); lastDist = 0; if (!ptrs.size) view.classList.remove('drag'); };
     view.addEventListener('pointerup', up); view.addEventListener('pointercancel', up);
-    // keyboard: + / - zoom, arrows move, Escape closes (the sample slider keeps its own arrow keys)
+    // Keyboard: left/right change samples; up/down pan; + / - zoom; Escape closes.
     const ac = new AbortController();
     document.addEventListener('keydown', e => {
       if (!el.isConnected) return; const k = e.key;
       if (k === 'Escape') { e.preventDefault(); el.querySelector<HTMLElement>('[data-close]')?.click(); return; }
       if (k === '+' || k === '=') { zoom(ZOOM.STEP); return; } if (k === '-' || k === '_') { zoom(1 / ZOOM.STEP); return; }
-      if (e.target === slider) return;
-      const m = 30, mv: Record<string, [number, number]> = { ArrowLeft: [m, 0], ArrowRight: [-m, 0], ArrowUp: [0, m], ArrowDown: [0, -m] };
+      if (k === 'ArrowLeft' || k === 'ArrowRight') { e.preventDefault(); show(stepSample(idx, n, k === 'ArrowLeft' ? -1 : 1)); return; }
+      const m = 30, mv: Record<string, [number, number]> = { ArrowUp: [0, m], ArrowDown: [0, -m] };
       if (mv[k] && loaded) { e.preventDefault(); v = panBy(v, mv[k][0], mv[k][1], size, dia()); apply(); }
     }, { signal: ac.signal });
     window.addEventListener('resize', () => { if (loaded) { size = coverSize(img.naturalWidth, img.naturalHeight, dia()); apply(); } }, { signal: ac.signal });

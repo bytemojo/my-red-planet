@@ -49,7 +49,7 @@ export class AstronautQuizUI {
   private timeouts = new Set<number>();
   private state: 'idle' | 'open' | 'locking' | 'feedback' = 'idle';
   private remaining = 0; private limit = 0; private lastT = 0; private clockId = 0; private timerOn = false; private modalOpen = false; private lowShown = false;
-  private name = 'Rookie'; private calm = false; private recorded = false;
+  private name = 'Rookie'; private calm = false; private recorded = false; private victoryPlayed = false;
   private cardUrl = ''; private cardCv?: HTMLCanvasElement; private msgEdited = false; private shareMsg = ''; private renderSeq = 0;
   private prefill = ''; private named = false; private reyes = ''; private url = ''; private alive = false;
   private keyHandler = (e: KeyboardEvent) => this.onKey(e);
@@ -74,7 +74,7 @@ export class AstronautQuizUI {
     (o.container ?? document.body).appendChild(this.root);
     this.alive = true;
     (this.root.querySelector('#aq-exit') as HTMLElement).onclick = () => { aqSfx.click(); void this.requestExit(); };
-    (this.root.querySelector('#aq-snd') as HTMLElement).onclick = () => { aqSfx.setMuted(!aqSfx.muted); if (!aqSfx.muted) { aqSfx.click(); if (this.state === 'open' || this.state === 'feedback') aqSfx.bedStart(this.run.level.level); } this.drawSound(); };
+    (this.root.querySelector('#aq-snd') as HTMLElement).onclick = () => { aqSfx.setMuted(!aqSfx.muted); if (!aqSfx.muted) { aqSfx.click(); if (this.state === 'open' || this.state === 'feedback' || (this.root.querySelector('.aq-splash') && this.run?.plans.length)) aqSfx.bedStart(); } this.drawSound(); };
     this.drawSound();
     document.addEventListener('keydown', this.keyHandler, true); document.addEventListener('visibilitychange', this.visHandler);
     o.onOpen?.();
@@ -82,7 +82,7 @@ export class AstronautQuizUI {
   }
   destroy(): void {
     if (!this.alive) return; this.alive = false;
-    this.stopClock(); aqSfx.bedStop(); this.timeouts.forEach(clearTimeout); this.timeouts.clear();
+    this.stopClock(); aqSfx.bedStop(); aqSfx.victoryStop(); this.timeouts.forEach(clearTimeout); this.timeouts.clear();
     document.removeEventListener('keydown', this.keyHandler, true); document.removeEventListener('visibilitychange', this.visHandler);
     if (this.cardUrl) URL.revokeObjectURL(this.cardUrl);
     this.root.remove(); this.opts.onClose?.();
@@ -148,14 +148,15 @@ export class AstronautQuizUI {
   }
 
   private newRun() {
-    this.run = new Run(buildRun(this.opts.bank, this.opts.rnd)); this.recorded = false; this.cardCv = undefined; this.msgEdited = false; this.named = false;
+    this.run = new Run(buildRun(this.opts.bank, this.opts.rnd)); this.recorded = false; this.victoryPlayed = false; this.cardCv = undefined; this.msgEdited = false; this.named = false;
     this.run.startLevel();
   }
 
   // ---------- 2. level splash ----------
   private showLevelSplash() {
-    this.stopClock(); aqSfx.bedStop(); this.state = 'idle';
-    const r = this.run; if (!r.plans.length) { this.setScreen(`<div class="aq-splash"><p class="aq-big soft">No questions found</p></div>`); return; }
+    this.stopClock(); this.state = 'idle';
+    const r = this.run; if (!r.plans.length) { aqSfx.bedStop(); this.setScreen(`<div class="aq-splash"><p class="aq-big soft">No questions found</p></div>`); return; }
+    aqSfx.bedStart();
     const lv = r.level, n = lv.level;
     this.setScreen(`<div class="aq-splash">
       <div class="aq-lv-k">LEVEL</div><div class="aq-lv-n">${n}</div><div class="aq-lv-name">${esc(LEVEL_NAMES[n - 1] ?? '')}</div>
@@ -189,7 +190,7 @@ export class AstronautQuizUI {
       </div></div>`);
     const fifty = this.root.querySelector('#aq-fifty') as HTMLButtonElement | null;
     if (fifty) fifty.onclick = () => this.useFifty();
-    aqSfx.bedStart(lv.level); this.drawQuestion(); this.startClock();
+    this.drawQuestion(); this.startClock();
   }
 
   private drawQuestion() {
@@ -394,7 +395,7 @@ export class AstronautQuizUI {
         <p class="aq-fine">Tip: download the picture, then add it to your post. Ask a grown-up before you share online.</p>
         <div class="aq-row"><button class="aq-btn" id="aq-main">Play again</button><button class="aq-btn ghost" id="aq-done">Close</button></div>
       </div></div>`);
-    aqSfx.card(); if (this.run.status === 'completed') this.confetti(60);
+    if (this.run.status === 'completed') this.confetti(60);
     void this.paintCard();
     const nm = this.$<HTMLInputElement>('#aq-name'), msg = this.$<HTMLTextAreaElement>('#aq-msg'); let deb = 0;
     nm.oninput = () => { const c = cleanName(nm.value); this.name = c || 'Rookie'; ls.set('name', this.name); this.opts.onNameChange?.(this.name); clearTimeout(deb); deb = window.setTimeout(() => { if (!this.msgEdited) { this.shareMsg = this.defaultMsg(); msg.value = this.shareMsg; } void this.paintCard(); }, 350); };
@@ -409,7 +410,14 @@ export class AstronautQuizUI {
     const seq = ++this.renderSeq, cv = await renderCard(this.cardData()); if (seq !== this.renderSeq || !this.alive) return;
     this.cardCv = cv; const blob = await canvasBlob(cv); if (!blob || seq !== this.renderSeq || !this.alive) return;
     const old = this.cardUrl; this.cardUrl = URL.createObjectURL(blob); const img = this.root.querySelector('#aq-card') as HTMLImageElement | null;
-    if (img) { img.src = this.cardUrl; img.style.opacity = '1'; } if (old) URL.revokeObjectURL(old);
+    if (img) {
+      img.onload = () => {
+        img.style.opacity = '1';
+        if (this.run.status === 'completed' && !this.victoryPlayed) { this.victoryPlayed = true; aqSfx.victory(); }
+      };
+      img.src = this.cardUrl;
+    }
+    if (old) URL.revokeObjectURL(old);
   }
   private async blob(): Promise<Blob | null> { if (!this.cardCv) this.cardCv = await renderCard(this.cardData()); return canvasBlob(this.cardCv); }
   private async download() {

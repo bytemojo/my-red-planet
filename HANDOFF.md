@@ -4,6 +4,9 @@
 **Status: `npm run check` passes (55 files, 702 passed, 1 skipped, type-check and production build); browser-checked at 1440×900.**
 - The Captain Reyes cutout is static instead of bobbing. On desktop quiz questions, its bottom is aligned with the viewport edge so the screen hides the cutout boundary.
 - Browser check confirmed the portrait ends at y=900 on a 900px screen and has no CSS animation.
+- Finished the requested preview polish: smaller desktop menu logo, gold animated quiz button, pause close X/mastery placement, right-column microscope controls with arrow-key navigation, quiz-only music and one-time victory audio, desktop cover preload, and delayed pixel-style startup fallback.
+- The intercom alert is at bottom-left and routes directly to the call when clicked (committed separately). Browser checks covered menu/pause, microscope navigation, intercom arrival, fresh startup, and quiz audio playback.
+- Untested: human listening for audio balance and a confirmed Vercel deployment.
 
 ## Latest session (2026-11-20): merged generated game SFX into snapshot
 **Status: `npm run check` passes (55 test files, 701 passed, 1 skipped, TypeScript, production build).** The preview server responds on port 5181; a fresh browser load shows the menu.

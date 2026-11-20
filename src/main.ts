@@ -17,6 +17,7 @@ import { confirmOverwrite, showCreator } from './ui/creator';
 import { openJournal } from './ui/journal';
 import { HOW_TO_PLAY } from './story/howto';
 import { masteryDetail, masteryLine, masteryScore } from './core/score';
+import { ICON } from './ui/icons';
 
 let game: Phaser.Game | null = null;
 let scene: WorldScene | null = null;
@@ -73,7 +74,7 @@ function openHowTo() {
 function openPause() {
   if (UI.blocking()) return;
   scene?.autosave(); // Step 24a: opening the pause menu saves the exact live spot
-  const el = overlay('pause', `<div class="holo-panel pause-panel">${head('clock', 'Paused', false)}<div class="panel-body"><p class="why">Take a breather. Mars will wait for you.</p>${scene ? `<div class="mastery-badge" aria-label="${masteryLine(scene.sess.state)}, ${masteryDetail(scene.sess.state)}"><b>${masteryScore(scene.sess.state)}</b><span>${masteryLine(scene.sess.state)}<small>${masteryDetail(scene.sess.state)}</small></span></div>` : ''}<div class="optlist"><button class="holo-btn primary" data-pause="resume">RESUME MISSION</button><button class="holo-btn" data-pause="sound">${soundIcon(!settings.sound)}<span>${settings.sound ? 'SOUND: ON' : 'SOUND: OFF'}</span></button><button class="holo-btn" data-pause="howto">HOW TO PLAY</button><button class="holo-btn" data-pause="save">SAVE GAME</button><button class="holo-btn" data-pause="journal">MY JOURNAL</button><button class="holo-btn" data-pause="map">MARS MAP</button><button class="holo-btn amber" data-pause="menu">SAVE & RETURN TO MENU</button></div></div></div>`);
+  const el = overlay('pause', `<div class="holo-panel pause-panel">${head('clock', 'Paused')}<div class="panel-body"><p class="why">Take a breather. Mars will wait for you.</p>${scene ? `<div class="pause-mastery" aria-label="${masteryLine(scene.sess.state)}, ${masteryDetail(scene.sess.state)}"><span class="pause-mastery-icon" aria-hidden="true">${ICON.bulb}</span><span class="pause-mastery-copy"><b>${masteryLine(scene.sess.state)}</b><small>${masteryDetail(scene.sess.state)}</small></span></div>` : ''}<div class="optlist"><button class="holo-btn primary" data-pause="resume">RESUME MISSION</button><button class="holo-btn" data-pause="sound">${soundIcon(!settings.sound)}<span>${settings.sound ? 'SOUND: ON' : 'SOUND: OFF'}</span></button><button class="holo-btn" data-pause="howto">HOW TO PLAY</button><button class="holo-btn" data-pause="save">SAVE GAME</button><button class="holo-btn" data-pause="journal">MY JOURNAL</button><button class="holo-btn" data-pause="map">MARS MAP</button><button class="holo-btn amber" data-pause="menu">SAVE & RETURN TO MENU</button></div></div></div>`);
   el.querySelectorAll('[data-pause]').forEach(button => ((button as HTMLElement).onclick = () => {
     const action = (button as HTMLElement).dataset.pause;
     if (action === 'resume') { sfx.click(); UI.close('pause'); }
@@ -86,6 +87,8 @@ function openPause() {
 }
 refreshTopButton();
 soundToggle.onclick = () => { if ($('#game').hidden) { music.toggle(); if (settings.sound) sfx.ok(); refreshTopButton(); } else openPause(); };
+document.documentElement.dataset.appReady = 'true';
+document.dispatchEvent(new Event('mrp-app-ready'));
 
 // ----- input -----
 addEventListener('keydown', e => {

@@ -4,6 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>My Little Red Planet: A Junior Astronaut Mission Trainer</title>
+  <script>
+    window.__mrpBoot = { delayed: false, appReady: false, coverReady: false };
+    window.setTimeout(() => { window.__mrpBoot.delayed = true; window.__mrpBoot.update?.(); }, 900);
+  </script>
   <meta name="description" content="My Little Red Planet, a Junior Astronaut Mission Trainer: kids 7-12 run a Mars outpost at Hebrus Valles through a dust storm and a solar storm modelled on real NASA DONKI data. Every choice about power, shielding, air, water and food costs something." />
   <link rel="canonical" href="https://myredplanet.vercel.app/" />
   <meta property="og:type" content="website" />
@@ -21,6 +25,8 @@
   <meta name="twitter:image" content="https://myredplanet.vercel.app/og-image.png" />
   <meta name="twitter:image:alt" content="Junior astronauts explore a colorful Mars colony with greenhouses beneath the My Little Red Planet title." />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="preload" as="image" href="/menu-cover.png" fetchpriority="high" media="(min-width: 621px)" />
+  <link rel="preload" as="image" href="/menu-cover-mobile.png" fetchpriority="high" media="(max-width: 620px)" />
   <link rel="stylesheet" href="/src/ui/holo.css" />
 </head>
 <body>
@@ -124,6 +130,27 @@
   </section>
   <div id="overlays"></div><!-- outside both screens so learning cards and the wiki also show over the menu -->
 </div>
+<div id="boot-fallback" class="boot-fallback" role="status" aria-label="Loading My Little Red Planet" aria-live="polite" hidden>
+  <div class="boot-loader">
+    <h2>My Little Red Planet</h2>
+    <p>SETTING UP YOUR MARS MISSION</p>
+    <div class="boot-progress" aria-hidden="true"><span></span></div>
+  </div>
+</div>
+<script>
+  (() => {
+    const loader = document.getElementById('boot-fallback');
+    const cover = new Image();
+    const boot = window.__mrpBoot;
+    const update = () => { if (loader) loader.hidden = !(boot.delayed && !(boot.appReady && boot.coverReady)); };
+    boot.update = update;
+    document.addEventListener('mrp-app-ready', () => { boot.appReady = true; update(); }, { once: true });
+    cover.onload = () => { boot.coverReady = true; update(); };
+    cover.onerror = () => { boot.coverReady = true; console.error('The menu cover image failed to load.'); update(); };
+    cover.src = matchMedia('(max-width: 620px)').matches ? '/menu-cover-mobile.png' : '/menu-cover.png';
+    update();
+  })();
+</script>
 
 <script type="module" src="/src/main.ts"></script>
 </body>

@@ -7,6 +7,7 @@ export const settings = (() => {
 export const saveSettings = () => { try { localStorage.setItem('mrp.settings', JSON.stringify(settings)); } catch { /* ignore */ } };
 
 let AC: AudioContext | undefined;
+let resumeAudio: Promise<void> | null = null;
 let musicMode: 'menu' | 'game' | null = null;
 let musicLocation: 'indoor' | 'outdoor' = 'indoor';
 let musicStarted = false;
@@ -15,11 +16,25 @@ let outdoorSource: HTMLAudioElement | null = null;
 let indoorGain: GainNode | null = null;
 let outdoorGain: GainNode | null = null;
 let crossfadeTimer: number | undefined;
-const ensureAudio = () => { const W = window as unknown as { webkitAudioContext?: typeof AudioContext }; AC = AC || new (window.AudioContext || W.webkitAudioContext!)(); if (AC.state === 'suspended') void AC.resume(); return AC; };
+const resumeContext = async () => {
+  if (!AC || AC.state !== 'suspended') return;
+  if (!resumeAudio) {
+    const context = AC;
+    resumeAudio = context.resume().catch(error => { console.warn('Game audio context could not resume', error); }).finally(() => { if (AC === context) resumeAudio = null; });
+  }
+  await resumeAudio;
+};
+const ensureAudio = () => {
+  const W = window as unknown as { webkitAudioContext?: typeof AudioContext };
+  AC = AC || new (window.AudioContext || W.webkitAudioContext!)();
+  if (AC.state === 'suspended') void resumeContext();
+  return AC;
+};
 const makeMusicSource = (file: string) => {
   const el = new Audio(file);
   el.loop = true;
   el.preload = 'auto';
+  el.addEventListener('error', () => console.error(`Game music failed to load: ${file}`, el.error));
   return el;
 };
 const ensureMusic = () => {
@@ -46,16 +61,19 @@ const setGain = (gain: GainNode | null, value: number, seconds = 1.8) => {
 const playMusic = async () => {
   if (!settings.sound || !musicMode) return;
   ensureMusic();
-  if (AC?.state === 'suspended') await AC.resume();
+  await resumeContext();
   if (!indoorSource || !outdoorSource) return;
   try {
-    if (!indoorSource.paused || !outdoorSource.paused) return;
+    if (!indoorSource.paused && !outdoorSource.paused) return;
     await Promise.all([
       indoorSource.paused ? indoorSource.play() : Promise.resolve(),
       outdoorSource.paused ? outdoorSource.play() : Promise.resolve(),
     ]);
     musicStarted = true;
-  } catch { /* Browser autoplay policy: a later pointer or key gesture retries. */ }
+  } catch (error) {
+    indoorSource.pause(); outdoorSource.pause(); musicStarted = false;
+    console.warn('Game music playback failed; it will retry after the next player action.', error);
+  }
 };
 const crossfadeLocation = (location: 'indoor' | 'outdoor') => {
   if (!musicMode) return;

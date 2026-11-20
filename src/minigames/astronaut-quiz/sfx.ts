@@ -1,8 +1,9 @@
-// ASTRONAUT QUIZ sound: a tiny WebAudio synth (no audio files, so nothing to download and it works offline).
-// Game-show sounds: lock-in thump, bright bell for right, soft "aww" for wrong (never a buzzer, this is a kids' game), level fanfare, gentle bed loop.
+// Quiz effects are synthesized; the mini-game bed and report-card reveal use bundled audio.
 let AC: AudioContext | undefined;
 let allowed: () => boolean = () => true;
 let muted = false;
+let bed: HTMLAudioElement | null = null;
+let victoryTrack: HTMLAudioElement | null = null;
 try { muted = localStorage.getItem('mrp.aq.muted') === '1'; } catch { /* ignore */ }
 
 const on = () => allowed() && !muted;
@@ -39,20 +40,25 @@ function noise(d: number, v: number, f0: number, f1: number, at = 0) {
 }
 const chord = (fs: number[], d: number, type: OscillatorType, v: number, at = 0, lp?: number) => fs.forEach(f => tone({ f, d, type, v, at, lp }));
 
-// Bed music: a slow, soft pulse in a minor key. Starts at the first question, stops on every result screen. Gets a touch quicker on harder levels.
-let bedTimer: number | undefined, bedStep = 0, bedMs = 480;
-const BASS = [110, 110, 131, 110, 98, 98, 123, 98], ARP = [440, 523, 659, 523, 392, 494, 587, 494];
-function bedTick() {
-  if (!on()) return;
-  const i = bedStep++ % BASS.length;
-  tone({ f: BASS[i], d: 0.34, type: 'triangle', v: 0.03, lp: 500 });
-  if (i % 2 === 1) tone({ f: ARP[i], d: 0.22, type: 'sine', v: 0.008, at: 0.04 });
+function audioAsset(file: string, loop: boolean, volume: number): HTMLAudioElement {
+  const base = (import.meta as unknown as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/';
+  const track = new Audio(new URL(`${base.replace(/\/?$/, '/')}audio/${file}`, document.baseURI).href);
+  track.preload = 'auto'; track.loop = loop; track.volume = volume;
+  track.addEventListener('error', () => console.error(`Astronaut Quiz audio failed to load: ${file}`, track.error));
+  return track;
 }
+function playTrack(track: HTMLAudioElement, label: string) {
+  void track.play().catch(error => {
+    if (error instanceof DOMException && error.name === 'AbortError' && track.paused) return;
+    console.warn(`Astronaut Quiz ${label} playback failed`, error);
+  });
+}
+const stopTrack = (track: HTMLAudioElement | null) => { if (track) { track.pause(); track.currentTime = 0; } };
 
 export const aqSfx = {
   setGate(fn: () => boolean) { allowed = fn; },
   get muted() { return muted; },
-  setMuted(m: boolean) { muted = m; try { localStorage.setItem('mrp.aq.muted', m ? '1' : '0'); } catch { /* ignore */ } if (m) this.bedStop(); },
+  setMuted(m: boolean) { muted = m; try { localStorage.setItem('mrp.aq.muted', m ? '1' : '0'); } catch { /* ignore */ } if (m) { this.bedStop(); this.victoryStop(); } },
   unlock() { ctx(); },
   click: () => tone({ f: 540, d: 0.06, type: 'square', v: 0.025 }),
   hover: () => tone({ f: 900, d: 0.03, type: 'square', v: 0.008 }),
@@ -79,7 +85,8 @@ export const aqSfx = {
     chord([523, 659, 784, 1047], 1.6, 'sawtooth', 0.03, 1.35, 2400); chord([1047, 1319, 1568, 2093], 1.4, 'sine', 0.03, 1.4);
     for (let i = 0; i < 10; i++) tone({ f: 1500 + Math.random() * 2200, d: 0.12, type: 'sine', v: 0.012, at: 1.5 + i * 0.09 });
   },
-  card() { [784, 988, 1175, 1568].forEach((f, i) => tone({ f, d: 0.3, type: 'sine', v: 0.04, at: i * 0.08 })); },
-  bedStart(level = 1) { this.bedStop(); if (!on()) return; ctx(); bedMs = Math.max(300, 500 - level * 18); bedStep = 0; bedTick(); bedTimer = window.setInterval(bedTick, bedMs); },
-  bedStop() { if (bedTimer) { clearInterval(bedTimer); bedTimer = undefined; } },
+  victory() { if (!on()) return; victoryTrack ??= audioAsset('tapjoy-victory.mp3', false, 0.9); victoryTrack.currentTime = 0; playTrack(victoryTrack, 'report-card reveal'); },
+  victoryStop() { stopTrack(victoryTrack); },
+  bedStart() { if (!on()) return; bed ??= audioAsset('astronaut-quiz-monume.mp3', true, 0.28); playTrack(bed, 'background music'); },
+  bedStop() { stopTrack(bed); },
 };
