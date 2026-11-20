@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AQ, TIERS } from '../src/minigames/astronaut-quiz/config';
 import { Run, buildRun, clock, mulberry32, passMark, tierFor } from '../src/minigames/astronaut-quiz/engine';
 import { allQuestions } from '../src/minigames/astronaut-quiz/questions';
+import { badgeAssetUrl } from '../src/minigames/astronaut-quiz/badges';
 
 const bank = allQuestions();
 const newRun = (seed = 1) => { const r = new Run(buildRun(bank, mulberry32(seed))); r.startLevel(); return r; };
@@ -87,6 +88,15 @@ describe('rank badges', () => {
     expect(tierFor({ ...base, levelsCleared: 10, completed: true, correct: 96 })).toBe('galaxy');
   });
   it('has the five ranks in the requested order', () => { expect(TIERS.map(t => t.name)).toEqual(['Space Recruit', 'Space Explorer', 'Space Commander', 'Solar Scientist', 'Galaxy Brain']); });
+  it('uses the supplied transparent PNG for every rank', () => {
+    expect(TIERS.map(t => badgeAssetUrl(t.id))).toEqual([
+      '/astronaut-quiz-badges/recruit.png',
+      '/astronaut-quiz-badges/explorer.png',
+      '/astronaut-quiz-badges/commander.png',
+      '/astronaut-quiz-badges/scientist.png',
+      '/astronaut-quiz-badges/galaxy.png',
+    ]);
+  });
 });
 
 describe('50:50 and the clock text', () => {

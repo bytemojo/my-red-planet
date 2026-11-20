@@ -1,5 +1,12 @@
 # HANDOFF (update at the end of every session)
 
+## Latest session (2026-11-20): supplied Astronaut Quiz rank badges
+**Status: `npm run check` passes (including 25 Astronaut Quiz tests); production build passes.**
+- Replaced the generic inline-SVG rank art with the five supplied transparent PNGs: Recruit, Explorer, Commander, Solar Scientist, and Galaxy Brain.
+- The artwork is used consistently in the quiz rank ladder, result screens, and the downloadable/shareable report-card PNG.
+- Added a test that locks the tier-to-image mapping. The standalone quiz page and all five PNG paths returned HTTP 200 from the local Vite server.
+- Untested: a human visual pass of the finished report card at desktop and mobile sizes.
+
 Last updated 2026-11-16 by Claude (Master Build Prompt Step 1; see the first section below).
 
 ## Latest session (2026-11-20): Astronaut Quiz minigame and leaderboard removal

@@ -62,8 +62,8 @@
 .aq-side .aq-btn{align-self:flex-start}
 .aq-rules{margin:0;font-size:15px;color:#bcd9f2;font-weight:600}
 .aq-ranks{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.aq-ranks .rk{width:46px;height:46px;position:relative}.aq-ranks .rk svg{width:100%;height:100%;display:block}
-.aq-ranks .rk.off svg{filter:grayscale(1) brightness(.55);opacity:.55}
+.aq-ranks .rk{width:46px;height:46px;position:relative}.aq-ranks .rk .aq-badge{width:100%;height:100%;display:block;object-fit:contain}
+.aq-ranks .rk.off .aq-badge{filter:grayscale(1) brightness(.55);opacity:.55}
 .aq-ranks-t{font-family:Orbitron,system-ui,sans-serif;font-size:10px;letter-spacing:.22em;font-weight:700;color:#8fd8f4}
 
 /* ---------- level splash ---------- */
@@ -159,7 +159,7 @@
 .aq-big.soft{background:linear-gradient(180deg,#fff,#d9c8ff 65%,#9f86ff);-webkit-background-clip:text;background-clip:text;filter:drop-shadow(0 0 18px rgba(170,140,255,.5))}
 .aq-stats{display:flex;gap:10px;flex-wrap:wrap}
 .aq-stat{padding:8px 16px;border-radius:16px;text-align:center;min-width:92px}.aq-stat b{display:block;font-family:Orbitron,system-ui,sans-serif;font-size:22px;color:#fff}.aq-stat span{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#a7d9f2}
-.aq-rank{display:flex;align-items:center;gap:12px;padding:8px 16px 8px 8px;border-radius:99px}.aq-rank svg{width:58px;height:58px;flex:none}.aq-rank b{font-family:Orbitron,system-ui,sans-serif;font-size:16px;letter-spacing:.08em;display:block}.aq-rank span{font-size:15px;color:#bcd9f2}
+.aq-rank{display:flex;align-items:center;gap:12px;padding:8px 16px 8px 8px;border-radius:99px}.aq-rank .aq-badge{width:58px;height:58px;flex:none;object-fit:contain}.aq-rank b{font-family:Orbitron,system-ui,sans-serif;font-size:16px;letter-spacing:.08em;display:block}.aq-rank span{font-size:15px;color:#bcd9f2}
 .aq-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 
 /* ---------- report card ---------- */

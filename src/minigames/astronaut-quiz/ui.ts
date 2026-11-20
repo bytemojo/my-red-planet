@@ -3,7 +3,7 @@
 import './astronaut-quiz.css';
 import { AQ, GENERIC_NAME, LEVEL_NAMES, SAY, SHARE_URL, TIERS, fill, pick, type TierId } from './config';
 import { Run, buildRun, clock, tierIndex, type BankQuestion, type Rnd, type RunSummary } from './engine';
-import { badgeSvg } from './badges';
+import { badgeImage } from './badges';
 import { aqSfx } from './sfx';
 import { renderCard, canvasBlob, type CardData } from './card';
 
@@ -122,7 +122,7 @@ export class AstronautQuizUI {
   private earned(): Set<TierId> { return new Set(ls.get<TierId[]>('ranks', [])); }
   private rankStrip(uid: string, upTo?: TierId): string {
     const got = this.earned(); if (upTo) for (let i = 0; i <= tierIndex(upTo); i++) got.add(TIERS[i].id);
-    return TIERS.map(t => `<span class="rk ${got.has(t.id) ? '' : 'off'}" title="${esc(t.name)}: ${esc(t.need)}">${badgeSvg(t.id, uid)}</span>`).join('');
+    return TIERS.map(t => `<span class="rk ${got.has(t.id) ? '' : 'off'}" title="${esc(t.name)}: ${esc(t.need)}">${badgeImage(t.id, `${uid}-${t.id}`)}</span>`).join('');
   }
   private typeInto(el: HTMLElement, text: string, done?: () => void) {
     if (this.calm) { el.textContent = text; done?.(); return; }
@@ -321,7 +321,7 @@ export class AstronautQuizUI {
       <div class="aq-side">
         <div class="aq-bubble left"><span class="aq-who">CAPTAIN REYES</span>${esc(this.say(SAY.complete))}</div>
         <div class="aq-big">MISSION COMPLETE!</div>
-        <div class="aq-rank aq-glass">${badgeSvg(s.tier, 'rs')}<div><b>${esc(tier.name)}</b><span>${esc(tier.line)}</span></div></div>
+        <div class="aq-rank aq-glass">${badgeImage(s.tier, 'result')}<div><b>${esc(tier.name)}</b><span>${esc(tier.line)}</span></div></div>
         <div class="aq-stats">${this.statBox(s.points.toLocaleString('en-US'), 'Score')}${this.statBox(`${Math.round((s.correct / s.planned) * 100)}%`, 'Right')}${this.statBox(`${s.correct}/${s.planned}`, 'Correct')}</div>
         <div class="aq-row"><button class="aq-btn big" id="aq-main">See my report card</button><button class="aq-btn ghost" id="aq-again">Play again</button></div>
       </div></div>`);
@@ -338,7 +338,7 @@ export class AstronautQuizUI {
         <div class="aq-bubble left"><span class="aq-who">CAPTAIN REYES</span>${esc(timeout ? SAY.timeout : SAY.fail)}<small>${esc(timeout ? SAY.timeoutLine : SAY.failLine)}</small></div>
         <div class="aq-big soft">${timeout ? "TIME'S UP" : 'NICE TRY, ' + esc(this.name.toUpperCase())}</div>
         <div class="aq-stats">${this.statBox(`${r.levelIdx + 1}`, 'Level reached')}${this.statBox(`${r.correct}/${r.answered}`, 'Correct')}${this.statBox(s.points.toLocaleString('en-US'), 'Score')}</div>
-        <div class="aq-rank aq-glass">${badgeSvg(s.tier, 'rs')}<div><b>${esc(tier.name)}</b><span>${esc(tier.line)}</span></div></div>
+        <div class="aq-rank aq-glass">${badgeImage(s.tier, 'result')}<div><b>${esc(tier.name)}</b><span>${esc(tier.line)}</span></div></div>
         <div class="aq-row"><button class="aq-btn big" id="aq-main">Play again</button><button class="aq-btn ghost" id="aq-rep">See report card</button></div>
       </div></div>`);
     aqSfx.soft();

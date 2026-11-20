@@ -1,7 +1,7 @@
 // The shareable report card: painted on a canvas (1080x1350, the 4:5 shape social feeds like), then shown as an image and offered as a PNG.
 // One drawing path for what the player sees and what they download, so the two always match.
 import { TIERS, type TierId } from './config';
-import { badgeDataUrl } from './badges';
+import { badgeAssetUrl } from './badges';
 
 export interface CardData {
   name: string; tier: TierId; points: number; levelsCleared: number; levelsTotal: number; correct: number; answered: number; accuracy: number; completed: boolean; date: string; url: string;
@@ -48,7 +48,7 @@ export async function renderCard(d: CardData): Promise<HTMLCanvasElement> {
   const cv = document.createElement('canvas'); cv.width = CARD_W; cv.height = CARD_H;
   const c = cv.getContext('2d')!; const W = CARD_W, H = CARD_H, cx = W / 2;
   const tier = TIERS.find(t => t.id === d.tier)!, glow = GLOW[d.tier];
-  const imgs = Object.fromEntries(await Promise.all(TIERS.map(async t => [t.id, await loadImg(badgeDataUrl(t.id))]))) as Record<TierId, HTMLImageElement | null>;
+  const imgs = Object.fromEntries(await Promise.all(TIERS.map(async t => [t.id, await loadImg(badgeAssetUrl(t.id))]))) as Record<TierId, HTMLImageElement | null>;
 
   // ----- background: space, with a warm Mars glow at the bottom
   const bg = c.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#16276b'); bg.addColorStop(0.45, '#0a1233'); bg.addColorStop(1, '#3a1226');
