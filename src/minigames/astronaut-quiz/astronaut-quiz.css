@@ -189,6 +189,7 @@
 @media (min-width:720px){
   .aq-opts{grid-template-columns:1fr 1fr}
   .aq-split{grid-template-columns:minmax(220px,.9fr) 1.3fr}
+  .aq-split.intro .aq-side{align-self:start;padding-bottom:0}
   .aq-report{grid-template-columns:minmax(320px,440px) minmax(300px,520px);justify-content:center;align-items:center}
 }
 @media (min-width:1020px){
