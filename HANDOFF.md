@@ -1,5 +1,10 @@
 # HANDOFF (update at the end of every session)
 
+## Latest session (2026-11-20): desktop menu logo spacing
+**Status: implemented on `preview/sfx-package-2026-11-20`; local preview is running at `http://127.0.0.1:5179/`.**
+- Capped the desktop menu logo at 340px wide and reduced its bottom gap so it no longer pushes the menu buttons down. Mobile sizing is unchanged.
+- Local server returned HTTP 200 after the hot reload. Needs the owner’s visual desktop confirmation in the open local preview.
+
 ## Latest session (2026-11-20): dependency repair and release gate
 **Status: dependencies restored; `npm run check` passes (43 files, 593 tests, TypeScript, production build).**
 - Stopped the two stale local Node processes that were locking `esbuild`, then restored dependencies with `npm ci` from the existing lockfile. No dependency versions or application source changed.
