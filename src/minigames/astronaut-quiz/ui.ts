@@ -12,6 +12,7 @@ export interface AstronautQuizOptions {
   playerName?: () => string;            // the game's player name; falls back to what the player types on the report card
   isSoundOn?: () => boolean;            // the game's sound setting
   setSoundOn?: (enabled: boolean) => void; // sync the quiz mute control to host-wide sound settings
+  sharedSoundControl?: boolean;          // the host keeps its single global sound button above the quiz
   reduceMotion?: () => boolean;         // the game's "reduce motion" setting
   assetBase?: string;                   // folder that holds crew/reyes.png (default: Vite's BASE_URL)
   shareUrl?: string;                    // link added to shared posts (default: this page)
@@ -55,6 +56,12 @@ export class AstronautQuizUI {
   private prefill = ''; private named = false; private reyes = ''; private url = ''; private alive = false;
   private keyHandler = (e: KeyboardEvent) => this.onKey(e);
   private visHandler = () => { this.lastT = performance.now(); };
+  private soundChangeHandler = () => {
+    const enabled = this.opts.isSoundOn?.() ?? true;
+    aqSfx.setMuted(!enabled);
+    if (enabled && this.shouldPlayBed()) aqSfx.bedStart();
+    this.drawSound();
+  };
 
   constructor(private opts: AstronautQuizOptions) {}
 
@@ -70,13 +77,14 @@ export class AstronautQuizUI {
     this.root = document.createElement('div'); this.root.className = 'aq' + (this.calm ? ' calm' : ''); this.root.setAttribute('role', 'dialog'); this.root.setAttribute('aria-modal', 'true'); this.root.setAttribute('aria-label', 'Astronaut Quiz');
     const stars = Array.from({ length: 36 }, () => `<i class="aq-star" style="left:${Math.random() * 100}%;top:${Math.random() * 100}%;animation-delay:${(Math.random() * 3).toFixed(2)}s"></i>`).join('');
     this.root.innerHTML = `<div class="aq-bg"><i class="aq-beam b1"></i><i class="aq-beam b2"></i><i class="aq-beam b3"></i><div class="aq-floor"></div>${stars}</div>
-      <div class="aq-top"><button class="aq-ico" id="aq-exit" aria-label="Close Astronaut Quiz">${ICON.x}</button><div class="aq-title">ASTRONAUT <i>QUIZ</i></div><button class="aq-ico" id="aq-snd" aria-label="Sound"></button></div>
+      <div class="aq-top"><button class="aq-ico" id="aq-exit" aria-label="Close Astronaut Quiz">${ICON.x}</button><div class="aq-title">ASTRONAUT <i>QUIZ</i></div>${o.sharedSoundControl ? '<span class="aq-ico" aria-hidden="true"></span>' : '<button class="aq-ico" id="aq-snd" aria-label="Sound"></button>'}</div>
       <div class="aq-screen"></div>`;
     this.screen = this.root.querySelector('.aq-screen') as HTMLDivElement;
     (o.container ?? document.body).appendChild(this.root);
     this.alive = true;
     (this.root.querySelector('#aq-exit') as HTMLElement).onclick = () => { aqSfx.click(); void this.requestExit(); };
-    (this.root.querySelector('#aq-snd') as HTMLElement).onclick = () => {
+    const soundButton = this.root.querySelector('#aq-snd') as HTMLButtonElement | null;
+    if (soundButton) soundButton.onclick = () => {
       const enabled = !this.soundIsOn();
       this.opts.setSoundOn?.(enabled);
       aqSfx.setMuted(!enabled);
@@ -87,6 +95,7 @@ export class AstronautQuizUI {
       this.drawSound();
     };
     this.drawSound();
+    window.addEventListener('mrp:global-sound-change', this.soundChangeHandler);
     document.addEventListener('keydown', this.keyHandler, true); document.addEventListener('visibilitychange', this.visHandler);
     o.onOpen?.();
     this.showIntro();
@@ -94,6 +103,7 @@ export class AstronautQuizUI {
   destroy(): void {
     if (!this.alive) return; this.alive = false;
     this.stopClock(); aqSfx.bedStop(); aqSfx.victoryStop(); this.timeouts.forEach(clearTimeout); this.timeouts.clear();
+    window.removeEventListener('mrp:global-sound-change', this.soundChangeHandler);
     document.removeEventListener('keydown', this.keyHandler, true); document.removeEventListener('visibilitychange', this.visHandler);
     if (this.cardUrl) URL.revokeObjectURL(this.cardUrl);
     this.root.remove(); this.opts.onClose?.();
@@ -107,12 +117,13 @@ export class AstronautQuizUI {
   private after(ms: number, fn: () => void): number { const id = window.setTimeout(() => { this.timeouts.delete(id); fn(); }, ms); this.timeouts.add(id); return id; }
   private $ = <T extends HTMLElement = HTMLElement>(s: string): T => this.root.querySelector(s) as T;
   private say = (t: string, extra: Record<string, string | number> = {}) => fill(t, { name: this.name, ...extra });
+  private shouldPlayBed() { return this.state === 'open' || this.state === 'locking' || this.state === 'feedback' || !!this.root.querySelector('.aq-splash'); }
   private setScreen(html: string): void {
     const s = document.createElement('div'); s.className = 'aq-screen'; s.innerHTML = html; this.root.replaceChild(s, this.screen); this.screen = s;
     (s.querySelector('#aq-main') as HTMLElement | null)?.focus({ preventScroll: true });
   }
   private soundIsOn() { return (this.opts.isSoundOn?.() ?? true) && !aqSfx.muted; }
-  private drawSound() { const b = this.$('#aq-snd'); const off = !this.soundIsOn(); b.innerHTML = off ? ICON.off : ICON.on; b.setAttribute('aria-pressed', String(off)); b.setAttribute('aria-label', off ? 'Turn sound on' : 'Mute all sound'); }
+  private drawSound() { const b = this.root.querySelector('#aq-snd') as HTMLElement | null; if (!b) return; const off = !this.soundIsOn(); b.innerHTML = off ? ICON.off : ICON.on; b.setAttribute('aria-pressed', String(off)); b.setAttribute('aria-label', off ? 'Turn sound on' : 'Mute all sound'); }
   private toast(msg: string) { this.root.querySelector('.aq-toast')?.remove(); const t = document.createElement('div'); t.className = 'aq-toast'; t.setAttribute('role', 'status'); t.textContent = msg; this.root.appendChild(t); this.after(3300, () => t.remove()); }
   private confetti(n = 60) {
     if (this.calm) return; const box = document.createElement('div'), cols = ['#ffc94d', '#6ff0ff', '#ff7a9c', '#38e8a0', '#b48cff', '#fff']; box.className = 'aq-conf';

@@ -1,5 +1,5 @@
 import { ICON } from './icons';
-import { music, settings, saveSettings, sfx } from './audio';
+import { music, settings, saveSettings, setSoundEnabled, sfx } from './audio';
 import { $, esc } from './ui';
 import manifest from '../data/manifest.json';
 import type { GameState } from '../core/types';
@@ -86,8 +86,10 @@ function showSettings() {
     <div class="setting"><span class="lab">Reduce motion</span><div class="seg" id="s-reduce"><button data-v="1" aria-pressed="${settings.reduce}">On</button><button data-v="0" aria-pressed="${!settings.reduce}">Off</button></div></div>
     <div class="setting"><label class="lab" for="callsign">Your name</label><input type="text" id="callsign" maxlength="12" value="${esc(settings.name)}" aria-describedby="callsign-err" /></div><div class="cr-err" id="callsign-err" aria-live="polite"></div>`);
   const seg = (id: string, key: 'sound' | 'reduce') => h.querySelectorAll(`#${id} button`).forEach(b => ((b as HTMLElement).onclick = () => {
-    settings[key] = (b as HTMLElement).dataset.v === '1'; saveSettings(); applyMotion();
-    h.querySelectorAll(`#${id} button`).forEach(o => o.setAttribute('aria-pressed', String(o === b))); if (key === 'sound') sfx.ok(); }));
+    const enabled = (b as HTMLElement).dataset.v === '1';
+    if (key === 'sound') setSoundEnabled(enabled);
+    else { settings.reduce = enabled; saveSettings(); applyMotion(); }
+    h.querySelectorAll(`#${id} button`).forEach(o => o.setAttribute('aria-pressed', String(o === b))); if (key === 'sound' && enabled) sfx.ok(); }));
   seg('s-sound', 'sound'); seg('s-reduce', 'reduce');
   // The same one-name rule as the character creator; settings.name is the only source for {name}.
   ($('#callsign', h) as HTMLInputElement).addEventListener('input', e => { const inp = e.target as HTMLInputElement, c = cleanNameInput(inp.value); if (c !== inp.value) inp.value = c; const v = validateName(c); ($('#callsign-err', h) as HTMLElement).textContent = v.ok ? '' : v.error; if (v.ok) { settings.name = v.name; if (settings.look) settings.look = { ...settings.look, name: v.name }; saveSettings(); } });
@@ -98,10 +100,11 @@ function launchAstronautQuiz() {
   openAstronautQuiz({
     playerName: () => settings.name,
     isSoundOn: () => settings.sound,
-    setSoundOn: enabled => { if (settings.sound !== enabled) music.toggle(); },
+    setSoundOn: setSoundEnabled,
     reduceMotion: () => settings.reduce,
-    onOpen: () => music.set(null),
-    onClose: () => music.set('menu'),
+    sharedSoundControl: true,
+    onOpen: () => { document.documentElement.dataset.astronautQuizOpen = '1'; music.set(null); },
+    onClose: () => { delete document.documentElement.dataset.astronautQuizOpen; music.set('menu'); },
     onNameChange: name => {
       const valid = validateName(cleanNameInput(name));
       if (!valid.ok) return;

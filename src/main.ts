@@ -86,6 +86,7 @@ function openPause() {
   }));
 }
 refreshTopButton();
+window.addEventListener('mrp:global-sound-change', refreshTopButton);
 soundToggle.onclick = () => { if ($('#game').hidden) { music.toggle(); if (settings.sound) sfx.ok(); refreshTopButton(); } else openPause(); };
 document.documentElement.dataset.appReady = 'true';
 document.dispatchEvent(new Event('mrp-app-ready'));

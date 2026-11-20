@@ -11,6 +11,7 @@ let resumeAudio: Promise<void> | null = null;
 let musicMode: 'menu' | 'game' | null = null;
 let musicLocation: 'indoor' | 'outdoor' = 'indoor';
 let musicStarted = false;
+let musicGeneration = 0;
 let indoorSource: HTMLAudioElement | null = null;
 let outdoorSource: HTMLAudioElement | null = null;
 let indoorGain: GainNode | null = null;
@@ -58,18 +59,26 @@ const setGain = (gain: GainNode | null, value: number, seconds = 1.8) => {
   gain.gain.setValueAtTime(Math.max(0.0001, gain.gain.value), now);
   gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, value), now + seconds);
 };
+const pauseMusic = () => {
+  musicGeneration++;
+  if (crossfadeTimer !== undefined) { window.clearTimeout(crossfadeTimer); crossfadeTimer = undefined; }
+  indoorSource?.pause();
+  outdoorSource?.pause();
+  musicStarted = false;
+};
 const playMusic = async () => {
   if (!settings.sound || !musicMode) return;
+  const generation = musicGeneration;
   ensureMusic();
   await resumeContext();
-  if (!settings.sound || !musicMode || !indoorSource || !outdoorSource) return;
+  if (generation !== musicGeneration || !settings.sound || !musicMode || !indoorSource || !outdoorSource) return;
   try {
     if (!indoorSource.paused && !outdoorSource.paused) return;
     await Promise.all([
       indoorSource.paused ? indoorSource.play() : Promise.resolve(),
       outdoorSource.paused ? outdoorSource.play() : Promise.resolve(),
     ]);
-    if (!settings.sound || !musicMode) {
+    if (generation !== musicGeneration || !settings.sound || !musicMode) {
       indoorSource.pause();
       outdoorSource.pause();
       musicStarted = false;
@@ -77,6 +86,7 @@ const playMusic = async () => {
     }
     musicStarted = true;
   } catch (error) {
+    if (generation !== musicGeneration) return;
     indoorSource.pause(); outdoorSource.pause(); musicStarted = false;
     console.warn('Game music playback failed; it will retry after the next player action.', error);
   }
@@ -95,6 +105,20 @@ const crossfadeLocation = (location: 'indoor' | 'outdoor') => {
   setGain(indoorGain, location === 'indoor' ? 1 : 0);
   setGain(outdoorGain, location === 'outdoor' ? 1 : 0);
   void playMusic();
+};
+export const setSoundEnabled = (enabled: boolean) => {
+  if (settings.sound === enabled) return settings.sound;
+  settings.sound = enabled;
+  saveSettings();
+  if (!enabled) {
+    setGain(indoorGain, 0, 0.02);
+    setGain(outdoorGain, 0, 0.02);
+    pauseMusic();
+  } else if (musicMode) {
+    crossfadeLocation(musicMode === 'menu' ? 'indoor' : musicLocation);
+  }
+  window.dispatchEvent(new Event('mrp:global-sound-change'));
+  return settings.sound;
 };
 function beep(f = 660, d = 0.09, type: OscillatorType = 'sine', v = 0.05, delay = 0) {
   if (!settings.sound) return;
@@ -138,9 +162,7 @@ export const music = {
   set(mode: 'menu' | 'game' | null) {
     musicMode = mode;
     if (!mode) {
-      indoorSource?.pause();
-      outdoorSource?.pause();
-      musicStarted = false;
+      pauseMusic();
       return;
     }
     crossfadeLocation(mode === 'menu' ? 'indoor' : musicLocation);
@@ -149,17 +171,7 @@ export const music = {
     if (location !== musicLocation) crossfadeLocation(location);
   },
   wake() { if (!musicMode || !settings.sound) return; void playMusic(); },
-  toggle() {
-    settings.sound = !settings.sound;
-    saveSettings();
-    if (!settings.sound) {
-      setGain(indoorGain, 0);
-      setGain(outdoorGain, 0);
-    } else {
-      crossfadeLocation(musicLocation);
-    }
-    return settings.sound;
-  },
+  toggle() { return setSoundEnabled(!settings.sound); },
 };
 export const sfx = {
   click: () => { ensureAudio(); music.wake(); beep(1250, 0.03, 'square', 0.022); beep(520, 0.06, 'square', 0.028); beep(150, 0.05, 'sine', 0.05); },
