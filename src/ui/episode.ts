@@ -142,7 +142,7 @@ export function showDebrief(s: GameState, onReplay: () => void, onMenu: () => vo
     <h4>What your choices caused</h4><ul class="conseq">${conseq.map(c => `<li><b>${esc(c.topic)}</b>${esc(c.text)}</li>`).join('')}</ul>
     <h4>Bonus stars <span class="bonus-count" id="bonus-count">${bonusCount(rs0)} of ${rs0.length}</span></h4><div id="bonus-wrap">${bonusSlots(rs0, !reduce)}</div><p class="share-note" id="share-note">${esc(shareNote(rs0))}</p>
     <div class="share-card"><b>SHARE YOUR MISSION</b><p>${esc(shareText)}</p><div class="share-actions">${SHARE_NETWORKS.map(n => `<a class="holo-btn small share-btn" ${n.external ? 'target="_blank" rel="noopener" ' : ''}href="${n.href}" data-share aria-label="Share on ${n.label}">${SHARE_ICON[n.id]}<span>${n.label}</span></a>`).join('')}<button class="holo-btn small share-btn" id="db-copy" aria-label="Copy link">${SHARE_ICON.link}<span>COPY LINK</span></button></div><div id="share-status" aria-live="polite"></div></div>
-    <button class="holo-btn amber play-again" id="db-replay">PLAY AGAIN ▸</button><p class="play-again-note">A clean Episode 1. Your awards and leaderboard stay.</p>
+    <button class="holo-btn amber play-again" id="db-replay">PLAY AGAIN ▸</button><p class="play-again-note">A clean Episode 1. Your awards stay.</p>
     <h4>Your decisions and what they caused</h4><div class="tree">${renderTree(ep.tree)}</div>
     <p class="why">${ep.passOuts ? `You passed out ${ep.passOuts} time${ep.passOuts > 1 ? 's' : ''} and restarted from a checkpoint. ` : ''}The storm was modelled on a real solar flare in NASA's DONKI catalogue (class ${esc(ep.sun.classType)}, ${esc(ep.sun.date)}, ${ep.sun.source === 'live' ? 'read live' : 'archived'}). ${learnButton('donki_live')}</p>
 

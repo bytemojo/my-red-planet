@@ -44,13 +44,13 @@ import { CREW_IDS } from '../core/crewlife';
 import { CREW_LIFE, FAIL } from '../core/constants';
 import { SPACE_MEALS } from '../core/meals';
 import type { Dir } from './pixelart';
-import { clamp, $, UI, flashMeter, warnFlash, head, optCard, overlay, runPending, showReport, showSimple, showStageResult, stageScore, toast, noticeCard, journalHtml, esc, chip } from '../ui/ui';
+import { clamp, $, UI, flashMeter, warnFlash, head, optCard, overlay, runPending, showReport, showSimple, showStageResult, toast, noticeCard, journalHtml, esc, chip } from '../ui/ui';
 import { objectiveZones, pickRadarTarget } from '../core/radar';
 import { refreshHud, initHud, updateRadar, promptInfo, promptHtml } from '../ui/hud';
 import { openBath, openCave, openComms, openControl, openCrew, openFarm, openGym, openKitchen, openLab, openLs, openPumpMode, openRover, openSeedPicker, openSolar, type Host } from '../ui/panels';
 import { playWorkout } from '../ui/gym';
 import type { Machine } from '../core/gym';
-import { recordRun, updateAwards } from '../ui/menu';
+import { updateAwards } from '../ui/menu';
 import { music, sfx, settings } from '../ui/audio';
 import { runQuizCall } from '../ui/quiz';
 import { callerToday, callLine } from '../core/quiz';
@@ -181,10 +181,10 @@ export class WorldScene extends Phaser.Scene {
         resolve(s, choice); poll(s); this.refresh();
         if (s.ep) saveCheckpoint(this.sess);
       }
-      if (s.ep?.phase === 'done' && !this.finalShown) { this.finalShown = true; this.autosave(); recordRun(s.ep.result?.score ?? 0, s.sol); for (const n of updateAwards(s)) toast(`★ New award: <b>${esc(n)}</b>`, { kind: 'good', ms: 4500 }); showDebrief(s, () => this.onReplay(), () => this.host.menu()); return; }
+      if (s.ep?.phase === 'done' && !this.finalShown) { this.finalShown = true; this.autosave(); for (const n of updateAwards(s)) toast(`★ New award: <b>${esc(n)}</b>`, { kind: 'good', ms: 4500 }); showDebrief(s, () => this.onReplay(), () => this.host.menu()); return; }
       for (;;) {
-        if (s.stage > this.lastStage) { const fin = this.lastStage; this.lastStage++; recordRun(stageScore(s).score, s.sol); await showStageResult(s, fin); }
-        else if (s.campaignComplete && !this.finalShown) { this.finalShown = true; recordRun(stageScore(s).score, s.sol); await showStageResult(s, s.stage); }
+        if (s.stage > this.lastStage) { const fin = this.lastStage; this.lastStage++; await showStageResult(s, fin); }
+        else if (s.campaignComplete && !this.finalShown) { this.finalShown = true; await showStageResult(s, s.stage); }
         else break;
         poll(s); while (s.pending) { const v = describePending(s); if (!v) break; resolve(s, await runPending(v, !!s.flags.quarantine_over)); poll(s); }
       }

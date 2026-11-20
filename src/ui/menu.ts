@@ -5,13 +5,14 @@ import manifest from '../data/manifest.json';
 import type { GameState } from '../core/types';
 import { initSunCard, openWiki } from './episode';
 import { cleanNameInput, validateName } from '../core/player';
+import { openAstronautQuiz } from '../minigames/astronaut-quiz';
 
 const store = {
   get<T>(k: string, d: T): T { try { const v = localStorage.getItem('mrp.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k: string, v: unknown) { try { localStorage.setItem('mrp.' + k, JSON.stringify(v)); } catch { /* ignore */ } },
 };
 
-// ---------- awards and leaderboard (device-local) ----------
+// ---------- awards (device-local) ----------
 export const AWARDS = [
   { id: 'harvest', n: 'First Harvest', d: 'Grow and harvest your first Martian crop.', i: '🌱', test: (s: GameState) => !!s.flags.first_harvest },
   { id: 'friend', n: 'Good Friend', d: 'Get a crew member to five hearts.', i: '♥', test: (s: GameState) => Object.values(s.crew).some(c => c.friendship >= 5) },
@@ -25,10 +26,6 @@ export function updateAwards(s: GameState): string[] {
   for (const a of AWARDS) if (!got[a.id] && a.test(s)) { got[a.id] = 1; fresh.push(a.n); }
   if (fresh.length) store.set('awards', got);
   return fresh;
-}
-export function recordRun(score: number, sols: number) {
-  const b = store.get<{ name: string; score: number; sols: number }[]>('board', []);
-  b.push({ name: settings.name, score, sols }); b.sort((x, y) => y.score - x.score); store.set('board', b.slice(0, 5));
 }
 
 // ---------- starfield (ported) ----------
@@ -75,10 +72,6 @@ function showAwards() {
   const got = store.get<Record<string, number>>('awards', {});
   menuModal('Your awards', `<p style="margin:0;color:#a9cfe2">${Object.keys(got).length} of ${AWARDS.length} earned</p><div class="grid2">${AWARDS.map(a => `<div class="card ${got[a.id] ? 'won' : 'locked'}"><div class="big">${a.i}</div><h3>${a.n}</h3><p>${a.d}</p></div>`).join('')}</div>`);
 }
-function showBoard() {
-  const b = store.get<{ name: string; score: number; sols: number }[]>('board', []);
-  menuModal('Leaderboard', `<p style="margin:0;color:#a9cfe2">Best stage scores on this device.</p>${b.length ? `<table class="lb"><tr><th>#</th><th>Name</th><th>Sols</th><th>Score</th></tr>${b.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${r.sols}</td><td>${r.score}</td></tr>`).join('')}</table>` : '<p>No scores yet. Finish a stage to get on the board.</p>'}`);
-}
 function showHelp() {
   const tag = (k: string, v: boolean) => k === 'dev-fallback' ? '<span class="tag arch">DEV FALLBACK</span>' : `<span class="tag ${v ? 'live' : 'emb'}">${v ? 'VERIFIED' : 'NOT YET VERIFIED'}</span>`;
   const h = menuModal('Help', `<div class="help"><h4>Your job</h4><p>Episode 1: a radiation storm and a dust storm hit at the same time while the crew is sick. Check the systems, decide what to do with the solar panels, keep power up, water the plants and feed the crew. Every choice costs something.</p>
@@ -101,6 +94,23 @@ function showSettings() {
 }
 export const applyMotion = () => { document.documentElement.dataset.reduce = settings.reduce ? '1' : '0'; if (!settings.reduce) startFrame(); };
 
+function launchAstronautQuiz() {
+  openAstronautQuiz({
+    playerName: () => settings.name,
+    isSoundOn: () => settings.sound,
+    reduceMotion: () => settings.reduce,
+    onOpen: () => music.set(null),
+    onClose: () => music.set('menu'),
+    onNameChange: name => {
+      const valid = validateName(cleanNameInput(name));
+      if (!valid.ok) return;
+      settings.name = valid.name;
+      if (settings.look) settings.look = { ...settings.look, name: valid.name };
+      saveSettings();
+    },
+  });
+}
+
 export function initMenu(h: { play(): void; cont(): void; hasSave(): boolean }) {
   document.querySelectorAll('[data-ic]').forEach(e => { (e as HTMLElement).innerHTML = ICON[(e as HTMLElement).dataset.ic!] ?? ''; });
   initStars(); applyMotion(); startFrame(); music.set('menu');
@@ -108,7 +118,7 @@ export function initMenu(h: { play(): void; cont(): void; hasSave(): boolean }) 
   $('#btn-continue').hidden = !h.hasSave();
   document.querySelectorAll('.menu-list [data-act]').forEach(b => ((b as HTMLElement).onclick = () => {
     sfx.click(); const a = (b as HTMLElement).dataset.act;
-    if (a === 'play') h.play(); else if (a === 'continue') h.cont(); else if (a === 'awards') showAwards(); else if (a === 'wiki') openWiki(); else if (a === 'board') showBoard(); else if (a === 'help') showHelp(); else if (a === 'settings') showSettings();
+    if (a === 'play') h.play(); else if (a === 'continue') h.cont(); else if (a === 'astroquiz') launchAstronautQuiz(); else if (a === 'awards') showAwards(); else if (a === 'wiki') openWiki(); else if (a === 'help') showHelp(); else if (a === 'settings') showSettings();
   }));
 }
 export const menuControls = {

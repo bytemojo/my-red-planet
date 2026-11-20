@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Astronaut Quiz | My Little Red Planet</title>
+  <meta name="description" content="Astronaut Quiz: 100 space questions linked to real NASA sources. Clear 10 levels, earn rank badges and share your report card." />
+  <style>
+    html,body{margin:0;height:100%;background:#02040d;color:#e6f8ff;font-family:Rajdhani,system-ui,sans-serif}
+    body{overflow:hidden}
+    #aq-landing{position:fixed;inset:0;display:grid;place-items:center;text-align:center;background:radial-gradient(ellipse at 50% 120%,#14295a 0%,#02040d 62%)}
+    #aq-landing button{font:700 16px Orbitron,system-ui,sans-serif;letter-spacing:.14em;padding:16px 30px;border-radius:999px;border:0;cursor:pointer;color:#3a2100;background:linear-gradient(180deg,#fff0a8,#ffc94d 40%,#ff9d1c);box-shadow:0 6px 0 #a35c06}
+  </style>
+</head>
+<body>
+  <div id="aq-landing" hidden><div><h1 style="font-family:Orbitron,system-ui,sans-serif;letter-spacing:.2em">ASTRONAUT QUIZ</h1><button id="aq-open" type="button">PLAY AGAIN</button></div></div>
+  <script type="module" src="/src/minigames/astronaut-quiz/standalone.ts"></script>
+</body>
+</html>

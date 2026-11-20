@@ -33,7 +33,7 @@ describe('share card (Step 22c)', () => {
     const src = readFileSync('src/core/share.ts', 'utf8') + ep.slice(ep.indexOf('export function showDebrief'), ep.indexOf('// ---------- NASA wiki'));
     expect(/fetch\(|XMLHttpRequest|sendBeacon|gtag|fbq|analytics|connect\.facebook\.net/i.test(src)).toBe(false);
   });
-  it('Play Again keeps device awards and the leaderboard (only per-run bonus progress is cleared)', () => {
+  it('Play Again keeps device awards (only per-run bonus progress is cleared)', () => {
     const src = readFileSync('src/ui/episode.ts', 'utf8');
     const fn = src.slice(src.indexOf('export function resetBonusProgress'), src.indexOf('export const BACKSTORY'));
     expect(fn).not.toMatch(/awards|board|localStorage/);

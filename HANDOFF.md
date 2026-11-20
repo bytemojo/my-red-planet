@@ -2,6 +2,13 @@
 
 Last updated 2026-11-16 by Claude (Master Build Prompt Step 1; see the first section below).
 
+## Latest session (2026-11-20): Astronaut Quiz minigame and leaderboard removal
+**Status: `npm run check` passes (including 24 Astronaut Quiz tests); production build passes.** The development server was started and both `/` and `/astronaut-quiz.html` returned HTTP 200. Browser interaction still needs a human playthrough.
+- Added the supplied standalone Astronaut Quiz package under `src/minigames/astronaut-quiz/`, its dedicated `astronaut-quiz.html` route, and `tests/astronaut-quiz.test.ts`.
+- Added **Play Astronaut Quiz** to the home menu. It opens over the menu without touching the colony session, respects the existing name, sound and reduced-motion settings, mutes menu music while open, and restores it when closed.
+- Removed the leaderboard menu button, leaderboard dialog and styles, local leaderboard score storage, run score recording, and the debrief copy that mentioned it. Awards remain.
+- Needs a human in the browser: open the quiz from the menu, close it, and complete enough questions to confirm the answer, report-card and return-to-menu flows on desktop and touch.
+
 ## Latest session (2026-11-16, later): STEP 2a kitchen rebuild (art and walls only)
 **Status: `npm run check` passes (123 tests, tsc, vite build). NOT run in a browser.** Only `src/game/world.ts` changed (plus STATE/HANDOFF/docs).
 - Found: the old kitchen was a 2x2 walkable pocket; its art was drawn at depth 100, under the wall rows, so the microwave and heater were hidden, and both labels sat at depth 3 (also hidden). The prep island had no collision.
