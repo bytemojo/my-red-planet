@@ -1,5 +1,11 @@
 # HANDOFF (update at the end of every session)
 
+## Latest session (2026-11-20): dependency repair and release gate
+**Status: dependencies restored; `npm run check` passes (43 files, 593 tests, TypeScript, production build).**
+- Stopped the two stale local Node processes that were locking `esbuild`, then restored dependencies with `npm ci` from the existing lockfile. No dependency versions or application source changed.
+- Local Vite smoke check passed: `/` and `/astronaut-quiz.html` both returned HTTP 200 on port 5179.
+- A `vercel --prod --yes` attempt reached “Retrieving project…” but returned no deployment URL or final status; a follow-up status query also returned no result. **Do not treat Vercel deployment as confirmed.** Re-run `vercel --prod --yes` from an interactive, authenticated owner terminal and verify the reported URL before announcing a release.
+
 ## Latest session (2026-11-20): supplied Astronaut Quiz rank badges
 **Status: `npm run check` passes (including 25 Astronaut Quiz tests); production build passes.**
 - Replaced the generic inline-SVG rank art with the five supplied transparent PNGs: Recruit, Explorer, Commander, Solar Scientist, and Galaxy Brain.
