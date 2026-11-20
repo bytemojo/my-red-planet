@@ -1,9 +1,10 @@
 # HANDOFF (update at the end of every session)
 
 ## Latest session (2026-11-20): social preview image, copy, and shared sound controls
-**Status: all 55 test files pass (702 passed, 1 skipped); type-check and production build pass. Browser confirms the requested title/description and serves the new local share image as PNG. Commit `0b31d3a` is pushed to `master`; the production alias still serves old metadata and `/og-image-share.png` returns 404, so deployment is not yet verified.**
+**Status: all 55 test files pass (702 passed, 1 skipped); type-check and production build pass. Production deployment is READY and the alias serves the requested metadata and share image (HTTP 200).**
 - Updated the main page/browser title and standard, Open Graph, and X descriptions to: “My Little Red Planet | Explore Mars. Make it your home.” / “The crew is sick. The future of humanity on Mars is in your hands.”
 - Copied the supplied social-preview artwork byte-for-byte to `public/og-image-share.png`; Open Graph and X image tags now use its absolute production URL and declare its 1365×768 dimensions. The previous `public/og-image.png` remains unchanged.
+- Pushed commits `0b31d3a` and `e4e6289` to `master`. Vercel deployment `dpl_FncgG8qmiwm7TgNbJLLzDPC7Ef3G` is READY; production serves the requested OG/X title and description, and `/og-image-share.png` returns `200 image/png` (2,097,028 bytes). Updated the Vercel project Node.js setting from the invalid `26.x` to supported `24.x` so its build could run.
 - Embedded Astronaut Quiz keeps its original header mute button, wired to the app-wide sound setting. The menu mute button is hidden while the quiz is open, so the controls do not stack.
 - Centralized sound-setting changes so menu, settings, and quiz audio stay synchronized. Muting pauses tracks immediately; stale asynchronous menu playback is canceled. Opening the quiz pauses menu music; closing it pauses quiz music and resumes the menu only when sound is enabled.
 - Browser verification: exactly one mute button is visible in the quiz—the original quiz button. It changes the global sound setting; menu tracks pause before quiz music starts, muting stops quiz audio, and closing pauses quiz music before the menu resumes.
