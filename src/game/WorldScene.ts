@@ -153,7 +153,7 @@ export class WorldScene extends Phaser.Scene {
     });
     if (r.ok && name === 'clean_panels') { world.clean(); this.lastDust = s.panelDust; }
     if (r.ok && name === 'talk' && arg?.crew) world.crew.react(arg.crew, 'heart');
-    if (r.ok) { ({ plant: sfx.plant, water: sfx.water, harvest: sfx.harvest, clean_panels: sfx.ok } as Record<string, () => void>)[name]?.() ?? sfx.ok(); world.pop(world.player.x, world.player.y - 40, r.msg.length < 24 ? r.msg : '✓', '#8cffc6'); }
+    if (r.ok) { ({ plant: sfx.plant, water: sfx.water, harvest: sfx.harvest, clean_panels: sfx.wipe } as Record<string, () => void>)[name]?.() ?? sfx.ok(); world.pop(world.player.x, world.player.y - 40, r.msg.length < 24 ? r.msg : '✓', '#8cffc6'); }
     else sfx.warn();
     if (!r.ok && name === 'talk' && /intercom chats/.test(r.msg)) noticeCard(r.msg, 'The crew needs rest'); else toast(esc(r.msg), { kind });
     if (r.ok) { const fresh = unlockedCrops(s).filter(c => !open0.includes(c)); if (fresh.length) { sfx.ok(); toast(`🔓 <b>New seeds unlocked: ${fresh.map(c => esc(CROPS[c].name)).join(', ')}.</b> Take a packet from the seed drawer in the storage room.`, { kind: 'good', ms: 6000 }); } if (allCropsUnlocked(s) && open0.length < unlockedCrops(s).length) toast('★ Bonus star earned: <b>Unlock all crops</b>', { kind: 'good', ms: 5000 }); }
@@ -196,7 +196,7 @@ export class WorldScene extends Phaser.Scene {
   podAct() {
     const s = this.state(), why = sleepRefusal(s);
     if (why) { toast(`<b>${why}</b>`, { kind: 'warn' }); sfx.warn(); return; }
-    playAction(this, 'pod_sleep', { stand: podStand(), face: 'right', onDone: () => { void this.sleepFlow(); } });
+    playAction(this, 'pod_sleep', { stand: podStand(), face: 'right', onBeat: () => sfx.pod(), onDone: () => { void this.sleepFlow(); } });
   }
   // Step 17b: the NASA WIKI wall screen and the two game tables. Reach (animated), then the existing wiki modal / a coming-soon card. Opening a source link there marks the bonus (sessionStorage).
   wikiAct() {
@@ -358,7 +358,7 @@ export class WorldScene extends Phaser.Scene {
       onBeat: () => {
         if (iceProblem(s, this.held.item)) return;
         void this.run('ice_chip', { held: this.held.item ?? '' });
-        if (s.flags[ICE_COLLECTED]) { pickUp(this.held, 'ice_sample'); sfx.ok(); const p = this.iceArt!.shards(); sparkle(this, p.x, p.y); world.pop(world.player.x, world.player.y - 48, 'ICE COLLECTED', '#8ceaff'); }
+        if (s.flags[ICE_COLLECTED]) { pickUp(this.held, 'ice_sample'); sfx.ice(); const p = this.iceArt!.shards(); sparkle(this, p.x, p.y); world.pop(world.player.x, world.player.y - 48, 'ICE COLLECTED', '#8ceaff'); }
       },
     });
   }
@@ -371,7 +371,7 @@ export class WorldScene extends Phaser.Scene {
       onBeat: () => {
         if (pourProblem(s, this.held.item)) return;
         void this.run('ice_pour', { held: this.held.item ?? '' });
-        if (s.ep?.phase === 'done') { putDown(this.held, 'ice_sample'); sfx.ok(); sparkle(this, INTAKE_MARKER[0] * T, INTAKE_MARKER[1] * T - 30); world.pop(world.player.x, world.player.y - 48, 'WATER MAKER ON', '#8cffc6'); }
+        if (s.ep?.phase === 'done') { putDown(this.held, 'ice_sample'); sfx.pour(); window.setTimeout(() => sfx.done(), 750); sparkle(this, INTAKE_MARKER[0] * T, INTAKE_MARKER[1] * T - 30); world.pop(world.player.x, world.player.y - 48, 'WATER MAKER ON', '#8cffc6'); }
       },
     });
   }
@@ -383,7 +383,7 @@ export class WorldScene extends Phaser.Scene {
     if (after && !s.ep.panelsStowed) { toast('<b>The panels are already out. Go outside and clean them.</b>', { kind: 'warn' }); sfx.warn(); return; }
     playAction(this, 'panel_lever', {
       stand: leverStand(), face: 'right',
-      onBeat: () => { const was = !!s.ep!.panelsStowed; void this.run('panels'); if (!!s.ep!.panelsStowed !== was) { sfx.ok(); world.pop(world.player.x, world.player.y - 48, s.ep!.panelsStowed ? 'Panels stowed' : 'Panels out', s.ep!.panelsStowed ? '#ffb340' : '#8ceaff'); } },
+      onBeat: () => { const was = !!s.ep!.panelsStowed; void this.run('panels'); if (!!s.ep!.panelsStowed !== was) { sfx.lever(); sfx.servo(1.1); world.pop(world.player.x, world.player.y - 48, s.ep!.panelsStowed ? 'Panels stowed' : 'Panels out', s.ep!.panelsStowed ? '#ffb340' : '#8ceaff'); } },
     });
   }
   // Step 16b: panels left out are dug out and cleaned by hand, outside, with a kneel animation. The Solar Farm panel only shows info.
@@ -409,7 +409,7 @@ export class WorldScene extends Phaser.Scene {
       stand: pumpStand(), face: 'left',
       onBeat: () => {
         void this.run('watering_mode', { mode }); // act() runs synchronously inside run()
-        if (s.wateringMode === mode) { sfx.ok(); world.pop(world.player.x, world.player.y - 48, mode === 'automatic' ? 'Pump ON' : 'Pump OFF', mode === 'automatic' ? '#8ceaff' : '#ffb340'); }
+        if (s.wateringMode === mode) { sfx.lever(); world.pop(world.player.x, world.player.y - 48, mode === 'automatic' ? 'Pump ON' : 'Pump OFF', mode === 'automatic' ? '#8ceaff' : '#ffb340'); }
       },
     });
   }
@@ -423,7 +423,7 @@ export class WorldScene extends Phaser.Scene {
       onBeat: () => {
         end(); if (pumpProblem(s, this.held)) return;
         void this.run('repair_watering', { part: 'spare_part' }); // act() runs synchronously inside run()
-        if (s.ep?.wateringFixed) { putDown(this.held, 'spare_part'); sfx.ok(); sparkle(this, world.player.x - 22, world.player.y - 24); world.pop(world.player.x, world.player.y - 48, 'Pump repaired', '#8cffc6'); }
+        if (s.ep?.wateringFixed) { putDown(this.held, 'spare_part'); sfx.wrench(); sparkle(this, world.player.x - 22, world.player.y - 24); world.pop(world.player.x, world.player.y - 48, 'Pump repaired', '#8cffc6'); }
       },
       onDone: end, onAbort: end,
     });
@@ -447,7 +447,7 @@ export class WorldScene extends Phaser.Scene {
       onBeat: () => {
         end(); if (why()) return;
         void this.run('repair_dish', { part: 'spare_part' }); // act() runs synchronously inside run()
-        if (!isDishBroken(s)) { putDown(this.held, 'spare_part'); sfx.ok(); sparkle(this, world.player.x - 22, world.player.y - 24); world.pop(world.player.x, world.player.y - 48, 'Dish repaired', '#8cffc6'); }
+        if (!isDishBroken(s)) { putDown(this.held, 'spare_part'); sfx.wrench(); sparkle(this, world.player.x - 22, world.player.y - 24); world.pop(world.player.x, world.player.y - 48, 'Dish repaired', '#8cffc6'); }
       },
       onDone: end, onAbort: end,
     });
@@ -465,7 +465,7 @@ export class WorldScene extends Phaser.Scene {
       onBeat: () => {
         end(); if (machineProblem(s, this.held, id)) return;
         void this.run('repair_machine', { machine: id, part: 'spare_part' }); // act() runs synchronously inside run()
-        if (!isBroken(s, id)) { putDown(this.held, 'spare_part'); sfx.ok(); sparkle(this, world.player.x - 22, world.player.y - 24); world.pop(world.player.x, world.player.y - 48, `${MACHINE_NAMES[id]} repaired`, '#8cffc6'); }
+        if (!isBroken(s, id)) { putDown(this.held, 'spare_part'); sfx.wrench(); sparkle(this, world.player.x - 22, world.player.y - 24); world.pop(world.player.x, world.player.y - 48, `${MACHINE_NAMES[id]} repaired`, '#8cffc6'); }
       },
       onDone: end, onAbort: end,
     });
@@ -502,7 +502,7 @@ export class WorldScene extends Phaser.Scene {
   storeCrop(i: number) {
     playAction(this, 'store_crop', {
       stand: binStand(i), face: 'right',
-      onBeat: () => { const was = this.held.crop; if (putDown(this.held, 'harvest').ok) { storageArt?.setOpen(i, true); sfx.ok(); sparkle(this, world.player.x, world.player.y - 34); world.pop(world.player.x, world.player.y - 48, `${was ? CROPS[was].name : 'Crop'} stored`, '#8cffc6'); } },
+      onBeat: () => { const was = this.held.crop; if (putDown(this.held, 'harvest').ok) { storageArt?.setOpen(i, true); sfx.locker(); sparkle(this, world.player.x, world.player.y - 34); world.pop(world.player.x, world.player.y - 48, `${was ? CROPS[was].name : 'Crop'} stored`, '#8cffc6'); } },
       onDone: () => storageArt?.setOpen(i, false),
       onAbort: () => storageArt?.setOpen(i, false),
     });
@@ -512,7 +512,7 @@ export class WorldScene extends Phaser.Scene {
     const h = this.host;
     playAction(this, 'pull_bands', {
       stand: { x: 31 * T, y: 4.8 * T }, face: 'right',
-      onBeat: () => { world.wing.setBands(true); sfx.ok(); sparkle(this, world.player.x + 22, world.player.y - 22); },
+      onBeat: () => { world.wing.setBands(true); sfx.twang(); sparkle(this, world.player.x + 22, world.player.y - 22); },
       onDone: () => { world.wing.setBands(false); if (!UI.blocking() && !this.busy) openGym(h, 'bands'); },
       onAbort: () => world.wing.setBands(false),
     });
@@ -529,7 +529,7 @@ export class WorldScene extends Phaser.Scene {
       stand: rackStand(rack), face: rack.wall === 'west' || !rack.wall ? 'left' : 'right',
       onBeat: () => {
         const r = rule === 'pick_up' ? pickUp(this.held, rack.item, crop) : putDown(this.held, rack.item);
-        if (r.ok) { sfx.ok(); sparkle(this, world.player.x - 22, world.player.y - 28); world.pop(world.player.x, world.player.y - 44, rule === 'pick_up' ? (crop ? `${CROPS[crop].name} seeds` : PROP_NAMES[rack.item]) : 'Put back', '#8cffc6'); }
+        if (r.ok) { rule === 'pick_up' ? sfx.pickup() : sfx.putdown(); sparkle(this, world.player.x - 22, world.player.y - 28); world.pop(world.player.x, world.player.y - 44, rule === 'pick_up' ? (crop ? `${CROPS[crop].name} seeds` : PROP_NAMES[rack.item]) : 'Put back', '#8cffc6'); }
       },
     });
   }
@@ -540,7 +540,7 @@ export class WorldScene extends Phaser.Scene {
     if (this.held.item === 'harvest') { if (id === 'food') this.storeCrop(i); else { toast(`<b>${STORE_ONLY_FOOD_BIN}</b>`, { kind: 'warn' }); sfx.warn(); } return; }
     playAction(this, 'open_bin', {
       stand: binStand(i), face: 'right',
-      onBeat: () => { storageArt?.setOpen(i, true); sfx.ok(); sparkle(this, world.player.x, world.player.y - 34); },
+      onBeat: () => { storageArt?.setOpen(i, true); sfx.locker(); sparkle(this, world.player.x, world.player.y - 34); },
       onDone: () => { if (!UI.blocking() && !this.busy) this.showBinScreen(i, id); else storageArt?.setOpen(i, false); },
       onAbort: () => storageArt?.setOpen(i, false),
     });
@@ -574,18 +574,18 @@ export class WorldScene extends Phaser.Scene {
     const on = s.suitOn, [mx, my] = MARKERS.suit;
     playAction(this, on ? 'suit_off' : 'suit_up', {
       stand: { x: mx * T, y: my * T }, face: 'right',
-      onBeat: () => { void this.run('suit'); sfx.ok(); sparkle(this, world.player.x, world.player.y - 20); },
+      onBeat: () => { void this.run('suit'); sfx.suit(); sparkle(this, world.player.x, world.player.y - 20); },
     });
   }
   // Step 2d: the Episode 1 meal hatch. With a prepared tray, the serve animation is the ONLY way the crew gets fed.
   hatchAct() {
     const s = this.state(); if (!s.flags.tray_ready) { openKitchen(this.host); return; }
     if (this.held.item && this.held.item !== 'tray') { toast('Put your item down first.', { kind: 'warn' }); sfx.warn(); return; }
-    if (!this.held.item) pickUp(this.held, 'tray');
+    if (!this.held.item) { pickUp(this.held, 'tray'); sfx.pickup(); }
     const wasHungry = CREW_IDS.filter(id => s.crew[id].hunger >= CREW_LIFE.PECKISH_AT);
     playAction(this, 'serve_tray', {
       stand: { x: 11.5 * T, y: 11.7 * T }, face: 'right',
-      onBeat: () => { putDown(this.held, 'tray'); void this.run('serve_tray').then(() => { for (const id of wasHungry) if (s.crew[id].hunger === 0) world.crew.react(id, 'heart'); }); },
+      onBeat: () => { putDown(this.held, 'tray'); sfx.putdown(); void this.run('serve_tray').then(() => { for (const id of wasHungry) if (s.crew[id].hunger === 0) world.crew.react(id, 'heart'); }); },
     });
   }
   // Serving a meal is done by hand: the explorer lifts the tray to the hatch, then the crew react.
