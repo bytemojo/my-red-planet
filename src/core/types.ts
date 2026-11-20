@@ -28,7 +28,7 @@ export interface Pending { kind: 'beat' | 'event'; id: string }
 export interface GameState {
   version: number; seed: number;
   sol: number; hour: number; energy: number;
-  res: Resources; suit: number; rad: number; outside: boolean;
+  res: Resources; suit: number; rad: number; outside: boolean; airExposed?: boolean; /* transient: in the depressurised airlock passage (set every frame by the scene) */
   farm: FarmLight; ls: LsMode;
   panelDust: number;
   plots: Plot[]; buildings: string[]; stage: number;
@@ -50,8 +50,12 @@ export interface GameState {
   suitOn: boolean;           // EVA suit worn (put on at the suit rack)
   health: number;            // player health 0-100 (radiation outside drains it)
   notes?: { id: string; text: string }[]; // the player's own journal notes (saved with the game)
+  truck?: TruckState;        // Step 28f: Mars truck energy (created on first use; see core/truck.ts)
   quiz?: QuizState;          // Step 27a: crew quiz progress (created on first use; see core/quiz.ts)
 }
+
+/** Step 28f: the Mars truck. energy 0-100; driving false = parked and idle (the only time solar charging works). */
+export interface TruckState { energy: number; driving: boolean }
 
 // ---------- Step 27a: the crew quiz ----------
 export interface QuizQuestion { id: string; crew: CrewId; level: number; prompt: string; options: string[]; correctIndex: number; sourceUrl: string; sourceTitle: string; verified: boolean; explanation?: string }

@@ -4,8 +4,6 @@ Every NASA data point, number or reference in the game is listed here with where
 
 Checked on **2026-11-14** by opening each page or querying the API. Game numbers that are *not* NASA data are labelled **game model** in the game and below.
 
-**Update rule:** this file is only updated when the game uses new NASA data or sources (a new link, image, number or quiz question source). Other changes do not touch it. Episode 1 sections (1 to 4) were checked 2026-11-14; the quiz section (5) was checked 2026-11-19.
-
 ## 1. Data the game reads
 
 | What | Where it appears | Live or archived | Source | How we checked |
@@ -63,48 +61,7 @@ Reachable from the pause menu, the Control Module journal and the debrief. All l
 | A Mars trip takes about 7 to 10 months | [We asked a NASA expert](https://www.nasa.gov/directorates/smd/how-long-does-it-take-to-get-to-the-moon-mars-jupiter-we-asked-a-nasa-expert-episode-51/) |
 | Phoenix found perchlorate salts in Martian soil (2008) | Campaign discovery card; NASA Phoenix mission (not re-verified this session) |
 
-## 5. Quiz sources (Phase 10: 100 questions + 1 pop quiz)
-
-Status: **DONE** (added 2026-11-19). Every quiz question carries a `sourceUrl` and `sourceTitle`, and the question screen shows it as the LEARN MORE / STUDY MORE link. All 100 questions are `verified: true`: each fact was read on the NASA page listed here (checked 2026-11-19). A unit test (`tests/quiz-content.test.ts`) fails if a question's link is not on a NASA domain. The questions live in `src/story/quiz-reyes.ts`, `quiz-aoki.ts` (crew id `aiko`), `quiz-david.ts` and `quiz-sofia.ts`; 30 unique NASA pages back all 100 questions. The "Used by" column shows how many questions each crew member draws from the page.
-
-| Page | What it links to | Used by (questions) |
-|---|---|---|
-| [NASA JPL: Mars at a Glance](https://www.jpl.nasa.gov/news/press_kits/insight/launch/facts/mars-at-a-glance) | JPL fact page (from the InSight launch press kit) with basic Mars facts: two moons, mostly carbon dioxide air, gravity, year and sol length. Used because the newer Science Mars facts pages could not be opened in the sandbox. | Reyes 7, Aoki 1 |
-| [NASA JPL: Mars in a Minute, When the Sun Blocks Our Signal](https://www.jpl.nasa.gov/edu/resources/video/mars-in-a-minute-what-happens-when-the-sun-blocks-our-signal/) | JPL Edu video page on the communications break (solar conjunction) when the Sun sits between Earth and Mars. | Reyes 3 |
-| [NASA JPL: Touchdown! Perseverance Lands on Mars](https://www.jpl.nasa.gov/news/touchdown-nasas-mars-perseverance-rover-safely-lands-on-red-planet/) | JPL news release on Perseverance landing in Jezero Crater on 18 February 2021. | Reyes 1, David 1 |
-| [NASA NTRS: Earth Independent Operations for the Mars Campaign](https://ntrs.nasa.gov/api/citations/20240007807/downloads/ASCEND%20DRAFT%20-%20FORMATTED.pdf) | NASA Technical Reports Server paper on how a Mars crew works when the message delay with Earth is long. | Reyes 2 |
-| [NASA Science: Mars](https://science.nasa.gov/mars/) | NASA Science's main Mars page: planet overview, including Mars as the fourth planet from the Sun. | Reyes 1 |
-| [NASA Science: Speaking Percy's Language](https://science.nasa.gov/missions/mars-2020-perseverance/speaking-percys-language-how-to-talk-so-perseverance-will-listen/) | NASA Science blog on how commands are sent to Perseverance, including the 3 to 22 minute one-way radio delay. | Reyes 2 |
-| [NASA: Astronaut Training Fact Sheet](https://www.nasa.gov/wp-content/uploads/2015/10/160410main_space_training_fact_sheet.pdf) | NASA fact sheet (PDF) on astronaut training, including underwater spacewalk practice. | Reyes 2 |
-| [NASA: CHAPEA Mission 2](https://www.nasa.gov/humans-in-space/chapea/chapea-mission-2/) | NASA page on the 378-day simulated Mars habitat mission with a crew of four. | Reyes 1 |
-| [NASA: Real Martians, How to Protect Astronauts from Space Radiation on Mars](https://www.nasa.gov/solar-system/real-martians-how-to-protect-astronauts-from-space-radiation-on-mars/) | NASA feature on space radiation at Mars and how to shield astronauts (hydrogen-rich materials such as water). | Reyes 4 |
-| [NASA: Voyagers of Mars, the First CHAPEA Crew](https://www.nasa.gov/missions/voyagers-of-mars-the-first-chapea-crews-yearlong-journey/) | NASA story about the first CHAPEA crew's year-long simulated Mars mission, including the commander's role and message bandwidth. | Reyes 2 |
-| [NASA Spinoff: The Martian Garden Recreates Red Planet's Surface](https://spinoff.nasa.gov/Spinoff2018/cg_4.html) | NASA Spinoff 2018 story on Mars Mojave Simulant, a basalt test soil for Mars gardening. | Aoki 2 |
-| [NASA: Astronauts Harvest Radish Crop on the Space Station](https://www.nasa.gov/missions/station/astronauts-harvest-radish-crop-on-international-space-station/) | NASA article on the radish harvest in the Advanced Plant Habitat (27 days to maturity, LED lights). | Aoki 3 |
-| [NASA: Chile Peppers Start Spicing Up the Space Station](https://www.nasa.gov/missions/station/iss-research/chile-peppers-start-spicing-up-the-space-station/) | NASA station-research article on the chile pepper experiment. | Aoki 2 |
-| [NASA: Plant Researchers Explore Question of Deep-Space Food Crops](https://www.nasa.gov/science-research/nasa-plant-researchers-explore-question-of-deep-space-food-crops/) | NASA article on which crops could feed a deep-space crew: sunlight on Mars, potatoes, Martian soil, perchlorates. | Aoki 10 |
-| [NASA: So You Want to Be a Space Farmer](https://www.nasa.gov/humans-in-space/so-you-want-to-be-a-space-farmer/) | NASA article on the challenges of growing plants in space, such as watering in microgravity. | Aoki 2 |
-| [NASA: Veggie Fact Sheet](https://www.nasa.gov/wp-content/uploads/2023/03/veggie-fact-sheet-508.pdf) | NASA fact sheet (PDF) on Veggie, the plant growth unit on the space station: plant pillows, wicks, lights, power. | Aoki 5 |
-| [NASA JPL: Ingenuity Mars Helicopter Succeeds in Historic First Flight](https://www.jpl.nasa.gov/news/nasas-ingenuity-mars-helicopter-succeeds-in-historic-first-flight/) | JPL news on Ingenuity's first flight on 19 April 2021 and Mars's thin air. | David 3 |
-| [NASA JPL: Mars 2020 Perseverance Power](https://www.jpl.nasa.gov/news/press_kits/mars_2020/landing/mission/spacecraft/power/) | JPL press-kit page on Perseverance's nuclear battery (MMRTG) and its power budget. | David 3 |
-| [NASA JPL: Opportunity Hunkers Down During Dust Storm](https://www.jpl.nasa.gov/news/opportunity-hunkers-down-during-dust-storm/) | JPL news on how Opportunity coped with the 2018 global dust storm (low power, heaters, batteries). | David 5 |
-| [NASA JPL: Perseverance Extracts First Oxygen from the Red Planet](https://www.jpl.nasa.gov/news/nasas-perseverance-mars-rover-extracts-first-oxygen-from-red-planet/) | JPL news on MOXIE making oxygen from Martian carbon dioxide. | David 4 |
-| [NASA: Environmental Control and Life Support Systems (ECLSS)](https://www.nasa.gov/reference/environmental-control-and-life-support-systems-eclss/) | NASA reference page on the space station's life support: water recovery, oxygen, carbon dioxide removal. | David 4 |
-| [NASA: For InSight, Dust Cleanings Will Yield New Science](https://www.nasa.gov/missions/insight/for-insight-dust-cleanings-will-yield-new-science/) | NASA article on dust on InSight's solar panels, cleaning gusts, and power per sol. | David 2 |
-| [NASA: The Mars Relay Network Connects Us to NASA's Martian Explorers](https://www.nasa.gov/centers-and-facilities/jpl/the-mars-relay-network-connects-us-to-nasas-martian-explorers/) | NASA article on how orbiters relay rover data and the Deep Space Network stations. | David 3 |
-| [NASA: Counteracting Bone and Muscle Loss in Microgravity](https://www.nasa.gov/missions/station/iss-research/counteracting-bone-and-muscle-loss-in-microgravity/) | NASA station-research article on bone and muscle loss and the daily exercise that fights it (ARED). | Sofia 5 |
-| [NASA: Landmark Twins Study Reveals Resilience of Human Body in Space](https://www.nasa.gov/news-release/nasas-landmark-twins-study-reveals-resilience-of-human-body-in-space/) | NASA news release on the Twins Study: Scott Kelly's 340 days in space compared with his twin on Earth. | Sofia 4 |
-| [NASA: Seven Ways Astronauts Improve Sleep](https://www.nasa.gov/missions/station/seven-ways-astronauts-improve-sleep-may-help-you-snooze-better-on-earth/) | NASA article on sleep on the station (16 sunrises a day, adjustable lighting). | Sofia 3 |
-| [NASA: Space Faring, The Radiation Challenge](https://www.nasa.gov/wp-content/uploads/2017/04/radiationchallenge.pdf) | NASA education guide (PDF) on space radiation. Used for qualitative facts only, because it contradicts itself on dose numbers. | Sofia 4 |
-| [NASA: Space Nutrition (2nd edition)](https://www.nasa.gov/wp-content/uploads/2024/10/2024-space-nutrition-2nd-edition-2024.pdf) | NASA book (PDF) on astronaut nutrition: vitamin D, calcium, the food menu, pre-landing salty water. | Sofia 5 |
-| [NASA: The Real Story About Astronaut Health Care in Space](https://www.nasa.gov/missions/station/faq-the-real-story-about-astronaut-health-care-in-space/) | NASA FAQ on how astronauts' health is looked after, including flight surgeons. | Sofia 1 |
-| [NASA: Valles Marineris, the Grand Canyon of Mars](https://www.nasa.gov/image-article/valles-marineris-grand-canyon-of-mars/) | NASA image article on Mars's giant canyon: length, depth, and how it may have formed. | Sofia 3 |
-
-**Pop quiz (step 27j):** the early "Radiation peak tonight" event in `src/story/episode1.ts` is one pop quiz question ("What can you do to get more radiation protection in an emergency?"). Source, `verified: true`: [NASA Orion: radiation handout](https://www.nasa.gov/wp-content/uploads/2015/11/np-2014-03-001-jsc-orion_radiation_handout.pdf), a NASA PDF that describes the storm shelter and using water, food and supplies as extra shielding. The NASA technical paper on the RadWorks storm shelter agrees with it.
-
-**Caveat:** the Mars basics facts (two moons, carbon dioxide air, gravity, year and sol length) cite JPL's *Mars at a Glance* page, an older InSight press kit that is still NASA, because the newer science.nasa.gov Mars facts pages could not be opened in the sandbox.
-
-## 6. Known limits
+## 5. Known limits
 
 - Perseverance MEDA / Curiosity REMS weather pages were not integrated; Episode 1's weather is a scripted game model.
 - NASA OSDR is linked as a resource; no OSDR dataset is read by the game.

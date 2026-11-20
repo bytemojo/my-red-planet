@@ -70,7 +70,7 @@ export function evaluateFailures(s: GameState, hours = 0): FailureCheck {
 
   // failures need more than a warning
   let failure: FailureId | null = null;
-  if (s.ep && s.outside && !s.suitOn && s.health <= FAIL.HEALTH_CRITICAL) failure = 'NO_SUIT'; // Step 8c: the health drain outside without the suit gets you here
+  if (s.ep && (s.outside || s.airExposed) && !s.suitOn && s.health <= FAIL.HEALTH_CRITICAL) failure = 'NO_SUIT'; // Step 8c: the health drain outside without the suit gets you here
   else if (s.outside && s.suit <= 0) failure = 'SUIT_AIR';
   else if (num(s, R) >= FAIL.RADIATION_HOURS) failure = 'RADIATION_HIGH';
   else if (s.health <= 0 || num(s, H) >= FAIL.CRITICAL_HOURS) failure = 'PLAYER_HEALTH_LOW';

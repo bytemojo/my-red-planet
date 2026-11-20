@@ -2,6 +2,7 @@ import { MAX_SNAPSHOTS } from './constants';
 import { SAVE_VERSION, endSol, newGame, type NewGameOpts } from './sim';
 import { CREW_IDS, newCrewState } from './crewlife';
 import { newQuizState } from './quiz';
+import { newTruckState } from './truck';
 import type { DailyReport, Decision, GameState, SolSummary } from './types';
 
 // Upgrade an older state in place. Returns null if it cannot be read safely.
@@ -31,6 +32,10 @@ export function migrateState(s: GameState | null | undefined): GameState | null 
   if (s.version < 7) { // v6 -> v7: crew quiz progress
     s.quiz = s.quiz ?? newQuizState();
     s.version = 7;
+  }
+  if (s.version < 8) { // v7 -> v8: Mars truck energy
+    s.truck = s.truck ?? newTruckState();
+    s.version = 8;
   }
   return s;
 }

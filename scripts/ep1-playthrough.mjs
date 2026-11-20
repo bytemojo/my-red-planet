@@ -1,7 +1,7 @@
 // Full Episode 1 playthrough with screenshots. Usage: node ep.mjs <outdir>
-import { chromium } from 'playwright-core';
+import { launch } from './_browser.mjs';
 const out = process.argv[2];
-const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--no-sandbox'] });
+const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 const errs = [];
 page.on('console', m => { if (m.type() === 'error' && !m.text().includes('404')) errs.push(m.text()); });
@@ -11,6 +11,8 @@ const sc = (fn, arg) => page.evaluate(([f, a]) => { const s = window.__game.scen
 const go = async (x, y) => { await page.evaluate(async ([x, y]) => { const { world } = await import('/src/game/world.ts'); const s = window.__game.scene.getScene('World'); world.player.x = x * 32; world.player.y = y * 32; s.moveTarget = null; }, [x, y]); await page.waitForTimeout(400); };
 const clearDlg = async (pick = {}) => {
   for (let i = 0; i < 14; i++) {
+    // Step 27j: the storm-radiation question is a pop quiz (4 answers, then CONTINUE). Answer the first option.
+    if (await page.$('#qz-opts .qz-opt')) { await page.click('#qz-opts .qz-opt'); await page.waitForTimeout(1500); await page.click('#qz-next').catch(() => {}); await page.waitForTimeout(500); continue; }
     const dlg = await page.$('#dlg'); if (!dlg) break;
     const choices = await page.$$('#dlg [data-choice]');
     if (choices.length) { let btn = null; for (const c of choices) { const id = await c.getAttribute('data-choice'); if (pick[id]) { btn = c; break; } } await (btn || choices[0]).click().catch(() => {}); }
@@ -29,7 +31,7 @@ await page.click('[data-act="play"]'); await page.waitForTimeout(700);
 if (await page.$('#cf-yes')) { await page.click('#cf-yes'); await page.waitForTimeout(400); }
 if (await page.$('#cr-in')) { await page.fill('#cr-in', 'Ada'); await page.click('[data-style="long"]'); await shot('00b-creator'); await page.click('#cr-go'); await page.waitForTimeout(700); }
 await shot('01-opening');
-await page.click('#op-go'); await page.waitForTimeout(1800); await shot('02-ringing'); await log('start');
+await page.click('#op-skip').catch(() => {}); await page.waitForTimeout(300); await page.click('#op-go'); await page.waitForTimeout(1800); await shot('02-ringing'); await log('start');
 await go(8.5, 11.7); await press('e'); await shot('03-who-is-calling');
 await clickDo('answer|aiko'); await page.waitForTimeout(500); await shot('04-wrong-answer');
 await press('e'); await clickDo('answer|reyes'); await page.waitForTimeout(900); await shot('05-reyes-call'); await clearDlg(); await page.waitForTimeout(400); await shot('06-objective-check'); await log('after call');

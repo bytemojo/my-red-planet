@@ -19,6 +19,9 @@ import type { SystemId } from '../core/types';
 import { GYM, MACHINES, workoutsToday, type Machine } from '../core/gym';
 import { alertFor, ALERT_LABEL } from '../core/episode';
 import { RATION_SOLS_START } from '../core/constants';
+import { ROVER_LOCKED_TITLE } from '../story/rover';
+import { CAVE_LOCKED_TEXT, CAVE_LOCKED_TITLE } from '../story/cave';
+import { roverBodyHtml } from './rovercard';
 import { nowNext, systemCards } from '../story/controlcards';
 import { foodSolsText, rationSolsLeft, FOOD_PORTIONS, LOCKED_CROP_MSG, METHOD_LABEL, PRODUCE_ITEMS, SPACE_MEALS, foodItem, foodStock, isFoodUnlocked, trayProblem, trayTotals, type FoodItem } from '../core/meals';
 import { foodPixels, type FoodSize } from '../game/pixelart';
@@ -145,6 +148,14 @@ export function openRover(host: Host) {
     return `<div class="holo-panel">${head('base', 'Rover')}<div class="panel-body"><p class="why">Rover trips: ${Number(s.flags.trips || 0)} so far. ${wind ? 'Strong wind today makes a trip harder.' : 'Calm weather.'}</p>
       <div class="optlist">${optCard('go', 'base', 'Drive out and explore', false, `${cost(ACTION_ENERGY.explore + (wind ? 10 : 0))}${chip('power', '−6', 'b')}${chip('sparkle', 'may find something', 'g')}`)}</div></div></div>`;
   }, c => { if (c[0] === 'go') host.run('explore'); });
+}
+// Step 28d: the parked, broken rover. A LOCKED state: only the story text and 3 NASA article links (magnifier). No action button, so nothing fake.
+export function openRoverLocked(host: Host) {
+  panel('inspect', host, () => `<div class="holo-panel rover-card">${head('base', ROVER_LOCKED_TITLE)}<div class="panel-body">${roverBodyHtml(esc)}</div></div>`, () => {});
+}
+// Step 28e: the cave entrance before the story unlocks it. One line, no action button (nothing fake).
+export function openCaveLocked(host: Host) {
+  panel('inspect', host, () => `<div class="holo-panel cave-card">${head('base', CAVE_LOCKED_TITLE)}<div class="panel-body"><p class="why">${esc(CAVE_LOCKED_TEXT)}</p></div></div>`, () => {});
 }
 export function openCave(host: Host) {
   const info: Record<string, [string, string, Record<string, number>]> = {

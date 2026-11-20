@@ -5,12 +5,13 @@ import Phaser from 'phaser';
 import { CREW_IDS, BED_ACTIVITIES, isHungry, isNight, lampOn, mood, pickActivity, activitySeconds, type Activity } from '../core/crewlife';
 import { CREW_LOOKS, frameName } from './sprites';
 import type { CrewId, GameState } from '../core/types';
+import { W, H } from './layout';
 import { CREW_WORK, PACE_LANE, SPOT, WANDER, centerOfTile, needsNewActivity, pickWorkTile, routeTo, type Blocked, type SpotName } from './crewwalk';
 
 const T = 32;
 export const BAY = { x0: 5 * T, y0: 13 * T, x1: 14 * T, y1: 18 * T };
 const QW = (BAY.x1 - BAY.x0) / 4; // 72px per room
-const GRID_W = 44, GRID_H = 30;
+const GRID_W = W, GRID_H = H; // the map size (Step 28a: the map grew)
 const NAMES: Record<CrewId, string> = { reyes: 'REYES', aiko: 'AIKO', david: 'DAVID', sofia: 'SOFIA' };
 
 type Mode = 'walk' | 'idle' | 'bed' | 'chair';

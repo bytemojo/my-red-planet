@@ -81,8 +81,6 @@ function beep(f = 660, d = 0.09, type: OscillatorType = 'sine', v = 0.05, delay 
     o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + d + 0.02);
   } catch { /* audio is optional */ }
 }
-// Generated action sounds. They use Web Audio rather than downloaded assets, so they
-// work offline and always follow the global sound setting.
 let noiseBuffer: AudioBuffer | null = null;
 const getNoise = (ac: AudioContext) => {
   if (noiseBuffer && noiseBuffer.sampleRate === ac.sampleRate) return noiseBuffer;
@@ -161,6 +159,8 @@ export const sfx = {
   twang: () => { sweep(200, 360, 0.15, 'sawtooth', 0.04); sweep(420, 300, 0.4, 'triangle', 0.05, 0.12); },
   ice: () => { burst({ d: 0.12, f0: 2500, q: 1.5, v: 0.1 }); bell(3136, 0.35, 0.035, 0.18); },
   done: () => [660, 880, 1320].forEach((f, i) => beep(f, 0.16, 'triangle', 0.055, i * 0.09)),
+  door: (secs = 0.75) => { const d = Math.min(3, Math.max(0.25, secs)); sweep(150, 420, d * 0.7, 'sawtooth', 0.025); sweep(110, 65, 0.16, 'sine', 0.1, d * 0.7); },
+  hiss: (secs = 1) => { const d = Math.min(6, Math.max(0.15, secs)); burst({ d, f0: 4200, f1: 900, q: 0.55, type: 'highpass', v: 0.06, attack: 0.12 }); },
   ok: () => { beep(660, 0.1, 'triangle', 0.06); beep(990, 0.16, 'triangle', 0.06, 0.1); },
   warn: () => { beep(300, 0.18, 'sawtooth', 0.05); beep(240, 0.22, 'sawtooth', 0.05, 0.18); },
   blip: () => beep(880, 0.03, 'square', 0.015),

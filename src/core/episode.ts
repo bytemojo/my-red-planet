@@ -129,9 +129,9 @@ export function playerHungerTick(s: GameState, hours: number): void {
 export function episodeTick(s: GameState, hours: number): void {
   const ep = s.ep; if (!ep) return;
   playerHungerTick(s, hours);
-  if (s.outside) {
+  if (s.outside || s.airExposed) {
     if (!s.suitOn) s.health = clamp(s.health - EP.NO_SUIT_DRAIN * hours, 0, 100); // Step 8c: no instant pass-out; NO_SUIT fails at the critical threshold (core/failure.ts)
-    else {
+    else if (s.outside) {
       s.health = clamp(s.health - EP.HEALTH_DRAIN[alertFor(s)] * outsideDrainFactor(s.health) * hours, 0, 100);
       if (s.health <= 0) s.flags.tmp_passout = 'health';
     }

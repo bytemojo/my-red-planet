@@ -5,7 +5,8 @@ import { $, bindLearning, clamp, learnButton, levelClass } from './ui';
 import { rates, solarEfficiency } from '../core/sim';
 import { envForSol } from '../core/env';
 import { STAGES, CROPS } from '../core/constants';
-import type { GameState } from '../core/types';
+import type { GameState, TruckState } from '../core/types';
+import { TRUCK, truckBarText } from '../core/truck';
 import { objective, objectiveTasks } from '../core/episode';
 import { tankLevel } from '../core/failure';
 import { pumpUsable, waterMeLabel } from '../core/watering';
@@ -77,6 +78,7 @@ export function promptInfo(s: GameState, zone: string, held: Hands, label: strin
     if (!held.item && readyBeds(s).length) return P('GROW BED', 'Harvest the ripe crop', E.harvest, 'Ripe crops add to your food.');
     return P('GROW BEDS', 'Check the plants', null, 'See what is growing and what is thirsty.');
   }
+  if (zone === 'truck') return s.flags.in_truck ? P('MARS TRUCK', 'Get out of the truck', null, 'Arrows or the joystick drive it. Parked, it recharges in the sun.') : P('MARS TRUCK', 'Climb in and drive', null, 'A full battery drives for 2 minutes.');
   if (zone === 'pod') return P('SLEEP POD', 'Sleep until morning', 0, s.hour < 22 ? 'Full energy. Crops grow overnight.' : 'Late night: less rest.');
   if (zone === 'lever' && s.ep?.phase === 'after') return s.ep.panelsStowed ? P('PANEL LEVER', 'Put the panels out', E.panels, 'Safe from the dust: power comes back.') : P('PANEL LEVER', 'Panels already out', null, 'Go outside and clean them.');
   if (zone === 'lever') return s.ep?.stormCall && s.ep.phase !== 'done' ? P('PANEL LEVER', s.ep.panelsStowed ? 'Put the panels back out' : 'Stow the panels', E.panels, s.ep.panelsStowed ? 'Stowed: safe, but no solar power.' : 'Out: some power, but dust can bury them.') : P('PANEL LEVER', 'Not needed yet', null, 'Used during the storm.');
@@ -150,4 +152,15 @@ export function refreshHud(s: GameState) {
   $('#chips').classList.remove('task-list');
   setHtml('#chips', chips.map(([ic, n, ok]) => `<span class="sys ${ok ? 'ok' : ''}"><i></i>${ICON[ic]}${n}</span>`).join(''));
   if (setHtml('#obj-hint', `${ICON.bulb}<span>${s.campaignComplete ? 'Keep every system healthy. Nothing is ever free.' : st.objective}</span>${learnButton(st.learnId)}`)) bindLearning($('#obj-hint'));
+}
+
+/** Step 28h: the truck energy bar, shown only while the explorer sits in the cab. Cheap to call every frame. */
+let lastTruckBar = '';
+export function refreshTruckBar(show: boolean, t?: TruckState) {
+  const box = document.getElementById('truck-bar'); if (!box) return;
+  const txt = show && t ? truckBarText(t) : '', key = show ? txt + '|' + Math.round(t?.energy ?? 0) : 'off'; if (key === lastTruckBar) return; lastTruckBar = key;
+  box.hidden = !show; if (!show || !t) return;
+  const tt = document.getElementById('truck-bar-t'), bar = box.querySelector('.bar i') as HTMLElement | null;
+  if (tt) tt.textContent = txt; if (bar) { bar.style.width = Math.max(0, Math.min(100, t.energy / TRUCK.MAX * 100)) + '%'; }
+  box.classList.toggle('low', t.energy < 20);
 }

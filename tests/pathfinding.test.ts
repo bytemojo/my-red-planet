@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { pathToClosestReachable } from '../src/game/pathfinding';
-import { FARM_BEDS, bedStand, roomAt, H, KITCHEN, MARKERS, PLAYER_START, T, W, ZONES, buildLayout } from '../src/game/layout';
+import { FARM_BEDS, bedStand, roomAt, H, KITCHEN, LANDMARKS, MARKERS, MAP_EDGE, PLAYER_START, T, W, ZONES, buildLayout, isNewOutdoor } from '../src/game/layout';
 import { CREW_WORK, PACE_LANE, PACE_MIN, PACE_MAX, ROOM_FURNITURE, SPOT, WALK_SPOTS, centerOfTile, footprint, needsNewActivity, paceRoute, pickWorkTile, rectsOverlap, routeTo } from '../src/game/crewwalk';
 
 describe('click-to-walk paths', () => {
@@ -34,7 +34,7 @@ const reaches = (target: { x: number; y: number }, blocked = isBlocked) =>
 // Kids need a path to every room and machine. Outside zones (solar, rover, cave) are reached through the south door, so they are walked too.
 const MUST_REACH: Record<string, string> = {
   farm: 'farm', ls: 'life support', comms: 'comms', control: 'control module', sick: 'sick bay intercom', hatch: 'meal hatch',
-  suit: 'suit rack', kitchen: 'kitchen', bands: 'gym bands', bike: 'gym bike', rower: 'gym rower', lab: 'lab', bath: 'bathroom',
+  suit: 'suit rack', kitchen: 'kitchen', bands: 'gym bands', bike: 'gym bike', rower: 'gym rower', lab: 'lab', microscope: 'microscope on the lab bench', bath: 'bathroom',
   pump: 'water pump', lever: 'panel lever', pod: 'sleep pod', wiki: 'NASA wiki screen', chess: 'chess table', checkers: 'checkers table', rack_tool: 'water can stand', rack_seed: 'seed drawer', rack_parts: 'spare parts rack',
   bin_food: 'food bin', bin_seeds: 'seed bin', bin_tools: 'tool bin', bin_parts: 'parts bin', bin_filters: 'filter bin', bin_eva: 'EVA bin',
   ice: 'candidate ice sheet', intake: 'water-maker intake', solar: 'solar field', rover: 'rover', cave: 'cave mouth', dish: 'outdoor dish (repair spot south of it)',
@@ -228,5 +228,66 @@ describe('crew walking (24h)', () => {
     expect(needsNewActivity({ ...base, hungry: false, wasHungry: false, night: true, act: 'wander' })).toBe(true); // night falls: go to bed
     expect(needsNewActivity({ ...base, hungry: false, wasHungry: false, night: true, act: 'sleep' })).toBe(false);
     expect(needsNewActivity({ ...base, hungry: false, wasHungry: false, act: 'sleep' })).toBe(true);              // morning: wake up
+  });
+});
+
+describe('Step 28a: the bigger outside map', () => {
+  const OLD_W = 44, OLD_H = 30;
+  it('the map is about 2x larger than before', () => {
+    expect(W * H).toBeGreaterThanOrEqual(1.9 * OLD_W * OLD_H);
+    expect(W).toBeGreaterThan(OLD_W); expect(H).toBeGreaterThan(OLD_H);
+  });
+  it('the whole map edge is solid ridge (edge limits), so nobody walks off the map', () => {
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const edge = x < MAP_EDGE || y < MAP_EDGE || x >= W - MAP_EDGE || y >= H - MAP_EDGE;
+      if (edge) expect(layout.blocked[y][x], `edge tile ${x},${y}`).toBe(true);
+    }
+    const p = pathToClosestReachable(W, H, tileOf(MARKERS.solar), { x: W - 1, y: H - 1 }, (x, y) => isBlocked(x, y));
+    expect(p.path.every(t => t.x < W - MAP_EDGE && t.y < H - MAP_EDGE)).toBe(true);
+    expect(p.destination.x < W - MAP_EDGE && p.destination.y < H - MAP_EDGE).toBe(true);
+  });
+  it('the old ridge strip east and south of the old map is open ground now', () => {
+    expect(isBlocked(43, 15)).toBe(false); expect(isBlocked(30, 29)).toBe(false);
+  });
+  it('the new ground has rock fields, a dune ridge, craters with a blocked rim, and a truck pad', () => {
+    const kinds = new Set<string>(); layout.terrain.forEach(r => r.forEach(t => kinds.add(t)));
+    for (const k of ['open', 'rockfield', 'dune', 'crater', 'rim', 'pad']) expect(kinds.has(k), k).toBe(true);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (layout.terrain[y][x] === 'rim') expect(isNewOutdoor(x, y)).toBe(true);
+      if (layout.terrain[y][x] === 'dune' || layout.terrain[y][x] === 'crater' || layout.terrain[y][x] === 'pad') {
+        if (!layout.rocks.some(([rx, ry, rw]) => ry === y && x >= rx && x < rx + rw)) expect(isBlocked(x, y), `${layout.terrain[y][x]} ${x},${y}`).toBe(false);
+      }
+    }
+  });
+  it('most of the new ground is open to walk on (rocks are the minority)', () => {
+    let open = 0, total = 0;
+    for (let y = MAP_EDGE; y < H - MAP_EDGE; y++) for (let x = MAP_EDGE; x < W - MAP_EDGE; x++) if (isNewOutdoor(x, y)) { total++; if (!isBlocked(x, y)) open++; }
+    expect(open / total).toBeGreaterThan(0.75);
+  });
+  it('every walkable tile on the whole map can be reached from the start (no sealed pockets)', () => {
+    const seen = new Set<string>([`${PLAYER_START.x},${PLAYER_START.y}`]); const q = [[PLAYER_START.x, PLAYER_START.y]];
+    while (q.length) { const [x, y] = q.pop()!; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H || isBlocked(nx, ny) || seen.has(`${nx},${ny}`)) continue; seen.add(`${nx},${ny}`); q.push([nx, ny]); } }
+    const lost: string[] = [];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (isNewOutdoor(x, y) && !isBlocked(x, y) && !seen.has(`${x},${y}`)) lost.push(`${x},${y}`);
+    expect(lost, `unreachable new tiles: ${lost.slice(0, 8).join(' ')}`).toEqual([]);
+  });
+  it('every old zone is still reachable and every landmark (old and new) is reachable', () => {
+    for (const zone of Object.keys(ZONES)) { const t = tileOf(MARKERS[zone]); expect(isBlocked(t.x, t.y), zone).toBe(false); expect(reaches(t), zone).toBe(true); }
+    expect(LANDMARKS.map(l => l.id).sort()).toEqual(['cave_mouth', 'ice_sheet', 'rover_site', 'truck_bay']);
+    expect(LANDMARKS.filter(l => !l.existing).map(l => l.id)).toEqual(['truck_bay']);
+    for (const l of LANDMARKS) { const t = tileOf(l.stand); expect(isBlocked(t.x, t.y), `${l.id} stand ${t.x},${t.y}`).toBe(false); expect(reaches(t), `no path to ${l.id}`).toBe(true); expect(l.x1).toBeGreaterThanOrEqual(l.x0); expect(l.y1).toBeGreaterThanOrEqual(l.y0); }
+  });
+  it('landmarks are data only: the truck bay adds no zone (no button that does nothing yet)', () => {
+    expect(Object.keys(ZONES)).not.toContain('truck_bay'); expect(Object.keys(ZONES)).not.toContain('truck');
+  });
+  it('the truck bay is a clear pad (nothing blocked on it) and the old rover/cave/ice landmarks did not move', () => {
+    const bay = LANDMARKS.find(l => l.id === 'truck_bay')!;
+    for (let y = bay.y0; y <= bay.y1; y++) for (let x = bay.x0; x <= bay.x1; x++) expect(isBlocked(x, y), `pad ${x},${y}`).toBe(false);
+    expect([ZONES.rover.x0, ZONES.rover.y0, ZONES.rover.x1, ZONES.rover.y1]).toEqual([30, 19, 37, 24]);
+    expect([ZONES.cave.x0, ZONES.cave.y0, ZONES.cave.x1, ZONES.cave.y1]).toEqual([37, 23, 41, 27]);
+  });
+  it('the layout is deterministic (same rocks every time)', () => {
+    const again = buildLayout();
+    expect(again.rocks).toEqual(layout.rocks); expect(again.blocked).toEqual(layout.blocked);
   });
 });

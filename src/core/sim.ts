@@ -14,10 +14,11 @@ import { ICE_COLLECTED, iceProblem, pourProblem, waterMakerOff } from './icerun'
 import { alreadyWatered, clearWatered, markWatered, pumpRunning, wateringLoad, wateringModeProblem } from './watering';
 import { MACHINE_NAMES, NEED_PART_MSG, NO_PARTS_MSG, fixMachine, isBroken, isMachineId, stockOf } from './inventory';
 import { newQuizState } from './quiz';
+import { newTruckState } from './truck';
 import { CREW_IDS, crewNeedsCare, crewOvernight, crewTalked, crewTick, isHungry, newCrewState, serveMeal } from './crewlife';
 import type { CropId, CrewId, DailyReport, Env, GameState, Plot, ResKey, SystemId, WateringMode } from './types';
 
-export const SAVE_VERSION = 7; // bump when GameState changes shape; migrate in session.ts
+export const SAVE_VERSION = 8; // bump when GameState changes shape; migrate in session.ts
 
 // NOTE: functions here MUTATE the GameState you pass in. State is plain JSON; clone with JSON.parse(JSON.stringify()).
 export interface NewGameOpts { mode?: 'campaign' | 'storm'; sun?: import('./types').EpisodeState['sun']; quick?: boolean }
@@ -32,7 +33,7 @@ export function newGame(seed = 1, opts: NewGameOpts = {}): GameState {
     cave: { explore: 0, excavate: 0, pressurize: 0, shield: 0 },
     solsSinceShipment: 0, bestSelfSufficient: 0, shipmentArrivesSol: 0, campaignComplete: false,
     decisions: [], journal: [], history: [], log: [], lastReport: null, failed: null,
-    ep: null, suitOn: false, health: 100, quiz: newQuizState(),
+    ep: null, suitOn: false, health: 100, quiz: newQuizState(), truck: newTruckState(),
   };
   if (opts.mode === 'storm') startEpisode(s, opts);
   poll(s);

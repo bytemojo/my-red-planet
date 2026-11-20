@@ -2,6 +2,7 @@
 // reached through the corridor door at x=29. Drawn in the same 2-pixel art grid as the crew quarters.
 // world.ts builds the walls and applies WING_BLOCKS; this file draws the furniture.
 import Phaser from 'phaser';
+import { prefersReducedMotion } from './effects';
 
 const T = 32;
 // Furniture footprints (collision) live in layout.ts so tests can import them without Phaser.
@@ -10,6 +11,65 @@ export { WING_BLOCKS } from './layout';
 const r2 = (g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, c: number, a = 1) => { g.fillStyle(c, a); g.fillRect(Math.round(x), Math.round(y), w, h); };
 const label = (scene: Phaser.Scene, txt: string, x: number, y: number, color = '#8ceaff', size = 10) =>
   scene.add.text(x, y, txt, { fontFamily: 'Rajdhani, sans-serif', fontSize: size + 'px', fontStyle: '700', color, stroke: '#000', strokeThickness: 3 }).setOrigin(0.5).setDepth(3).setAlpha(0.9).setResolution(2);
+
+/** Step 29a: the science lab. Metal, glass and plastic only (no wood, cloth or paper). Footprints are unchanged (WING_BLOCKS): west bench x30-31, east bench x33-34 (tile 32 is the doorway), sample rack on the south-west block. */
+export function drawLab(scene: Phaser.Scene) {
+  const lab = scene.add.graphics().setDepth(14 * T), by = 13 * T, ly = by + 6; // ly = the line the things on the bench top stand on
+  // two benches: pale resin top with highlight and edge shade, steel front panel with vents, feet
+  for (const x0 of [30 * T + 2, 33 * T + 2]) {
+    r2(lab, x0, by - 10, 2 * T - 4, 24, 0xdfe6f2); r2(lab, x0, by - 10, 2 * T - 4, 2, 0xffffff); r2(lab, x0, by + 12, 2 * T - 4, 2, 0xaab6cc);
+    r2(lab, x0, by + 14, 2 * T - 4, 16, 0x8d99b3); r2(lab, x0, by + 14, 2 * T - 4, 2, 0x6b7894);
+    for (let i = 0; i < 4; i++) { r2(lab, x0 + 5 + i * 14, by + 19, 8, 1, 0x5d6b88); r2(lab, x0 + 5 + i * 14, by + 22, 8, 1, 0x5d6b88); }
+    r2(lab, x0 + 2, by + 28, 4, 2, 0x4a5672); r2(lab, x0 + 2 * T - 10, by + 28, 4, 2, 0x4a5672);
+  }
+  // pixel laptop with a glowing screen (west bench, left)
+  { const lx = 30 * T + 4;
+    r2(lab, lx, ly - 3, 24, 4, 0x2a3550); r2(lab, lx + 1, ly - 3, 22, 1, 0x4a5a80); for (let k = 0; k < 5; k++) r2(lab, lx + 3 + k * 4, ly - 2, 3, 1, 0x7f8db0); r2(lab, lx + 9, ly - 4, 6, 1, 0x6b7894);
+    r2(lab, lx + 2, ly - 23, 20, 19, 0x1a2440); r2(lab, lx + 4, ly - 21, 16, 14, 0x0b3550);
+    r2(lab, lx + 5, ly - 19, 9, 1, 0x7cf3ff); r2(lab, lx + 5, ly - 17, 12, 1, 0x7cf3ff); r2(lab, lx + 5, ly - 15, 7, 1, 0x9dffb0);
+    [3, 6, 4, 8, 5].forEach((h, i) => r2(lab, lx + 6 + i * 3, ly - 8 - h, 2, h, i % 2 ? 0x5ad1ff : 0x9dffb0)); r2(lab, lx + 4, ly - 8, 16, 1, 0x2a8fb0);
+    const glow = scene.add.graphics().setDepth(14 * T + 1).setBlendMode(Phaser.BlendModes.ADD);
+    glow.fillStyle(0x1fd0ff, 0.2); glow.fillRect(lx + 4, ly - 21, 16, 14); glow.fillStyle(0x1fd0ff, 0.09); glow.fillRect(lx - 3, ly - 25, 30, 22); glow.fillRect(lx - 4, ly - 3, 32, 8); // screen + soft light on the bench
+    if (!prefersReducedMotion()) scene.tweens.add({ targets: glow, alpha: { from: 0.55, to: 1 }, duration: 1800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' }); }
+  // microscope on the bench (west bench, right): base, arm, tube + eyepiece, objective turret, stage with a slide, focus knob, status light
+  { const mx = 31 * T + 4;
+    r2(lab, mx, ly - 4, 20, 4, 0x5d6b88); r2(lab, mx, ly - 4, 20, 1, 0x8d99b3); r2(lab, mx + 17, ly - 3, 2, 1, 0x4dffb0);
+    r2(lab, mx + 13, ly - 27, 5, 23, 0x31405e); r2(lab, mx + 13, ly - 27, 1, 23, 0x4a5a80); r2(lab, mx + 5, ly - 29, 13, 5, 0x31405e);
+    r2(lab, mx + 5, ly - 31, 5, 9, 0x3a4a6e); r2(lab, mx + 5, ly - 31, 1, 9, 0x5d6b88); r2(lab, mx + 4, ly - 36, 7, 3, 0x111a33); r2(lab, mx + 5, ly - 38, 5, 2, 0x2a3550);
+    r2(lab, mx + 4, ly - 22, 8, 3, 0x8d99b3); r2(lab, mx + 6, ly - 19, 4, 4, 0xc9d5ea); r2(lab, mx + 7, ly - 16, 2, 1, 0x7cf3ff);
+    r2(lab, mx + 1, ly - 12, 14, 2, 0x8d99b3); r2(lab, mx + 3, ly - 14, 8, 2, 0x9fd8ff, 0.75);
+    lab.fillStyle(0x6b7894, 1); lab.fillCircle(mx + 16, ly - 10, 3.2); lab.fillStyle(0xc9d5ea, 1); lab.fillCircle(mx + 16, ly - 10, 1.8); }
+  // glovebox (east bench, left): clear panels, steel frame, glare, two glove ports
+  { const gb = 33 * T + 4;
+    r2(lab, gb, by - 14, 30, 24, 0x9fd8ff, 0.3); r2(lab, gb, by - 14, 30, 2, 0xdfe6f2); r2(lab, gb, by - 14, 2, 24, 0xc9d5ea); r2(lab, gb + 28, by - 14, 2, 24, 0xc9d5ea); r2(lab, gb, by + 8, 30, 2, 0x8d99b3);
+    r2(lab, gb + 5, by - 10, 2, 14, 0xffffff, 0.5); r2(lab, gb + 8, by - 10, 1, 6, 0xffffff, 0.35);
+    for (const gx of [gb + 9, gb + 21]) { lab.fillStyle(0x4a5a80, 1); lab.fillCircle(gx, by + 1, 6); lab.fillStyle(0x0a1a33, 1); lab.fillCircle(gx, by + 1, 4.5); } }
+  // test tubes in a metal rack (east bench, right): glass, cyan / green / amber liquids, coloured caps
+  { const tx = 34 * T + 4, liquid = [0x5ad1ff, 0x66d17a, 0xffb347, 0x5ad1ff, 0x66d17a], cap = [0xe0575b, 0xffffff, 0x5ad1ff, 0xffc94a, 0xe0575b];
+    r2(lab, tx, ly - 2, 22, 3, 0x6b7894); r2(lab, tx, ly - 2, 22, 1, 0x8d99b3); r2(lab, tx, ly - 11, 22, 2, 0x8d99b3); r2(lab, tx, ly - 11, 1, 10, 0x8d99b3); r2(lab, tx + 21, ly - 11, 1, 10, 0x8d99b3);
+    liquid.forEach((c, i) => { const x = tx + 1 + i * 4, lvl = 5 + (i * 3) % 6; r2(lab, x, ly - 14, 3, 12, 0xdff4ff, 0.35); r2(lab, x, ly - 2 - lvl, 3, lvl, c, 0.9); r2(lab, x, ly - 15, 3, 2, cap[i]); r2(lab, x, ly - 13, 1, 9, 0xffffff, 0.55); }); }
+  // cyan wall display above the glovebox: little waveform, readout label, status dots
+  { const wx = 33 * T + 3, wy = 12 * T + 2;
+    r2(lab, wx, wy, 58, 16, 0x1a2440); r2(lab, wx + 2, wy + 2, 54, 12, 0x0b3550); r2(lab, wx + 2, wy + 2, 54, 1, 0x2a8fb0);
+    [5, 7, 4, 8, 6, 3, 7, 5, 8, 4, 6].forEach((h, i) => r2(lab, wx + 4 + i * 3, wy + 13 - h, 2, h, 0x5ad1ff)); r2(lab, wx + 40, wy + 4, 3, 3, 0x4dffb0); r2(lab, wx + 45, wy + 4, 3, 3, 0xffc94a); r2(lab, wx + 50, wy + 4, 3, 3, 0x5ad1ff);
+    label(scene, 'SAMPLES', wx + 46, wy + 10, '#8ceaff', 5).setDepth(14 * T + 2);
+    const g = scene.add.graphics().setDepth(14 * T + 1).setBlendMode(Phaser.BlendModes.ADD); g.fillStyle(0x1fd0ff, 0.14); g.fillRect(wx + 2, wy + 2, 54, 12); g.fillRect(wx - 2, wy - 2, 62, 22); }
+  // hazard sign on the west wall (amber triangle with a "!", no flame) above the badge reader
+  { const hx = 30 * T + 10, hy = 14 * T + 1;
+    lab.fillStyle(0x1a1a1a, 1); lab.fillTriangle(hx, hy - 1, hx - 9, hy + 14, hx + 9, hy + 14); lab.fillStyle(0xffb020, 1); lab.fillTriangle(hx, hy + 1, hx - 7, hy + 12, hx + 7, hy + 12);
+    r2(lab, hx - 1, hy + 4, 2, 4, 0x1a1a1a); r2(lab, hx - 1, hy + 9, 2, 2, 0x1a1a1a); }
+  // metal sample rack in the south-west corner: steel uprights and shelves, clear plastic sample boxes with coloured tags
+  const shelf = scene.add.graphics().setDepth(18 * T), rx = 30 * T + 2, rt = 17 * T - 22;
+  r2(shelf, rx, rt, 60, 40, 0x31405e, 0.35); // back panel shade
+  [0, 14, 28, 38].forEach(o => { r2(shelf, rx, rt + o, 60, 2, 0x8d99b3); r2(shelf, rx, rt + o + 2, 60, 1, 0x5d6b88); }); r2(shelf, rx, rt, 3, 40, 0x8d99b3); r2(shelf, rx + 57, rt, 3, 40, 0x8d99b3);
+  const tags = [0xe0575b, 0x66d17a, 0x5ad1ff, 0xffc94a, 0xc08cff, 0x66d17a, 0xe0575b, 0x5ad1ff, 0xffc94a];
+  [[1, 10], [15, 10], [29, 6]].forEach(([o, h], row) => { for (let i = 0; i < 3; i++) { const bx = rx + 4 + i * 18, byy = rt + o + 2, tag = tags[row * 3 + i];
+    r2(shelf, bx, byy, 15, h, 0xcfeaff, 0.5); r2(shelf, bx, byy, 15, 3, 0xffffff, 0.85); r2(shelf, bx, byy + h - 1, 15, 1, 0x8d99b3); r2(shelf, bx, byy, 1, h, 0xffffff, 0.6);
+    if (h > 6) { r2(shelf, bx + 3, byy + 6, 4, 2, [0xb0643c, 0x8d99b3, 0xd9b38a][(row + i) % 3]); r2(shelf, bx + 8, byy + 7, 3, 2, 0x6b7894); } r2(shelf, bx + 5, byy + 3, 6, 2, tag); } });
+  const badge = scene.add.graphics().setDepth(16 * T);                                     // radiation badge reader on the west wall (unchanged)
+  r2(badge, 30 * T + 2, 15 * T - 6, 14, 20, 0x24365a); r2(badge, 30 * T + 4, 15 * T - 2, 10, 6, 0x4dffb0);
+  label(scene, 'SCIENCE LAB', 32.5 * T, 15.6 * T, '#bfe8ff', 7).setData('room', 'lab');
+}
 
 export interface Wing { setRower(open: boolean): void; setBands(pulling: boolean): void; spin(on: boolean): void }
 
@@ -192,18 +252,8 @@ export function buildWing(scene: Phaser.Scene, getPlayer?: () => { x: number; y:
   label(scene, 'GYM', 34.5 * T, 7.4 * T, '#9dffb0', 8).setData('room', 'gym');
   label(scene, 'BANDS', 31 * T, 6.3 * T, '#8ceaff', 8); label(scene, 'BIKE', 34 * T, 6.6 * T, '#8ceaff', 8); label(scene, 'ROWER', 37.3 * T, 6.6 * T, '#8ceaff', 8);
 
-  // ---------- SCIENCE LAB ----------
-  const lab = scene.add.graphics().setDepth(14 * T);
-  r2(lab, 30 * T + 2, 13 * T - 10, 2 * T - 4, 24, 0xdfe6f2); r2(lab, 30 * T + 2, 13 * T + 14, 2 * T - 4, 16, 0x8d99b3);         // bench (2 tiles: tile 32 is the doorway)
-  r2(lab, 31 * T, 13 * T - 30, 12, 26, 0x31405e); r2(lab, 31 * T + 3, 13 * T - 38, 6, 10, 0x2a3550); r2(lab, 31 * T - 4, 13 * T - 8, 20, 4, 0x5d6b88); // microscope
-  [0xe0575b, 0x66d17a, 0x5ad1ff].forEach((c, i) => { r2(lab, 30 * T + 1 + i * 8, 13 * T - 18, 6, 12, c, 0.85); r2(lab, 30 * T + 1 + i * 8, 13 * T - 20, 6, 3, 0xffffff); }); // sample jars (on the bench, clear of the doorway)
-  r2(lab, 33 * T + 2, 13 * T - 26, 2 * T - 4, 36, 0x9fd8ff, 0.35); r2(lab, 33 * T + 2, 13 * T - 26, 2 * T - 4, 3, 0xffffff, 0.6);  // glovebox
-  lab.fillStyle(0x0a1a33, 1); lab.fillCircle(33.5 * T + 2, 13 * T, 6); lab.fillCircle(34.4 * T + 2, 13 * T, 6);
-  const shelf = scene.add.graphics().setDepth(18 * T);
-  r2(shelf, 30 * T + 2, 17 * T - 12, 2 * T - 4, 30, 0x5d6b88); [0x8a5a3c, 0xb07a52, 0xd9a07a].forEach((c, i) => r2(shelf, 30 * T + 8 + i * 16, 17 * T - 8, 12, 8, c));
-  const badge = scene.add.graphics().setDepth(16 * T);                                     // radiation badge reader on the west wall
-  r2(badge, 30 * T + 2, 15 * T - 6, 14, 20, 0x24365a); r2(badge, 30 * T + 4, 15 * T - 2, 10, 6, 0x4dffb0);
-  label(scene, 'SCIENCE LAB', 32.5 * T, 15.6 * T, '#bfe8ff', 7).setData('room', 'lab');
+  // ---------- SCIENCE LAB (Step 29a detail pass: see drawLab) ----------
+  drawLab(scene);
 
   // ---------- LAB DOOR: two metal leaves slide into the wall when the player is near ----------
   const dx0 = LAB_DOOR[0] * T, dy0 = LAB_DOOR[1] * T;

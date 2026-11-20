@@ -36,6 +36,7 @@ describe('Step 24b: only the object itself is clickable', () => {
       if (!boxes) continue; // object-sized zone: its own rectangle is the box
       const [mx, my] = MARKERS[k]; expect(mx).toBeGreaterThan(0); expect(my).toBeGreaterThan(0);
       const area = boxes.reduce((s, [, , w, h]) => s + w * h, 0), zoneArea = (z.x1 - z.x0 + 1) * (z.y1 - z.y0 + 1);
+      if (zoneArea === 1) { expect(area).toBeLessThanOrEqual(2); continue; } // one-tile zone (the microscope): its object may be 2 tiles tall
       expect(area).toBeLessThan(zoneArea); expect(cx).toBeGreaterThan(0);
     }
   });

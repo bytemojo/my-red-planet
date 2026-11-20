@@ -97,7 +97,6 @@
 .aq-grid{display:grid;grid-template-columns:1fr;gap:12px;flex:1 0 auto;align-items:start}
 .aq-hostrow{display:flex;gap:10px;align-items:center;min-width:0}
 .aq-hostrow .aq-reyes{height:58px;width:58px;border-radius:50%;object-fit:cover;object-position:50% 6%;background:radial-gradient(circle at 50% 30%,#6f8fe0,#1b2a70);border:2px solid rgba(255,255,255,.7);animation:none;flex:none;filter:none}
-.aq-hostrow .aq-reyes-profile{object-position:50% 4%;background:#183a78}
 .aq-hostrow .aq-bubble{flex:1;font-size:clamp(16px,4vw,20px);padding:10px 14px}
 .aq-hostrow .aq-bubble::after{left:-7px;top:20px}
 .aq-hostrow .aq-hostfull{display:none}

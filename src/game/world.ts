@@ -6,32 +6,38 @@ import { createPixelSprites } from './sprites';
 import { buildQuarters } from './quarters';
 import { buildLifeSupport } from './lifesupport';
 import { buildDish } from './dish';
+import { buildRover } from './rover';
+import { buildCave } from './cave';
+import { buildTruck } from './truck';
+import { cameraZoom } from './camera';
 import { WING_BLOCKS, buildWing } from './wing';
 import { STORAGE, STORAGE_BLOCKS, STORAGE_WALL_Y, buildStorage } from './storage';
 import { buildDayNight } from './daynight';
 import { SOLAR_PANEL_ORIGINS } from './solar-panel-layout';
-import { T, W, H, KITCHEN, buildLayout } from './layout';
+import { T, W, H, KITCHEN, CRATERS, buildLayout } from './layout';
+import { DUST_PUFFS, craterOps, dustPuff, groundTileOps, rockShadowOps, type Op } from './ground';
 import { cropStateFor } from './pixelart';
 export { T, W, H };
 export const world: any = { ready: false };
 export function buildWorld(scene: any, ctx: any) {
 const { clamp } = ctx; const S = ctx.S;
  createPixelSprites(scene);
- const {rng,inside,blocked,kind,farmBeds,panelsPos,rocks,avoid}=buildLayout();
+ const {rng,inside,blocked,kind,farmBeds,panelsPos,rocks,avoid,terrain}=buildLayout();
  world.inside=inside;world.blocked=blocked;
 
  /* ground */
  const gg=scene.add.graphics().setDepth(0);
  const GR=[0xb4532d,0xa94b2a,0xbb5a33,0x9f4527];
+ const replay=(ops:Op[])=>ops.forEach(o=>{if(o.a<=0)return;if(o.k==='rect'){gg.fillStyle(o.c,o.a);gg.fillRect(o.x,o.y,o.w,o.h)}else if(o.k==='ell'){gg.fillStyle(o.c,o.a);gg.fillEllipse(o.x,o.y,o.w,o.h)}else{gg.lineStyle(o.lw,o.c,o.a);gg.lineBetween(o.x1,o.y1,o.x2,o.y2)}});
  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const px=x*T,py=y*T;
   if(inside[y][x]){const cor=(x===15||x===16||y===10||y===11);let c=cor?0x2a4067:0x1c2c4a;
    if(!cor){if(x>=30&&y<=8)c=0x262a40;else if(x>=30&&x<=34&&y>=13)c=0x233a4c;else if(x>=36&&y>=13)c=0x22424a;else if(x<=14&&y<=9)c=0x1e3a36;else if(x>=18&&y<=9)c=0x1b3157;else if(x<=13&&y>=12)c=0x2e2a44;else c=0x1d2a52}
    gg.fillStyle(c,1);gg.fillRect(px,py,T,T);gg.lineStyle(1,0x000000,.28);gg.strokeRect(px+.5,py+.5,T-1,T-1);
    gg.fillStyle(0x4a6a9a,.5);[[3,3],[T-4,3],[3,T-4],[T-4,T-4]].forEach(([a,b])=>gg.fillRect(px+a,py+b,2,2));
    if(((x+y)&1)===0){gg.fillStyle(0xffffff,.03);gg.fillRect(px,py,T,T)}
-  }else{const v=Math.floor(rng()*4);gg.fillStyle(GR[v],1);gg.fillRect(px,py,T,T);
-   if(rng()<.35){gg.fillStyle(0x000000,.12);gg.fillRect(px+rng()*24,py+rng()*24,3,2);gg.fillStyle(0xffc79a,.12);gg.fillRect(px+rng()*24,py+rng()*24,2,2)}
-   if(rng()<.08){gg.lineStyle(1,0xffd0a8,.18);gg.lineBetween(px,py+rng()*T,px+T,py+rng()*T)}}}
+  }else if(kind[y][x]!=='ridge'){replay(groundTileOps(x,y,terrain[y][x],x>=3&&x<=42&&y>=18&&y<=29))}else{gg.fillStyle(GR[(x+y)&3],1);gg.fillRect(px,py,T,T)}}
+ CRATERS.forEach(([cx,cy,r])=>replay(craterOps(cx,cy,r)));
+ rocks.forEach(([x,y,w])=>replay(rockShadowOps(x,y,w)));
  // solar pad + lanes
  gg.fillStyle(0x7c3a24,.55);gg.fillRect(9*T,21*T,21*T,7*T);gg.lineStyle(2,0xe2b93b,.35);gg.strokeRect(9*T+1,21*T+1,21*T-2,7*T-2);
  gg.fillStyle(0x6e3220,.5);gg.fillRect(15*T,19*T,2*T,2*T);
@@ -39,8 +45,6 @@ const { clamp } = ctx; const S = ctx.S;
  gg.fillStyle(0x34476b,1);gg.fillRect(14*T,19*T,4*T,2*T);gg.lineStyle(1,0x0a1220,.5);for(let i=0;i<4;i++)for(let j=0;j<2;j++)gg.strokeRect((14+i)*T+.5,(19+j)*T+.5,T-1,T-1);
  // airlock hazard stripes
  for(const x of[15,16]){for(let k=0;k<8;k++){gg.fillStyle(k%2?0x15110a:0xe8b923,1);gg.fillRect(x*T+k*4,18*T,4,T)}}
- // craters
- for(let i=0;i<22;i++){const x=(2+rng()*40)*T,y=(2+rng()*26)*T;if(avoid(Math.floor(x/T),Math.floor(y/T)))continue;gg.fillStyle(0x6b2f1c,.35);gg.fillEllipse(x,y,46,22);gg.fillStyle(0xe28a5c,.22);gg.fillEllipse(x-2,y-3,38,16)}
  // corridor guide line
  gg.fillStyle(0xe2b93b,.55);for(let y=3;y<=17;y++)if(y%2===0)gg.fillRect(16*T-1,y*T+8,2,14);for(let x=5;x<=38;x++)if(x%2===0)gg.fillRect(x*T+8,11*T-1,14,2);
  // pipes between life support machines
@@ -205,12 +209,13 @@ const { clamp } = ctx; const S = ctx.S;
  label('SOLAR FARM',19*T,24.6*T,'#ffd79a',12);
 
  // ---- rover bay (appears when built), extra buildings, cave mouth
- const roverObjs=[];{const g=obj(23*T);[0,1,2].forEach(i=>{g.fillStyle(0x15110d,1);g.fillCircle(33*T+12+i*34,22*T+T+10,9)});box(g,33*T,21*T,3*T,2*T,16,0xe4ddd0,0x8f877a);g.fillStyle(0x39d9ff,.8);g.fillRect(33*T+10,21*T-16+8,30,10);g.fillStyle(0x1f4f96,1);g.fillRect(33*T+52,21*T-16+6,34,22);roverObjs.push(g,label('ROVER BAY',34.5*T,24*T,'#ffd79a',11))}
+ const roverObjs=[];world.roverArt=buildRover(scene);roverObjs.push(label('ROVER BAY',34.5*T,24*T,'#ffd79a',11)); // Step 28c: the parked broken rover is always there (rover.ts); only the ROVER BAY label waits for the building
  const bld={};
  {const g=obj(14*T);[[32,12],[36,12]].forEach(([x,y])=>{box(g,x*T,y*T,3*T,2*T,10,0x1f4f96,0x1a2442);g.fillStyle(0x9fb4d6,1);g.fillRect(x*T,y*T-10,3*T,2)});bld.solar_2=[g,label('SOLAR ARRAY 2',35*T,14.7*T,'#ffd79a',10)]}
  {const g=obj(18*T);box(g,31*T,16*T,2*T,2*T,18,0xaebbd3,0x3d4f75);g.fillStyle(0x39d9ff,.6);g.fillCircle(32*T,16*T-10,10);bld.recycler=[g,label('WATER RECYCLER',32*T,18.6*T,'#bfe8ff',10)]}
  {const g=obj(18*T);box(g,36*T,16*T,3*T,2*T,22,0x5d6f8f,0x2a3550);g.fillStyle(0x0a1a33,1);g.fillRect(36*T+34,16*T-22+14,28,30);bld.shelter=[g,label('RADIATION SHELTER',37.5*T,18.6*T,'#d9c0ff',10)]}
- const caveObjs=[];{const g=obj(26*T);g.fillStyle(0x3a1a10,1);g.fillEllipse(39*T,25*T+10,3*T,2*T);g.fillStyle(0x07040a,1);g.fillEllipse(39*T,25*T+14,2*T,1.4*T);g.lineStyle(2,0xffb340,.6);g.strokeEllipse(39*T,25*T+10,3*T,2*T);caveObjs.push(g,label('CANDIDATE CAVE',39*T,23.4*T,'#ffd79a',10))}
+ world.truckArt=buildTruck(scene); // Step 28g: the truck is parked on the truck bay pad (placement + driving come in 28h)
+ const caveObjs=[];world.caveArt=buildCave(scene);caveObjs.push(label('CANDIDATE CAVE',39.5*T,23.4*T,'#ffd79a',10)); // Step 28e: the cave art is ALWAYS visible (game/cave.ts); only the label waits for the unlock
  world.sync=()=>{const st=ctx.state();if(!st)return;world.setSuit(!!st.suitOn&&!st.outside);world.stow(!!(st.ep&&st.ep.panelsStowed));roverObjs.forEach(o=>o.setVisible(st.buildings.includes('rover_bay')));for(const k of Object.keys(bld))bld[k].forEach(o=>o.setVisible(st.buildings.includes(k)));caveObjs.forEach(o=>o.setVisible(!!st.flags.cave_unlocked));world.setQuarantine(!!st.flags.quarantine_over)};
  // suit rack on the hallway wall, on the way to the airlock
  {const g=obj(17*T+1);g.fillStyle(0x24365a,1);g.fillRect(17*T-10,16*T-30,10,40);g.lineStyle(1,0x39d9ff,.6);g.strokeRect(17*T-10+.5,16*T-30+.5,9,39);const hang=obj(17*T+2);hang.fillStyle(0xeaf4ff,1);hang.fillRoundedRect(17*T-9,16*T-26,8,20,2);hang.fillStyle(0x203b67,1);hang.fillRoundedRect(17*T-8,16*T-27,6,5,2);hang.fillStyle(0x54d8f3,1);hang.fillRect(17*T-7,16*T-26,4,2);label('SUIT RACK',16*T,15.5*T,'#8ceaff',8);world.setSuit=(worn)=>hang.setVisible(!worn)}
@@ -224,8 +229,14 @@ const { clamp } = ctx; const S = ctx.S;
  world.player=player;world.shadow=shadow;world.scene=scene;world.anim=0;
  const arrow=scene.add.graphics().setDepth(9990);world.arrow=arrow;
  const cam=scene.cameras.main;cam.setBounds(0,0,W*T,H*T);cam.startFollow(player,true,.14,.14);cam.roundPixels=true;
- const fit=()=>{const w=scene.scale.width,h=scene.scale.height;cam.setZoom(clamp(Math.round(Math.min(w,h)/(T*12)*4)/4,1,2.5))};fit();scene.scale.on('resize',fit);
+ const fit=()=>{const w=scene.scale.width,h=scene.scale.height;cam.setZoom(cameraZoom(w,h))};fit();scene.scale.on('resize',fit);
  world.pop=(x,y,txt,color='#fff')=>{const t=scene.add.text(x,y,txt,{fontFamily:'Rajdhani, sans-serif',fontSize:'16px',fontStyle:'700',color,stroke:'#000',strokeThickness:3}).setOrigin(.5).setDepth(9999).setResolution(2);scene.tweens.add({targets:t,y:y-36,alpha:0,duration:1600,ease:'Cubic.easeOut',onComplete:()=>t.destroy()})};
+ // Step 28b: very light dust drift over the outdoor ground (hidden over the base; still with reduced motion)
+ {const reduceMo=()=>typeof document!=='undefined'&&(document.documentElement.dataset.reduce==='1'||(typeof matchMedia!=='undefined'&&matchMedia('(prefers-reduced-motion: reduce)').matches));
+  const dg=scene.add.graphics().setDepth(2);let lastDust=-1;
+  dyn.push(t=>{const ts=reduceMo()?0:t/1000;const q=Math.floor(ts*4);if(q===lastDust)return;lastDust=q;dg.clear();
+   for(let i=0;i<DUST_PUFFS;i++){const d=dustPuff(i,ts,W,H);const hit=[-.5,0,.5].some(k=>{const tx=Math.floor((d.x+k*d.w)/T),ty=Math.floor(d.y/T);return tx>=0&&ty>=0&&tx<W&&ty<H&&inside[ty][tx]});if(hit)continue;
+    dg.fillStyle(0xe9a070,d.a);dg.fillEllipse(d.x,d.y,d.w,d.h);dg.fillStyle(0xffd0a8,d.a*.6);dg.fillEllipse(d.x+d.w*.12,d.y-d.h*.1,d.w*.6,d.h*.55)}})}
  world.dyn=dyn;world.dust();world.ready=true;world.puff=0;
 world.sync();world.ready=true;
 }

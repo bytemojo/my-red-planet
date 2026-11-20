@@ -40,14 +40,22 @@ import { PLAYER_ACT, buildPlayerSheet, frameName, lookToSpec } from './sprites';
 import { actFrameName } from './pixelart';
 import { currentLook } from '../ui/creator';
 import { envForSol } from '../core/env';
+import { daylight } from './daylight';
+import { openMicroscope } from '../ui/microscope';
+import { microscopeReady, viewerSamples, noteSample } from '../story/microscope';
+import { AIRLOCK, exposed as airExposedAt, innerBlocks, newAirlock, outerBlocks, stepAirlock, type Airlock, type Where } from '../core/airlock';
+import { buildAirlock, type AirlockArt } from './airlock';
+import { exitSpot, nearTruck, newTruckState, stepTruck, truckBlocked, type TruckPos } from '../core/truck';
+import { TRUCK_PARK } from './truck';
+import { refreshTruckBar } from '../ui/hud';
 import { CREW_IDS } from '../core/crewlife';
 import { CREW_LIFE, FAIL } from '../core/constants';
 import { SPACE_MEALS } from '../core/meals';
 import type { Dir } from './pixelart';
-import { clamp, $, UI, flashMeter, warnFlash, head, optCard, overlay, runPending, showReport, showSimple, showStageResult, toast, noticeCard, journalHtml, esc, chip } from '../ui/ui';
+import { clamp, $, UI, flashMeter, warnFlash, head, optCard, overlay, runPending, showReport, showSimple, showStageResult, stageScore, toast, noticeCard, journalHtml, esc, chip } from '../ui/ui';
 import { objectiveZones, pickRadarTarget } from '../core/radar';
 import { refreshHud, initHud, updateRadar, promptInfo, promptHtml } from '../ui/hud';
-import { openBath, openCave, openComms, openControl, openCrew, openFarm, openGym, openKitchen, openLab, openLs, openPumpMode, openRover, openSeedPicker, openSolar, type Host } from '../ui/panels';
+import { openBath, openCave, openCaveLocked, openComms, openControl, openCrew, openFarm, openGym, openKitchen, openLab, openLs, openPumpMode, openRover, openRoverLocked, openSeedPicker, openSolar, type Host } from '../ui/panels';
 import { playWorkout } from '../ui/gym';
 import type { Machine } from '../core/gym';
 import { updateAwards } from '../ui/menu';
@@ -68,8 +76,13 @@ export class WorldScene extends Phaser.Scene {
   moveTarget: Phaser.Math.Vector2 | null = null; movePath: Phaser.Math.Vector2[] = []; autoActZone: string | null = null;
   facing: Dir = 'down'; flip = false; acting: { frame: string; frames?: string[]; pose?: { name: 'pull' | 'kneel'; count: number; ms: number }; until: number; then?: () => void } | null = null;
   onMenu: () => void = () => {};
+  // Step 28h: the Mars truck. inTruck = the explorer is in the cab (the sprite is hidden, the truck IS the player). The truck keeps its place when parked.
+  inTruck = false; truckPos: TruckPos = { x: TRUCK_PARK.x, y: TRUCK_PARK.y, facing: 1 }; truckMoving = false; truckEmptyAt = -9999; truckPlaced = '';
+  climb: { t0: number; dir: 'in' | 'out'; from: { x: number; y: number }; to: { x: number; y: number } } | null = null;
   onReplay: () => void = () => {};
   sealT = 0; alarmT = 0;
+  // Airlock (core/airlock.ts rules, game/airlock.ts art): two doors, a meter, a gust for anyone without a suit
+  airlock: Airlock = newAirlock(); airlockArt?: AirlockArt; gustT = 0;
   // Action system (src/core/actions.ts + src/game/actions.ts): runner, held prop, current pose frame
   action = new ActionRunner(); held: Hands = emptyHands(); actFrame: ActionFrame | null = null;
   // Step 24i: the sleep pod. 'in' = climbing in / asleep (until the Sol report is closed), 'out' = waking and climbing out. podClimb 0 (at the pod) .. 1 (in the bay).
@@ -84,6 +97,7 @@ export class WorldScene extends Phaser.Scene {
     const ctx = { clamp, state: () => scene.sess?.state, S: { get farm() { return scene.sess?.state.farm ?? 'dim'; }, get eff() { return clamp(1 - 0.6 * (scene.sess?.state.panelDust ?? 0.1), 0, 1); } } };
     const scene = this;
     buildWorld(this, ctx);
+    this.airlockArt = buildAirlock(this);
     this.racks = buildPropRacks(this); this.pumpArt = buildPump(this); this.leverArt = buildLever(this); this.iceArt = buildIceSheet(this); this.podArt = buildRecRoom(this); this.repairArt = buildRepairArt(this);
     this.game.registry.set('ready', true);
     const sess = this.game.registry.get('sess') as Session | undefined;
@@ -98,7 +112,7 @@ export class WorldScene extends Phaser.Scene {
     this.resetPlayer(false);
     const spot = liveSpot(sess); // Step 24a: CONTINUE puts the player back exactly where and how they stopped
     if (spot) { world.player.x = spot.x; world.player.y = spot.y; if (spot.held.item) { this.held = { item: spot.held.item as never, crop: (spot.held.crop ?? null) as never }; } }
-    world.sync(); refreshHud(s); updateRadar(world.player.x / T, world.player.y / T, this.radarPick(s));
+    this.restoreTruck(s); world.sync(); refreshHud(s); updateRadar(world.player.x / T, world.player.y / T, this.radarPick(s));
     this.cameras.main.centerOn(world.player.x, world.player.y);
     this.time.delayedCall(250, () => void this.afterAction(true));
   }
@@ -106,19 +120,27 @@ export class WorldScene extends Phaser.Scene {
   /** Step 24a: save everything (state + where the player stands + what they hold). Used by pause, tab hide, the 20 s timer and menu exits. */
   autosave(): boolean {
     if (!this.sess) return false;
+    this.syncTruckFlags();
     if (!this.actFrame && !this.action.locked) captureLive(this.sess, world.player.x, world.player.y, this.held); // never capture mid-animation
     return saveToStorage(this.sess);
   }
 
   resetPlayer(tow: boolean) {
+    this.leaveTruckNow();
     this.moveTarget = null; this.movePath = []; this.autoActZone = null;
     this.action.forceUnlock(); this.actFrame = null; this.held = emptyHands(); this.heldSprite?.setVisible(false); // a world reset always frees the hands and the controls
     if (this.sess && this.state().flags.tray_ready) pickUp(this.held, 'tray'); // a prepared tray is never lost by a reload
     if (this.sess && this.state().ep?.phase === 'ice' && this.state().flags[ICE_COLLECTED]) pickUp(this.held, 'ice_sample'); // neither is a full ice container
-    world.player.x = 16 * T; world.player.y = tow ? 17.2 * T : 14.5 * T; if (this.sess) this.sess.state.outside = false;
+    world.player.x = 16 * T; world.player.y = tow ? 17.2 * T : 14.5 * T; if (this.sess) { this.sess.state.outside = false; this.sess.state.airExposed = false; }
+    this.airlock = newAirlock(false); this.airlock.armed = !tow; this.gustT = 0; // back at habitat pressure, inner door open (a respawn in the passage waits until you have walked into the base)
   }
+  /** Which side of the airlock doors the explorer stands on (the passage is x15-16, y17-18; the inner door line is y17 and the outer door line y19). */
+  airWhere(px: number, py: number): Where { const tx = Math.floor(px / T);
+    if (tx >= 15 && tx <= 16) return py < 17.2 * T ? 'inside' : py < 19 * T ? 'chamber' : 'outside';
+    return py >= 19 * T ? 'outside' : 'inside'; }
   blockedAt(px: number, py: number) { const tx = Math.floor(px / T), ty = Math.floor(py / T); if (tx < 0 || ty < 0 || tx >= W || ty >= H) return true;
     if (ty >= 18 && tx >= 15 && tx <= 16 && this.sess && lockedIn(this.state())) { if (performance.now() - this.sealT > 2500) { this.sealT = performance.now(); toast('<b>Airlock sealed.</b> It opens when the storm has passed.', { kind: 'warn' }); sfx.warn(); } return true; } // storm lock
+    if (tx >= 15 && tx <= 16) { if (ty === 16 && innerBlocks(this.airlock)) return true; if (ty === 19 && outerBlocks(this.airlock)) return true; } // the airlock doors are solid until open
     return world.blocked[ty][tx]; }
   hit(x: number, y: number) { return this.blockedAt(x - 6, y - 3) || this.blockedAt(x + 6, y - 3) || this.blockedAt(x - 6, y + 1) || this.blockedAt(x + 6, y + 1); }
 
@@ -153,7 +175,7 @@ export class WorldScene extends Phaser.Scene {
     });
     if (r.ok && name === 'clean_panels') { world.clean(); this.lastDust = s.panelDust; }
     if (r.ok && name === 'talk' && arg?.crew) world.crew.react(arg.crew, 'heart');
-    if (r.ok) { ({ plant: sfx.plant, water: sfx.water, harvest: sfx.harvest, clean_panels: sfx.wipe } as Record<string, () => void>)[name]?.() ?? sfx.ok(); world.pop(world.player.x, world.player.y - 40, r.msg.length < 24 ? r.msg : '✓', '#8cffc6'); }
+    if (r.ok) { ({ plant: sfx.plant, water: sfx.water, harvest: sfx.harvest, clean_panels: sfx.ok } as Record<string, () => void>)[name]?.() ?? sfx.ok(); world.pop(world.player.x, world.player.y - 40, r.msg.length < 24 ? r.msg : '✓', '#8cffc6'); }
     else sfx.warn();
     if (!r.ok && name === 'talk' && /intercom chats/.test(r.msg)) noticeCard(r.msg, 'The crew needs rest'); else toast(esc(r.msg), { kind });
     if (r.ok) { const fresh = unlockedCrops(s).filter(c => !open0.includes(c)); if (fresh.length) { sfx.ok(); toast(`🔓 <b>New seeds unlocked: ${fresh.map(c => esc(CROPS[c].name)).join(', ')}.</b> Take a packet from the seed drawer in the storage room.`, { kind: 'good', ms: 6000 }); } if (allCropsUnlocked(s) && open0.length < unlockedCrops(s).length) toast('★ Bonus star earned: <b>Unlock all crops</b>', { kind: 'good', ms: 5000 }); }
@@ -196,9 +218,13 @@ export class WorldScene extends Phaser.Scene {
   podAct() {
     const s = this.state(), why = sleepRefusal(s);
     if (why) { toast(`<b>${why}</b>`, { kind: 'warn' }); sfx.warn(); return; }
-    playAction(this, 'pod_sleep', { stand: podStand(), face: 'right', onBeat: () => sfx.pod(), onDone: () => { void this.sleepFlow(); } });
+    playAction(this, 'pod_sleep', { stand: podStand(), face: 'right', onDone: () => { void this.sleepFlow(); } });
   }
   // Step 17b: the NASA WIKI wall screen and the two game tables. Reach (animated), then the existing wiki modal / a coming-soon card. Opening a source link there marks the bonus (sessionStorage).
+  /** Step 29b: lean over the microscope (the existing 'use the screen' reach, no energy), then the round eyepiece viewer opens. */
+  microscopeAct() {
+    playAction(this, 'use_screen', { stand: recStand(MARKERS.microscope), face: 'left', onBeat: () => { sfx.ok(); }, onDone: () => { if (!UI.blocking() && !this.busy) void openMicroscope(viewerSamples(), smp => { if (noteSample(this.state(), smp)) this.autosave(); }); } });
+  }
   wikiAct() {
     playAction(this, 'use_screen', { stand: recStand(WIKI_MARKER), face: 'left', onBeat: () => { sfx.ok(); sparkle(this, world.player.x - 16, world.player.y - 34); }, onDone: () => { if (!UI.blocking() && !this.busy) openWiki(); } });
   }
@@ -301,9 +327,9 @@ export class WorldScene extends Phaser.Scene {
 
   // ----- interaction -----
   doAct() {
-    const z = this.curZone; if (!z || UI.blocking() || this.busy || this.acting || this.action.locked) return; sfx.click();
+    const z = this.curZone; if (!z || UI.blocking() || this.busy || this.acting || this.action.locked || this.climb) return; sfx.click();
     const h = this.host;
-    ({ comms: () => this.commsAct(), dish: () => this.repairDish(), ice: () => this.iceAct(), intake: () => this.intakeAct(), pump: () => this.pumpAct(), lever: () => this.leverAct(), pod: () => this.podAct(), wiki: () => this.wikiAct(), chess: () => this.tableAct('chess'), checkers: () => this.tableAct('checkers'), farm: () => this.farmAct(),  ls: () => openLs(h), solar: () => this.solarAct(h), control: () => openControl(h), sick: () => openCrew(h), kitchen: () => this.kitchenAct(), hatch: () => this.state().ep ? this.hatchAct() : this.serveMeal(), suit: () => this.suitAct(), bands: () => this.pullBands(), bike: () => openGym(h, 'bike'), rower: () => openGym(h, 'rower'), lab: () => openLab(h), bath: () => openBath(h), rover: () => openRover(h), cave: () => openCave(h), ...Object.fromEntries(PROP_RACKS.map(r => [r.zone, () => this.useRack(r.zone)])), ...Object.fromEntries(STORAGE_BINS.map(b => [binZoneId(b.id), () => this.openBin(binZoneId(b.id))])) } as Record<string, () => void>)[z]?.();
+    ({ truck: () => (this.inTruck ? this.exitTruck() : this.enterTruck()), microscope: () => this.microscopeAct(), comms: () => this.commsAct(), dish: () => this.repairDish(), ice: () => this.iceAct(), intake: () => this.intakeAct(), pump: () => this.pumpAct(), lever: () => this.leverAct(), pod: () => this.podAct(), wiki: () => this.wikiAct(), chess: () => this.tableAct('chess'), checkers: () => this.tableAct('checkers'), farm: () => this.farmAct(),  ls: () => openLs(h), solar: () => this.solarAct(h), control: () => openControl(h), sick: () => openCrew(h), kitchen: () => this.kitchenAct(), hatch: () => this.state().ep ? this.hatchAct() : this.serveMeal(), suit: () => this.suitAct(), bands: () => this.pullBands(), bike: () => openGym(h, 'bike'), rower: () => openGym(h, 'rower'), lab: () => openLab(h), bath: () => openBath(h), rover: () => (this.state().buildings.includes('rover_bay') ? openRover(h) : openRoverLocked(h)), cave: () => (this.state().flags.cave_unlocked ? openCave(h) : openCaveLocked(h)), ...Object.fromEntries(PROP_RACKS.map(r => [r.zone, () => this.useRack(r.zone)])), ...Object.fromEntries(STORAGE_BINS.map(b => [binZoneId(b.id), () => this.openBin(binZoneId(b.id))])) } as Record<string, () => void>)[z]?.();
   }
   // Step 6a: with a seed packet in hand, E walks to the nearest empty bed and plants it (crouch animation). Otherwise the farm panel opens
   // (water / harvest) and, if a bed is empty, a toast says what to hold.
@@ -358,7 +384,7 @@ export class WorldScene extends Phaser.Scene {
       onBeat: () => {
         if (iceProblem(s, this.held.item)) return;
         void this.run('ice_chip', { held: this.held.item ?? '' });
-        if (s.flags[ICE_COLLECTED]) { pickUp(this.held, 'ice_sample'); sfx.ice(); const p = this.iceArt!.shards(); sparkle(this, p.x, p.y); world.pop(world.player.x, world.player.y - 48, 'ICE COLLECTED', '#8ceaff'); }
+        if (s.flags[ICE_COLLECTED]) { pickUp(this.held, 'ice_sample'); sfx.ok(); const p = this.iceArt!.shards(); sparkle(this, p.x, p.y); world.pop(world.player.x, world.player.y - 48, 'ICE COLLECTED', '#8ceaff'); }
       },
     });
   }
@@ -371,7 +397,7 @@ export class WorldScene extends Phaser.Scene {
       onBeat: () => {
         if (pourProblem(s, this.held.item)) return;
         void this.run('ice_pour', { held: this.held.item ?? '' });
-        if (s.ep?.phase === 'done') { putDown(this.held, 'ice_sample'); sfx.pour(); window.setTimeout(() => sfx.done(), 750); sparkle(this, INTAKE_MARKER[0] * T, INTAKE_MARKER[1] * T - 30); world.pop(world.player.x, world.player.y - 48, 'WATER MAKER ON', '#8cffc6'); }
+        if (s.ep?.phase === 'done') { putDown(this.held, 'ice_sample'); sfx.ok(); sparkle(this, INTAKE_MARKER[0] * T, INTAKE_MARKER[1] * T - 30); world.pop(world.player.x, world.player.y - 48, 'WATER MAKER ON', '#8cffc6'); }
       },
     });
   }
@@ -383,7 +409,7 @@ export class WorldScene extends Phaser.Scene {
     if (after && !s.ep.panelsStowed) { toast('<b>The panels are already out. Go outside and clean them.</b>', { kind: 'warn' }); sfx.warn(); return; }
     playAction(this, 'panel_lever', {
       stand: leverStand(), face: 'right',
-      onBeat: () => { const was = !!s.ep!.panelsStowed; void this.run('panels'); if (!!s.ep!.panelsStowed !== was) { sfx.lever(); sfx.servo(1.1); world.pop(world.player.x, world.player.y - 48, s.ep!.panelsStowed ? 'Panels stowed' : 'Panels out', s.ep!.panelsStowed ? '#ffb340' : '#8ceaff'); } },
+      onBeat: () => { const was = !!s.ep!.panelsStowed; void this.run('panels'); if (!!s.ep!.panelsStowed !== was) { sfx.ok(); world.pop(world.player.x, world.player.y - 48, s.ep!.panelsStowed ? 'Panels stowed' : 'Panels out', s.ep!.panelsStowed ? '#ffb340' : '#8ceaff'); } },
     });
   }
   // Step 16b: panels left out are dug out and cleaned by hand, outside, with a kneel animation. The Solar Farm panel only shows info.
@@ -409,7 +435,7 @@ export class WorldScene extends Phaser.Scene {
       stand: pumpStand(), face: 'left',
       onBeat: () => {
         void this.run('watering_mode', { mode }); // act() runs synchronously inside run()
-        if (s.wateringMode === mode) { sfx.lever(); world.pop(world.player.x, world.player.y - 48, mode === 'automatic' ? 'Pump ON' : 'Pump OFF', mode === 'automatic' ? '#8ceaff' : '#ffb340'); }
+        if (s.wateringMode === mode) { sfx.ok(); world.pop(world.player.x, world.player.y - 48, mode === 'automatic' ? 'Pump ON' : 'Pump OFF', mode === 'automatic' ? '#8ceaff' : '#ffb340'); }
       },
     });
   }
@@ -423,7 +449,7 @@ export class WorldScene extends Phaser.Scene {
       onBeat: () => {
         end(); if (pumpProblem(s, this.held)) return;
         void this.run('repair_watering', { part: 'spare_part' }); // act() runs synchronously inside run()
-        if (s.ep?.wateringFixed) { putDown(this.held, 'spare_part'); sfx.wrench(); sparkle(this, world.player.x - 22, world.player.y - 24); world.pop(world.player.x, world.player.y - 48, 'Pump repaired', '#8cffc6'); }
+        if (s.ep?.wateringFixed) { putDown(this.held, 'spare_part'); sfx.ok(); sparkle(this, world.player.x - 22, world.player.y - 24); world.pop(world.player.x, world.player.y - 48, 'Pump repaired', '#8cffc6'); }
       },
       onDone: end, onAbort: end,
     });
@@ -447,7 +473,7 @@ export class WorldScene extends Phaser.Scene {
       onBeat: () => {
         end(); if (why()) return;
         void this.run('repair_dish', { part: 'spare_part' }); // act() runs synchronously inside run()
-        if (!isDishBroken(s)) { putDown(this.held, 'spare_part'); sfx.wrench(); sparkle(this, world.player.x - 22, world.player.y - 24); world.pop(world.player.x, world.player.y - 48, 'Dish repaired', '#8cffc6'); }
+        if (!isDishBroken(s)) { putDown(this.held, 'spare_part'); sfx.ok(); sparkle(this, world.player.x - 22, world.player.y - 24); world.pop(world.player.x, world.player.y - 48, 'Dish repaired', '#8cffc6'); }
       },
       onDone: end, onAbort: end,
     });
@@ -465,7 +491,7 @@ export class WorldScene extends Phaser.Scene {
       onBeat: () => {
         end(); if (machineProblem(s, this.held, id)) return;
         void this.run('repair_machine', { machine: id, part: 'spare_part' }); // act() runs synchronously inside run()
-        if (!isBroken(s, id)) { putDown(this.held, 'spare_part'); sfx.wrench(); sparkle(this, world.player.x - 22, world.player.y - 24); world.pop(world.player.x, world.player.y - 48, `${MACHINE_NAMES[id]} repaired`, '#8cffc6'); }
+        if (!isBroken(s, id)) { putDown(this.held, 'spare_part'); sfx.ok(); sparkle(this, world.player.x - 22, world.player.y - 24); world.pop(world.player.x, world.player.y - 48, `${MACHINE_NAMES[id]} repaired`, '#8cffc6'); }
       },
       onDone: end, onAbort: end,
     });
@@ -502,7 +528,7 @@ export class WorldScene extends Phaser.Scene {
   storeCrop(i: number) {
     playAction(this, 'store_crop', {
       stand: binStand(i), face: 'right',
-      onBeat: () => { const was = this.held.crop; if (putDown(this.held, 'harvest').ok) { storageArt?.setOpen(i, true); sfx.locker(); sparkle(this, world.player.x, world.player.y - 34); world.pop(world.player.x, world.player.y - 48, `${was ? CROPS[was].name : 'Crop'} stored`, '#8cffc6'); } },
+      onBeat: () => { const was = this.held.crop; if (putDown(this.held, 'harvest').ok) { storageArt?.setOpen(i, true); sfx.ok(); sparkle(this, world.player.x, world.player.y - 34); world.pop(world.player.x, world.player.y - 48, `${was ? CROPS[was].name : 'Crop'} stored`, '#8cffc6'); } },
       onDone: () => storageArt?.setOpen(i, false),
       onAbort: () => storageArt?.setOpen(i, false),
     });
@@ -512,7 +538,7 @@ export class WorldScene extends Phaser.Scene {
     const h = this.host;
     playAction(this, 'pull_bands', {
       stand: { x: 31 * T, y: 4.8 * T }, face: 'right',
-      onBeat: () => { world.wing.setBands(true); sfx.twang(); sparkle(this, world.player.x + 22, world.player.y - 22); },
+      onBeat: () => { world.wing.setBands(true); sfx.ok(); sparkle(this, world.player.x + 22, world.player.y - 22); },
       onDone: () => { world.wing.setBands(false); if (!UI.blocking() && !this.busy) openGym(h, 'bands'); },
       onAbort: () => world.wing.setBands(false),
     });
@@ -529,7 +555,7 @@ export class WorldScene extends Phaser.Scene {
       stand: rackStand(rack), face: rack.wall === 'west' || !rack.wall ? 'left' : 'right',
       onBeat: () => {
         const r = rule === 'pick_up' ? pickUp(this.held, rack.item, crop) : putDown(this.held, rack.item);
-        if (r.ok) { rule === 'pick_up' ? sfx.pickup() : sfx.putdown(); sparkle(this, world.player.x - 22, world.player.y - 28); world.pop(world.player.x, world.player.y - 44, rule === 'pick_up' ? (crop ? `${CROPS[crop].name} seeds` : PROP_NAMES[rack.item]) : 'Put back', '#8cffc6'); }
+        if (r.ok) { sfx.ok(); sparkle(this, world.player.x - 22, world.player.y - 28); world.pop(world.player.x, world.player.y - 44, rule === 'pick_up' ? (crop ? `${CROPS[crop].name} seeds` : PROP_NAMES[rack.item]) : 'Put back', '#8cffc6'); }
       },
     });
   }
@@ -540,7 +566,7 @@ export class WorldScene extends Phaser.Scene {
     if (this.held.item === 'harvest') { if (id === 'food') this.storeCrop(i); else { toast(`<b>${STORE_ONLY_FOOD_BIN}</b>`, { kind: 'warn' }); sfx.warn(); } return; }
     playAction(this, 'open_bin', {
       stand: binStand(i), face: 'right',
-      onBeat: () => { storageArt?.setOpen(i, true); sfx.locker(); sparkle(this, world.player.x, world.player.y - 34); },
+      onBeat: () => { storageArt?.setOpen(i, true); sfx.ok(); sparkle(this, world.player.x, world.player.y - 34); },
       onDone: () => { if (!UI.blocking() && !this.busy) this.showBinScreen(i, id); else storageArt?.setOpen(i, false); },
       onAbort: () => storageArt?.setOpen(i, false),
     });
@@ -574,18 +600,18 @@ export class WorldScene extends Phaser.Scene {
     const on = s.suitOn, [mx, my] = MARKERS.suit;
     playAction(this, on ? 'suit_off' : 'suit_up', {
       stand: { x: mx * T, y: my * T }, face: 'right',
-      onBeat: () => { void this.run('suit'); sfx.suit(); sparkle(this, world.player.x, world.player.y - 20); },
+      onBeat: () => { void this.run('suit'); sfx.ok(); sparkle(this, world.player.x, world.player.y - 20); },
     });
   }
   // Step 2d: the Episode 1 meal hatch. With a prepared tray, the serve animation is the ONLY way the crew gets fed.
   hatchAct() {
     const s = this.state(); if (!s.flags.tray_ready) { openKitchen(this.host); return; }
     if (this.held.item && this.held.item !== 'tray') { toast('Put your item down first.', { kind: 'warn' }); sfx.warn(); return; }
-    if (!this.held.item) { pickUp(this.held, 'tray'); sfx.pickup(); }
+    if (!this.held.item) pickUp(this.held, 'tray');
     const wasHungry = CREW_IDS.filter(id => s.crew[id].hunger >= CREW_LIFE.PECKISH_AT);
     playAction(this, 'serve_tray', {
       stand: { x: 11.5 * T, y: 11.7 * T }, face: 'right',
-      onBeat: () => { putDown(this.held, 'tray'); sfx.putdown(); void this.run('serve_tray').then(() => { for (const id of wasHungry) if (s.crew[id].hunger === 0) world.crew.react(id, 'heart'); }); },
+      onBeat: () => { putDown(this.held, 'tray'); void this.run('serve_tray').then(() => { for (const id of wasHungry) if (s.crew[id].hunger === 0) world.crew.react(id, 'heart'); }); },
     });
   }
   // Serving a meal is done by hand: the explorer lifts the tray to the hatch, then the crew react.
@@ -599,13 +625,15 @@ export class WorldScene extends Phaser.Scene {
   // Called from the DOM stage so mouse, phone and tablet taps all share one
   // click-to-walk path. Tapping a marked station walks there, then opens it.
   tapAt(clientX: number, clientY: number, bounds: DOMRect) {
-    if (UI.blocking() || this.busy || !world.ready || this.action.locked) return;
+    if (UI.blocking() || this.busy || !world.ready || this.action.locked || this.inTruck || this.climb) return; // in the cab you drive, you do not click-walk
     const cam = this.cameras.main;
     const sx = (clientX - bounds.left) * cam.width / bounds.width;
     const sy = (clientY - bounds.top) * cam.height / bounds.height;
     const point = cam.getWorldPoint(sx, sy);
     const tx = Math.floor(point.x / T), ty = Math.floor(point.y / T);
     const s = this.state();
+    { const tp = this.truckPos; // Step 28h: the truck's own click box (the body, walk first like every other object)
+      if (s.outside && point.x >= tp.x - 52 && point.x <= tp.x + 52 && point.y >= tp.y - 62 && point.y <= tp.y + 10) { this.walkToPoint(new Phaser.Math.Vector2(tp.x, tp.y + 22), 'truck', s); sfx.click(); return; } }
     for (const k of Object.keys(ZONES)) {
       const z = ZONES[k];
       const hitZone = k === 'solar'
@@ -636,17 +664,63 @@ export class WorldScene extends Phaser.Scene {
     this.autoActZone = autoActZone;
     return path.reached;
   }
+  // ----- Step 28h: the Mars truck -----
+  /** Saved in flags (no save-version change): where the truck is parked and whether the explorer is in the cab. */
+  syncTruckFlags() { if (!this.sess) return; const f = this.sess.state.flags; f.truck_x = Math.round(this.truckPos.x); f.truck_y = Math.round(this.truckPos.y); f.truck_f = this.truckPos.facing; f.in_truck = this.inTruck; }
+  restoreTruck(s: GameState) {
+    s.truck ??= newTruckState(); const f = s.flags;
+    if (typeof f.truck_x === 'number' && typeof f.truck_y === 'number') this.truckPos = { x: f.truck_x, y: f.truck_y, facing: f.truck_f === -1 ? -1 : 1 };
+    this.inTruck = f.in_truck === true; this.climb = null; this.truckMoving = false; this.truckPlaced = '';
+    if (this.inTruck) { world.player.x = this.truckPos.x; world.player.y = this.truckPos.y; } // CONTINUE puts the explorer back in the cab
+  }
+  /** Instantly out of the cab (sleep, failure, reload): next to the truck, or where the player already is. */
+  leaveTruckNow() {
+    this.climb = null; if (!this.inTruck) { world.player.setAlpha(1); return; }
+    const spot = exitSpot(this.truckPos, (x, y) => !this.hit(x, y)) ?? { x: this.truckPos.x, y: this.truckPos.y + 24 };
+    this.inTruck = false; if (this.sess) this.sess.state.flags.in_truck = false; world.player.x = spot.x; world.player.y = spot.y; world.player.setAlpha(1).setVisible(true); world.shadow.setVisible(true);
+  }
+  enterTruck() {
+    if (this.inTruck || this.climb || !this.state().outside) return;
+    this.moveTarget = null; this.movePath = []; this.autoActZone = null;
+    const p = world.player, tp = this.truckPos; this.facing = 'side'; this.flip = tp.x < p.x;
+    this.climb = { t0: this.time.now, dir: 'in', from: { x: p.x, y: p.y }, to: { x: tp.x + tp.facing * 4, y: tp.y - 4 } }; sfx.ok();
+  }
+  exitTruck() {
+    if (!this.inTruck || this.climb) return;
+    const spot = exitSpot(this.truckPos, (x, y) => !this.hit(x, y));
+    if (!spot) { toast('<b>No room to get out here.</b> Drive to open ground.'); return; }
+    const p = world.player, tp = this.truckPos; this.inTruck = false; this.syncTruckFlags(); this.truckMoving = false;
+    p.x = tp.x + tp.facing * 4; p.y = tp.y - 4; p.setAlpha(0.1).setVisible(true); world.shadow.setVisible(true); this.facing = 'side'; this.flip = spot.x < tp.x;
+    this.climb = { t0: this.time.now, dir: 'out', from: { x: p.x, y: p.y }, to: spot }; sfx.ok();
+  }
+  /** The short hop in or out of the cab (450 ms): the explorer slides to the door while fading in or out. */
+  tickClimb() {
+    const c = this.climb; if (!c) return; const p = world.player, k = Math.min(1, (this.time.now - c.t0) / 450), e = k * k * (3 - 2 * k);
+    p.x = c.from.x + (c.to.x - c.from.x) * e; p.y = c.from.y + (c.to.y - c.from.y) * e - Math.sin(k * Math.PI) * 6; p.setAlpha(c.dir === 'in' ? 1 - e * 0.9 : 0.1 + e * 0.9); p.setDepth(p.y + 40);
+    if (k < 1) return; this.climb = null;
+    if (c.dir === 'in') { this.inTruck = true; this.truckMoving = false; p.x = this.truckPos.x; p.y = this.truckPos.y; p.setAlpha(1); this.syncTruckFlags(); toast('<b>In the truck.</b> Arrows or the joystick drive. Press E to get out.'); refreshHud(this.state()); }
+    else { p.x = c.to.x; p.y = c.to.y; p.setAlpha(1); }
+  }
+  driveTruck(dx: number, dy: number, dt: number) {
+    const s = this.state(); s.truck ??= newTruckState(); const was = s.truck.energy;
+    const r = stepTruck(s.truck, this.truckPos, { dx, dy }, dt, (x, y) => truckBlocked((tx, ty) => tx < 0 || ty < 0 || tx >= W || ty >= H || !!world.blocked[ty]?.[tx], x, y));
+    s.truck = r.truck; this.truckPos = r.pos; this.truckMoving = r.moving; world.player.x = r.pos.x; world.player.y = r.pos.y;
+    if ((r.empty || (was > 0 && r.truck.energy <= 0)) && this.time.now - this.truckEmptyAt > 5000) { this.truckEmptyAt = this.time.now; toast('<b>Truck battery empty.</b> The sun recharges it while it is parked. Press E to get out.'); } // gentle: no failure, no damage
+  }
+
   zoneOk(k: string, s: GameState, ins: boolean) {
     const q = ZONES[k]; if (q.inside !== ins) return false;
-    if (k === 'rover') return s.buildings.includes('rover_bay'); if (k === 'cave') return !!s.flags.cave_unlocked; if (k === 'hatch') return !s.flags.quarantine_over; if (['kitchen', 'suit', 'bands', 'bike', 'rower', 'lab', 'bath', ...PROP_RACKS.map(r => r.zone)].includes(k)) return !!s.ep; return true;
+    if (k === 'rover') return true; if (k === 'cave') return true; // Step 28e: always usable (locked card until the story unlocks it)
+    if (k === 'microscope') return !!s.ep && microscopeReady(); // Step 29b: only when there is something to look at (no fake button)
+    if (k === 'hatch') return !s.flags.quarantine_over; if (['kitchen', 'suit', 'bands', 'bike', 'rower', 'lab', 'bath', ...PROP_RACKS.map(r => r.zone)].includes(k)) return !!s.ep; return true;
   }
   meterGlows: Record<string, Phaser.GameObjects.Rectangle> = {};
   curLabel = ''; refillT = 0; wasRefilling = false; tankGlow?: Phaser.GameObjects.Arc; coughT = 600; coughLeft = 0; warned: FailureId[] = []; roomLabels?: Phaser.GameObjects.Text[];
-  promptLabel(z: string) { return z === 'farm' && this.held.item === 'seed_packet' && this.held.crop ? `Plant ${CROPS[this.held.crop].name} · −${ACTION_ENERGY.plant}⚡` : ZONES[z].label; }
+  promptLabel(z: string) { return z === 'farm' && this.held.item === 'seed_packet' && this.held.crop ? `Plant ${CROPS[this.held.crop].name} · −${ACTION_ENERGY.plant}⚡` : (ZONES[z]?.label ?? 'Mars Truck'); }
   setPrompt(z: string | null) {
     const act = $('#act') as HTMLButtonElement;
     const label = z ? this.promptLabel(z) : '';
-    const info = z ? promptInfo(this.state(), z, this.held, ZONES[z].label) : null, html = info ? promptHtml(info) : '';
+    const info = z ? promptInfo(this.state(), z, this.held, ZONES[z]?.label ?? 'Mars Truck') : null, html = info ? promptHtml(info) : '';
     if (z === this.curZone && html === this.curLabel && !UI.blocking()) return; this.curZone = z; this.curLabel = html;
     if (!z || UI.blocking()) { act.hidden = true; return; }
     act.hidden = false; act.innerHTML = html;
@@ -681,13 +755,19 @@ export class WorldScene extends Phaser.Scene {
     world.dyn.forEach((f: (t: number) => void) => f(t));
     { const ls = pickLifeSupportState(s); world.lifeArt?.update(ls.o2On, ls.waterOn, s.res.o2, s.res.water, t, prefersReducedMotion()); } // Step 26b
     world.dishArt?.update(isDishBroken(s), t, prefersReducedMotion()); // Step 26c
+    world.roverArt?.update(t, prefersReducedMotion()); // Step 28c
+    world.caveArt?.update(t, prefersReducedMotion()); // Step 28e
+    { const tp = this.truckPos, key = tp.x.toFixed(1) + ',' + tp.y.toFixed(1) + ',' + tp.facing; if (key !== this.truckPlaced) { this.truckPlaced = key; world.truckArt?.setPlacement(tp.x, tp.y, tp.facing); } }
+    world.truckArt?.update(t, { driving: this.inTruck && this.truckMoving, lamp: daylight(s.hour, envForSol(s.sol).dust).lamp, reduced: prefersReducedMotion() }); // Step 28g art, 28h driving
+    refreshTruckBar(this.inTruck, s.truck);
     // Room names: hidden while you stand in that room, half strength everywhere else.
     this.roomLabels ??= (this.children.list.filter((o: any) => o.getData?.('room')) as Phaser.GameObjects.Text[]).map(o => { o.setScale(0.7); return o; }); // smaller room names
     let here = roomAt(Math.floor(world.player.x / T), Math.floor((world.player.y - 4) / T));
     if (!here && world.player.x >= BAY.x0 && world.player.x < BAY.x1 && world.player.y >= BAY.y0 && world.player.y < BAY.y1) here = 'q_' + CREW_IDS[Math.min(3, Math.floor((world.player.x - BAY.x0) / ((BAY.x1 - BAY.x0) / 4)))];
     for (const o of this.roomLabels) o.setAlpha(o.getData('room') === here ? 0 : 0.45);
     if (this.acting && t >= this.acting.until) { const a = this.acting; this.acting = null; a.then?.(); }
-    const blocking = UI.blocking() || this.busy || !!s.failed || !!this.acting;
+    const blocking = UI.blocking() || this.busy || !!s.failed || !!this.acting || !!this.climb;
+    if (!this.inTruck || blocking) { s.truck ??= newTruckState(); s.truck = stepTruck(s.truck, this.truckPos, { dx: 0, dy: 0 }, dt, () => false).truck; this.truckMoving = false; } // parked and idle: solar charging (300 s)
     let dx = 0, dy = 0;
     if (!blocking) {
       const free = !this.action.locked; // keys and joystick are ignored while an action plays
@@ -702,8 +782,25 @@ export class WorldScene extends Phaser.Scene {
         } else { dx += ddx; dy += ddy; }
       }
       if (this.action.phase === 'posing') { dx = 0; dy = 0; } // standing still while the poses play
+      // ----- Airlock: step in -> inner door shuts -> depressurise -> outer door opens (and the reverse coming back). No suit: thin air hurts, then a gust blows you out.
+      { const prev = this.airlock.phase, where = this.airWhere(p.x, p.y), suited = s.ep ? s.suitOn : true;
+        const ev = this.inTruck ? [] : stepAirlock(this.airlock, dt, where, !(this.sess && lockedIn(s)));
+        if ((prev === 'habitat' || prev === 'mars') && this.airlock.phase !== prev) { this.moveTarget = null; this.movePath = []; this.autoActZone = null; sfx.door(); } // a cycle starts: the door slides shut behind you
+        if (prev === 'inner_closing' && this.airlock.phase === 'depressurising' || prev === 'outer_closing' && this.airlock.phase === 'pressurising') { sfx.door(); sfx.hiss(AIRLOCK.DEPRESS_S - 0.5); }
+        for (const e of ev) {
+          if (e === 'outer_opened') sfx.door();
+          if (e === 'inner_opened') { sfx.door(); sfx.ok(); }
+        }
+        if (prev === 'depressurising' && this.airlock.phase === 'outer_opening' && !suited && where === 'chamber') { this.gustT = AIRLOCK.GUST_S + AIRLOCK.DOOR_S * 0.6; sfx.warn(); if (!prefersReducedMotion()) this.cameras.main.shake(450, 0.006); } // the door bursts open: no suit means the thin air throws you out
+        s.airExposed = where === 'chamber' && airExposedAt(this.airlock);
+        if (this.gustT > 0) { // blown out through the open door: no steering, dust streaks, the camera shakes (the failure flow still catches you if your health runs out)
+          this.gustT = Math.max(0, this.gustT - dt); dx = Math.max(-0.2, Math.min(0.2, (16 * T - p.x) / T)); dy = 1; this.facing = 'down';
+          if (Math.random() < 0.5) dustPuff(this, p.x + (Math.random() * 40 - 20), p.y - 10 - Math.random() * 20);
+        }
+        this.airlockArt?.update(this.airlock, t);
+      }
       const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
-      const sp = s.outside ? 86 : 100; const nx = p.x + dx * sp * dt; if (!this.hit(nx, p.y)) p.x = nx; const ny = p.y + dy * sp * dt; if (!this.hit(p.x, ny)) p.y = ny;
+      if (this.inTruck) this.driveTruck(dx, dy, dt); else { const sp = this.gustT > 0 ? 95 : s.outside ? 86 : 100; const nx = p.x + dx * sp * dt; if (!this.hit(nx, p.y)) p.x = nx; const ny = p.y + dy * sp * dt; if (!this.hit(p.x, ny)) p.y = ny; }
       if (Math.hypot(dx, dy) > 0.1) { this.anim += dt * 8; if (Math.abs(dx) > Math.abs(dy) * 1.2) { this.facing = 'side'; this.flip = dx < 0; } else this.facing = dy < 0 ? 'up' : 'down'; } else this.anim = 0;
       const r = advance(s, dt * HOURS_PER_SEC);
       if (s.flags.tmp_passout) { void this.passOut(String(s.flags.tmp_passout)); return; }
@@ -715,13 +812,13 @@ export class WorldScene extends Phaser.Scene {
       }
       if (s.pending && !this.busy) { void this.afterAction(); return; }
       if (r.blackout) { this.resetPlayer(true); sfx.warn(); this.refresh(); showSimple('suit', 'Suit blackout!', '<p class="line">Your suit ran out of air. You were towed back inside and lost time, energy and power.</p>'); }
-      if (r.dayOver) { void this.sleepFlow(); return; }
+      if (r.dayOver) { this.leaveTruckNow(); void this.sleepFlow(); return; }
       if (s.failed) { void this.failFlow(); return; }
     }
     stepAction(this, Math.min(dtms, 100)); // arrival, poses, beat, unlock (runs even while a panel is open, so it can never stay locked)
     const moving = Math.hypot(dx, dy) > 0.1, step = moving ? [1, 0, 2, 0][Math.floor(this.anim) % 4] : 0;
-    const tx = Math.floor(p.x / T), ty = Math.floor(p.y / T), ins = !!(world.inside[ty] && world.inside[ty][tx]);
-    if (s.outside === ins) { s.outside = !ins; if (s.outside) { toast('<b>Outside!</b> Watch your meters.', { kind: 'warn' }); sfx.warn(); } else if (s.suitOn) { toast('<b>Inside.</b> Suit refilling.', { kind: 'good' }); sfx.ok(); } refreshHud(s); }
+    const tx = Math.floor(p.x / T), ty = Math.floor(p.y / T), ins = this.inTruck || !!(world.inside[ty] && world.inside[ty][tx]); // Step 28h: the truck is a sealed cab, so the driver counts as inside (no suit needed, no suit hint)
+    if (s.outside === ins) { s.outside = !ins; if (s.outside) { toast('<b>Outside!</b> Watch your meters.', { kind: 'warn' }); sfx.warn(); } else if (s.suitOn && !this.inTruck) { toast('<b>Inside.</b> Suit refilling.', { kind: 'good' }); sfx.ok(); } refreshHud(s); }
     music.location(s.outside ? 'outdoor' : 'indoor');
     const pose = (['step1', 'stand', 'step2', 'stand'] as const)[step === 0 ? 1 : step === 1 ? 0 : 2];
     const suited = s.ep ? s.suitOn : s.outside;
@@ -749,7 +846,7 @@ export class WorldScene extends Phaser.Scene {
       this.tankGlow.setVisible(low);
       if (low) { const back = this.facing === 'up' ? [0, -26] : this.facing === 'side' ? [this.flip ? 9 : -9, -24] : [9, -32]; this.tankGlow.setPosition(p.x + back[0], p.y + back[1]).setDepth(p.y + 0.7).setAlpha(prefersReducedMotion() ? 0.85 : 0.5 + 0.5 * Math.sin(t / 170)); }
     }
-    const refilling = suitRefillShows(s);
+    const refilling = !this.inTruck && suitRefillShows(s);
     if (refilling) { this.refillT -= dtms; if (this.refillT <= 0) { this.refillT = 700; sfx.refill(s.suit); sparkle(this, p.x + (this.flip ? 8 : -8), p.y - 30, 0x8ff0ff); } }
     else { this.refillT = 0; if (this.wasRefilling && s.suitOn && !s.outside) { sfx.ok(); sparkle(this, p.x, p.y - 30, 0xffffff); } }
     this.wasRefilling = refilling;
@@ -777,6 +874,8 @@ export class WorldScene extends Phaser.Scene {
       } else { sl.setVisible(false); zz.setVisible(false); p.setVisible(true); world.shadow.setVisible(true); }
     }
     p.setDepth(p.y); world.shadow.setPosition(p.x, p.y - 1).setDepth(p.y - 0.5);
+    this.tickClimb(); // Step 28h: climbing in/out of the cab, then hide the sprite while driving
+    if (this.inTruck) { p.setVisible(false); world.shadow.setVisible(false); this.heldSprite?.setVisible(false); }
     world.crew.update(t, dt, s);
     world.night.update(s.hour, envForSol(s.sol).dust, t, { playerOut: s.outside, px: p.x, py: p.y, roverBay: s.buildings.includes('rover_bay') });
     if (moving && s.outside && !blocking) { world.puff -= dt; if (world.puff <= 0) { world.puff = 0.14; const c = this.add.circle(p.x + (Math.random() * 6 - 3), p.y - 1, 2 + Math.random() * 2, 0xe6a67a, 0.6).setDepth(p.y - 1); this.tweens.add({ targets: c, y: c.y - 8, alpha: 0, scale: 2.2, duration: 600, onComplete: () => c.destroy() }); } }
@@ -788,6 +887,7 @@ export class WorldScene extends Phaser.Scene {
         : tx >= q.x0 && tx <= q.x1 && ty >= q.y0 && ty <= q.y1;
       if (inZone && this.zoneOk(k, s, ins)) { z = k; break; }
     }
+    if (this.inTruck && !blocking) z = 'truck'; else if (!z && !blocking && s.outside && nearTruck(p.x, p.y, this.truckPos)) z = 'truck'; // Step 28h: the truck is a moving 'zone'
     this.setPrompt(z);
     if (z && z === this.autoActZone && !this.moveTarget && !blocking) { this.autoActZone = null; this.doAct(); }
     const a = world.arrow; a.clear(); const g = this.guide(s);

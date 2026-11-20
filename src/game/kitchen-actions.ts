@@ -4,7 +4,6 @@ import { cookActionPlan, type ActionId } from '../core/actions';
 import { SPACE_MEALS } from '../core/meals';
 import { playAction } from './actions';
 import { world } from './world';
-import { steam } from './effects';
 import { KITCHEN } from './layout';
 import { sfx } from '../ui/audio';
 import type { WorldScene } from './WorldScene';
@@ -20,15 +19,15 @@ const popAt = (dx: number, text: string, color: string) => world.pop(world.playe
 
 // What the world shows at the beat of each animation.
 const BEAT: Record<string, () => void> = {
-  cook_ready: () => { sfx.pickup(); popAt(0, 'PACK ON TRAY', '#8cffc6'); },
-  cook_hydrate: () => { sfx.pour(); popAt(0, '💧 WATER IN', '#bfeaff'); },
-  cook_heat: () => { sfx.latch(); sfx.microwave(1.2); popAt(0, 'DOOR CLOSED · HEATING', '#ffb340'); },
+  cook_ready: () => { sfx.click(); popAt(0, 'PACK ON TRAY', '#8cffc6'); },
+  cook_hydrate: () => { sfx.water(); popAt(0, '💧 WATER IN', '#bfeaff'); },
+  cook_heat: () => { sfx.click(); popAt(0, 'DOOR CLOSED · HEATING', '#ffb340'); },
 };
 // ...and when the animation is over (bell and steam for heat, shake for hydrate).
-const DONE: Record<string, (scene: WorldScene) => void> = {
-  cook_ready: () => { sfx.latch(); popAt(0, '✓ READY', '#8cffc6'); },
-  cook_hydrate: () => { sfx.latch(); popAt(0, '✓ SHAKEN', '#8cffc6'); },
-  cook_heat: scene => { sfx.ding(); window.setTimeout(() => sfx.steam(), 250); const x = world.player.x - 18, y = world.player.y - 40; steam(scene, x, y); window.setTimeout(() => steam(scene, x + 6, y - 4), 350); popAt(0, '🔔 DING · ♨ STEAM', '#bfeaff'); },
+const DONE: Record<string, () => void> = {
+  cook_ready: () => popAt(0, '✓ READY', '#8cffc6'),
+  cook_hydrate: () => popAt(0, '✓ SHAKEN', '#8cffc6'),
+  cook_heat: () => { sfx.ok(); popAt(0, '🔔 DING · ♨ STEAM', '#bfeaff'); },
 };
 
 /** The cooking animations a tray needs, in order, from the meal ids on the tray. */
@@ -43,7 +42,7 @@ export function playCooking(scene: WorldScene, tray: string[], done: () => void)
   const next = () => {
     const id = plan[i++]; if (!id) return end();
     const st = STAND[id];
-    const started = playAction(scene, id, { stand: { x: st.x, y: st.y }, face: st.face, onBeat: BEAT[id], onDone: () => { DONE[id](scene); next(); }, onAbort: end });
+    const started = playAction(scene, id, { stand: { x: st.x, y: st.y }, face: st.face, onBeat: BEAT[id], onDone: () => { DONE[id](); next(); }, onAbort: end });
     if (!started) end(); // never leave the player stuck: skip the picture, the meal is already paid
   };
   next();

@@ -10,7 +10,7 @@ import { ICE_COLLECTED } from './icerun';
 import type { GameState } from './types';
 
 /** The part of the map (in tiles) that the round radar shows. */
-export const RADAR_BOUNDS = { minX: 4, maxX: 41, minY: 2, maxY: 27 };
+export const RADAR_BOUNDS = { minX: 2, maxX: 61, minY: 2, maxY: 41 }; // Step 28a: the whole bigger map (64 x 44 tiles, minus the ridge)
 /** Farther than this many tiles and the radar also shows an arrow at its edge. */
 export const RADAR_FAR_TILES = 12;
 
