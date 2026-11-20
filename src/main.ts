@@ -106,6 +106,7 @@ const setHud = (o: boolean) => { $('#hud-toggle').setAttribute('aria-expanded', 
 $('#hud-toggle').onclick = () => { sfx.click(); setHud($('#hud-panel').hidden); };
 document.addEventListener('pointerdown', e => { if (!$('#hud-panel').hidden && !(e.target as HTMLElement).closest('#hud-panel,#hud-toggle')) setHud(false); });
 $('#ctrl-btn').onclick = () => { if (!UI.blocking() && scene) { sfx.click(); openControl(scene.host); } };
+$('#ring-btn').onclick = () => scene?.routeToIntercom();
 $('#act').onclick = () => scene?.doAct();
 const stage = $('#stage'), jb = $('#joy-base'), jk = $('#joy-knob');
 let tapX = 0, tapY = 0, dragged = false;

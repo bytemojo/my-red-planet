@@ -74,6 +74,7 @@ export const joy = { id: null as number | null, ox: 0, oy: 0, x: 0, y: 0 };
 export class WorldScene extends Phaser.Scene {
   sess!: Session; curZone: string | null = null; busy = false; gen = 0; again = false; lastStage = 1; finalShown = false; hudT = 0; syncT = 0; anim = 0;
   moveTarget: Phaser.Math.Vector2 | null = null; movePath: Phaser.Math.Vector2[] = []; autoActZone: string | null = null;
+  autoAnswerIntercom = false;
   facing: Dir = 'down'; flip = false; acting: { frame: string; frames?: string[]; pose?: { name: 'pull' | 'kneel'; count: number; ms: number }; until: number; then?: () => void } | null = null;
   onMenu: () => void = () => {};
   // Step 28h: the Mars truck. inTruck = the explorer is in the cab (the sprite is hidden, the truck IS the player). The truck keeps its place when parked.
@@ -127,7 +128,7 @@ export class WorldScene extends Phaser.Scene {
 
   resetPlayer(tow: boolean) {
     this.leaveTruckNow();
-    this.moveTarget = null; this.movePath = []; this.autoActZone = null;
+    this.moveTarget = null; this.movePath = []; this.autoActZone = null; this.autoAnswerIntercom = false;
     this.action.forceUnlock(); this.actFrame = null; this.held = emptyHands(); this.heldSprite?.setVisible(false); // a world reset always frees the hands and the controls
     if (this.sess && this.state().flags.tray_ready) pickUp(this.held, 'tray'); // a prepared tray is never lost by a reload
     if (this.sess && this.state().ep?.phase === 'ice' && this.state().flags[ICE_COLLECTED]) pickUp(this.held, 'ice_sample'); // neither is a full ice container
@@ -645,7 +646,7 @@ export class WorldScene extends Phaser.Scene {
     }
     this.walkToPoint(point, null, s); sfx.click();
   }
-  walkToPoint(point: Phaser.Math.Vector2, autoActZone: string | null, s: GameState): boolean {
+  walkToPoint(point: Phaser.Math.Vector2, autoActZone: string | null, s: GameState, autoAnswerIntercom = false): boolean {
     const target = {
       x: clamp(Math.floor(point.x / T), 0, W - 1),
       y: clamp(Math.floor(point.y / T), 0, H - 1),
@@ -662,7 +663,15 @@ export class WorldScene extends Phaser.Scene {
     if (path.reached && this.movePath.length) this.movePath[this.movePath.length - 1] = destination;
     this.moveTarget = this.movePath.shift() ?? (path.reached ? destination : null);
     this.autoActZone = autoActZone;
+    this.autoAnswerIntercom = autoAnswerIntercom;
     return path.reached;
+  }
+  routeToIntercom() {
+    const s = this.state();
+    if (!s.ep || s.ep.phase !== 'call' || s.ep.call !== 'ringing' || UI.blocking() || this.busy || this.action.locked || this.climb || this.inTruck) return;
+    const [x, y] = MARKERS.sick;
+    this.walkToPoint(new Phaser.Math.Vector2(x * T, y * T), 'sick', s, true);
+    sfx.click();
   }
   // ----- Step 28h: the Mars truck -----
   /** Saved in flags (no save-version change): where the truck is parked and whether the explorer is in the cab. */
@@ -773,7 +782,7 @@ export class WorldScene extends Phaser.Scene {
       const free = !this.action.locked; // keys and joystick are ignored while an action plays
       if (free && (keys.a || keys.arrowleft)) dx -= 1; if (free && (keys.d || keys.arrowright)) dx += 1; if (free && (keys.w || keys.arrowup)) dy -= 1; if (free && (keys.s || keys.arrowdown)) dy += 1;
       if (free && joy.id !== null && Math.hypot(joy.x, joy.y) > 0.15) { dx += joy.x; dy += joy.y; }
-      if (free && (dx !== 0 || dy !== 0) && (this.moveTarget || this.movePath.length)) { this.moveTarget = null; this.movePath = []; this.autoActZone = null; }
+      if (free && (dx !== 0 || dy !== 0) && (this.moveTarget || this.movePath.length)) { this.moveTarget = null; this.movePath = []; this.autoActZone = null; this.autoAnswerIntercom = false; }
       if (this.moveTarget) {
         const ddx = this.moveTarget.x - p.x, ddy = this.moveTarget.y - p.y;
         if (Math.hypot(ddx, ddy) < 8) {
@@ -889,7 +898,11 @@ export class WorldScene extends Phaser.Scene {
     }
     if (this.inTruck && !blocking) z = 'truck'; else if (!z && !blocking && s.outside && nearTruck(p.x, p.y, this.truckPos)) z = 'truck'; // Step 28h: the truck is a moving 'zone'
     this.setPrompt(z);
-    if (z && z === this.autoActZone && !this.moveTarget && !blocking) { this.autoActZone = null; this.doAct(); }
+    if (z && z === this.autoActZone && !this.moveTarget && !blocking) {
+      const answer = this.autoAnswerIntercom && z === 'sick';
+      this.autoActZone = null; this.autoAnswerIntercom = false;
+      if (answer) void this.run('answer', { crew: 'reyes' }); else this.doAct();
+    }
     const a = world.arrow; a.clear(); const g = this.guide(s);
     if (g && !blocking) { let [mx, my] = MARKERS[g]; const needOut = !ZONES[g].inside; if (needOut === ins) { mx = 16; my = 17; } const bob = Math.sin(t / 220) * 5;
       a.fillStyle(0xffb340, 1); a.fillTriangle(mx * T - 9, my * T - 34 + bob, mx * T + 9, my * T - 34 + bob, mx * T, my * T - 18 + bob); a.lineStyle(2, 0xffb340, 0.7); const rr = 14 + ((t / 40) % 20); a.strokeCircle(mx * T, my * T, rr); a.lineStyle(2, 0xffb340, 0.25); a.strokeCircle(mx * T, my * T, rr + 8); }
