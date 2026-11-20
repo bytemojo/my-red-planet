@@ -47,8 +47,7 @@
 /* ---------- Reyes ---------- */
 .aq-host{position:relative;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;margin:0;min-width:0}
 .aq-host::before{content:"";position:absolute;left:50%;bottom:-3%;width:120%;height:16%;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse 50% 50% at 50% 50%,rgba(255,236,176,.55),rgba(255,170,100,.16) 60%,transparent 100%);pointer-events:none}
-.aq-reyes{position:relative;display:block;width:auto;max-width:100%;object-fit:contain;object-position:bottom;filter:drop-shadow(0 12px 26px rgba(0,0,0,.55));animation:aq-bob 5.5s ease-in-out infinite;pointer-events:none}
-@keyframes aq-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.aq-reyes{position:relative;display:block;width:auto;max-width:100%;object-fit:contain;object-position:bottom;filter:drop-shadow(0 12px 26px rgba(0,0,0,.55));pointer-events:none}
 .aq-bubble{position:relative;padding:14px 18px;border-radius:20px;background:linear-gradient(180deg,#ffffff,#dcecff);color:#12204f;font-weight:700;font-size:clamp(18px,4.6vw,24px);line-height:1.2;box-shadow:0 10px 30px rgba(0,0,0,.4),inset 0 -3px 0 rgba(120,150,210,.35)}
 .aq-bubble::after{content:"";position:absolute;width:20px;height:20px;background:#dcecff;transform:rotate(45deg);border-radius:3px}
 .aq-bubble.left::after{left:-8px;top:26px}.aq-bubble.down::after{left:36px;bottom:-8px}
@@ -194,7 +193,7 @@
   .aq-grid{grid-template-columns:270px minmax(0,1fr) 190px;gap:22px;align-items:stretch}
   .aq-hostrow{flex-direction:column-reverse;justify-content:flex-start;align-items:center;gap:14px;align-self:end}
   .aq-hostrow .aq-reyes{display:none}
-  .aq-hostrow .aq-hostfull{display:block;height:min(52vh,470px);width:auto;max-width:100%;position:relative;object-fit:contain;filter:drop-shadow(0 12px 26px rgba(0,0,0,.55));animation:aq-bob 5.5s ease-in-out infinite;pointer-events:none}
+  .aq-hostrow .aq-hostfull{display:block;height:min(46vh,430px);max-height:calc(100dvh - 260px);width:auto;max-width:100%;position:relative;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 12px 26px rgba(0,0,0,.55));transform:translateY(max(16px,env(safe-area-inset-bottom)));pointer-events:none}
   .aq-hostrow{position:relative}
   .aq-hostrow .aq-bubble{width:100%;flex:none}
   .aq-hostrow .aq-bubble::after{left:50%;top:auto;bottom:-8px;margin-left:-10px}
@@ -204,6 +203,7 @@
   .aq-ladder li.done{color:#fff;background:rgba(56,232,160,.22);border-color:rgba(120,255,200,.5)}
   .aq-ladder li.now{color:#3a2100;background:linear-gradient(180deg,#ffe28a,#ff9d1c);border-color:#fff;box-shadow:0 0 18px rgba(255,170,40,.7);transform:scale(1.06)}.aq-ladder li.now b{color:#3a2100}
 }
+@media (min-width:1020px) and (max-height:720px){.aq-hostrow .aq-hostfull{height:min(40vh,280px)}}
 @media (max-height:640px){.aq-qp-in{min-height:84px;padding-top:10px;padding-bottom:12px}.aq-opt-in{min-height:50px}.aq-split .aq-reyes{max-height:46vh}}
 @media (max-width:719px){
   .aq-split.intro{grid-template-columns:1fr;gap:6px;align-items:start;justify-items:center}

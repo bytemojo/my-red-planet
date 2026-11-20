@@ -1,5 +1,10 @@
 # HANDOFF (update at the end of every session)
 
+## Latest session (2026-11-20): Astronaut Quiz portrait crop
+**Status: `npm run check` passes (55 files, 702 passed, 1 skipped, type-check and production build); browser-checked at 1440×900.**
+- The Captain Reyes cutout is static instead of bobbing. On desktop quiz questions, its bottom is aligned with the viewport edge so the screen hides the cutout boundary.
+- Browser check confirmed the portrait ends at y=900 on a 900px screen and has no CSS animation.
+
 ## Latest session (2026-11-20): merged generated game SFX into snapshot
 **Status: `npm run check` passes (55 test files, 701 passed, 1 skipped, TypeScript, production build).** The preview server responds on port 5181; a fresh browser load shows the menu.
 - Merged the generated Web Audio action sounds from `preview/sfx-package-2026-11-20` into `src/ui/audio.ts`, preserving the snapshot's background music/crossfade and current sound controls. These action sounds are generated at runtime; there are no separate SFX asset files.
