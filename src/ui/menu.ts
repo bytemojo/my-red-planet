@@ -98,6 +98,7 @@ function launchAstronautQuiz() {
   openAstronautQuiz({
     playerName: () => settings.name,
     isSoundOn: () => settings.sound,
+    setSoundOn: enabled => { if (settings.sound !== enabled) music.toggle(); },
     reduceMotion: () => settings.reduce,
     onOpen: () => music.set(null),
     onClose: () => music.set('menu'),

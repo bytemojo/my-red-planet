@@ -56,6 +56,8 @@
 
 /* ---------- split layout (intro, results) ---------- */
 .aq-split{margin:auto;width:min(100%,1000px);display:grid;grid-template-columns:minmax(120px,.8fr) 1.4fr;gap:clamp(8px,3vw,36px);align-items:end}
+.aq-screen.aq-intro-screen{padding-bottom:0}
+.aq-split.intro{margin-top:auto;margin-bottom:0}
 .aq-split .aq-reyes{width:100%;height:auto;max-height:min(64vh,560px)}
 .aq-side{display:flex;flex-direction:column;gap:14px;align-items:flex-start;padding-bottom:10px;min-width:0}
 .aq-side .aq-btn{align-self:flex-start}
@@ -214,6 +216,7 @@
   .aq-split.intro .aq-ranks{justify-content:center}
   .aq-split.intro .aq-reyes{max-height:40vh}
 }
+@media (min-width:720px) and (min-height:700px){.aq-screen.aq-intro-screen{overflow-y:hidden}}
 @media (max-width:719px){
   .aq-split:not(.intro){grid-template-columns:1fr;gap:4px;align-items:start;justify-items:center}
   .aq-split:not(.intro) .aq-side{order:1;align-items:center;text-align:center;width:100%}

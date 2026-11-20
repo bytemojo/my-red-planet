@@ -11,6 +11,7 @@ export interface AstronautQuizOptions {
   bank: BankQuestion[];
   playerName?: () => string;            // the game's player name; falls back to what the player types on the report card
   isSoundOn?: () => boolean;            // the game's sound setting
+  setSoundOn?: (enabled: boolean) => void; // sync the quiz mute control to host-wide sound settings
   reduceMotion?: () => boolean;         // the game's "reduce motion" setting
   assetBase?: string;                   // folder that holds crew/reyes.png (default: Vite's BASE_URL)
   shareUrl?: string;                    // link added to shared posts (default: this page)
@@ -65,6 +66,7 @@ export class AstronautQuizUI {
     const given = cleanName(o.playerName?.() ?? ''); this.name = given || cleanName(ls.get('name', '')) || 'Rookie'; this.prefill = this.name === 'Rookie' ? '' : this.name;
     this.calm = !!(o.reduceMotion?.() || (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches));
     aqSfx.setGate(() => o.isSoundOn?.() ?? true);
+    if (o.setSoundOn) aqSfx.setMuted(!(o.isSoundOn?.() ?? true));
     this.root = document.createElement('div'); this.root.className = 'aq' + (this.calm ? ' calm' : ''); this.root.setAttribute('role', 'dialog'); this.root.setAttribute('aria-modal', 'true'); this.root.setAttribute('aria-label', 'Astronaut Quiz');
     const stars = Array.from({ length: 36 }, () => `<i class="aq-star" style="left:${Math.random() * 100}%;top:${Math.random() * 100}%;animation-delay:${(Math.random() * 3).toFixed(2)}s"></i>`).join('');
     this.root.innerHTML = `<div class="aq-bg"><i class="aq-beam b1"></i><i class="aq-beam b2"></i><i class="aq-beam b3"></i><div class="aq-floor"></div>${stars}</div>
@@ -74,7 +76,16 @@ export class AstronautQuizUI {
     (o.container ?? document.body).appendChild(this.root);
     this.alive = true;
     (this.root.querySelector('#aq-exit') as HTMLElement).onclick = () => { aqSfx.click(); void this.requestExit(); };
-    (this.root.querySelector('#aq-snd') as HTMLElement).onclick = () => { aqSfx.setMuted(!aqSfx.muted); if (!aqSfx.muted) { aqSfx.click(); if (this.state === 'open' || this.state === 'feedback' || (this.root.querySelector('.aq-splash') && this.run?.plans.length)) aqSfx.bedStart(); } this.drawSound(); };
+    (this.root.querySelector('#aq-snd') as HTMLElement).onclick = () => {
+      const enabled = !this.soundIsOn();
+      this.opts.setSoundOn?.(enabled);
+      aqSfx.setMuted(!enabled);
+      if (enabled) {
+        aqSfx.click();
+        if (this.state === 'open' || this.state === 'feedback' || (this.root.querySelector('.aq-splash') && this.run?.plans.length)) aqSfx.bedStart();
+      }
+      this.drawSound();
+    };
     this.drawSound();
     document.addEventListener('keydown', this.keyHandler, true); document.addEventListener('visibilitychange', this.visHandler);
     o.onOpen?.();
@@ -100,7 +111,8 @@ export class AstronautQuizUI {
     const s = document.createElement('div'); s.className = 'aq-screen'; s.innerHTML = html; this.root.replaceChild(s, this.screen); this.screen = s;
     (s.querySelector('#aq-main') as HTMLElement | null)?.focus({ preventScroll: true });
   }
-  private drawSound() { const b = this.$('#aq-snd'); const off = aqSfx.muted || this.opts.isSoundOn?.() === false; b.innerHTML = off ? ICON.off : ICON.on; b.setAttribute('aria-pressed', String(off)); b.setAttribute('aria-label', off ? 'Turn sound on' : 'Mute sound'); }
+  private soundIsOn() { return (this.opts.isSoundOn?.() ?? true) && !aqSfx.muted; }
+  private drawSound() { const b = this.$('#aq-snd'); const off = !this.soundIsOn(); b.innerHTML = off ? ICON.off : ICON.on; b.setAttribute('aria-pressed', String(off)); b.setAttribute('aria-label', off ? 'Turn sound on' : 'Mute all sound'); }
   private toast(msg: string) { this.root.querySelector('.aq-toast')?.remove(); const t = document.createElement('div'); t.className = 'aq-toast'; t.setAttribute('role', 'status'); t.textContent = msg; this.root.appendChild(t); this.after(3300, () => t.remove()); }
   private confetti(n = 60) {
     if (this.calm) return; const box = document.createElement('div'), cols = ['#ffc94d', '#6ff0ff', '#ff7a9c', '#38e8a0', '#b48cff', '#fff']; box.className = 'aq-conf';
@@ -142,6 +154,7 @@ export class AstronautQuizUI {
         <p class="aq-rules">${AQ.LEVELS} levels · ${AQ.QUESTIONS_PER_LEVEL} questions each · get ${Math.ceil(AQ.QUESTIONS_PER_LEVEL * AQ.PASS_FRACTION)} right to level up</p>
         <div><div class="aq-ranks-t">YOUR RANK BADGES</div><div class="aq-ranks">${this.rankStrip('in')}</div></div>
       </div></div>`);
+    this.screen.classList.add('aq-intro-screen');
     this.typeInto(this.$('#aq-say'), SAY.welcome, () => { this.$('#aq-tip').style.opacity = '1'; });
     if (!this.calm) this.after(1700, () => { const t = this.root.querySelector('#aq-tip') as HTMLElement | null; if (t) t.style.opacity = '1'; });
     (this.$('#aq-main')).onclick = () => { aqSfx.unlock(); aqSfx.start(); this.newRun(); this.showLevelSplash(); };

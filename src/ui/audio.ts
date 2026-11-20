@@ -62,13 +62,19 @@ const playMusic = async () => {
   if (!settings.sound || !musicMode) return;
   ensureMusic();
   await resumeContext();
-  if (!indoorSource || !outdoorSource) return;
+  if (!settings.sound || !musicMode || !indoorSource || !outdoorSource) return;
   try {
     if (!indoorSource.paused && !outdoorSource.paused) return;
     await Promise.all([
       indoorSource.paused ? indoorSource.play() : Promise.resolve(),
       outdoorSource.paused ? outdoorSource.play() : Promise.resolve(),
     ]);
+    if (!settings.sound || !musicMode) {
+      indoorSource.pause();
+      outdoorSource.pause();
+      musicStarted = false;
+      return;
+    }
     musicStarted = true;
   } catch (error) {
     indoorSource.pause(); outdoorSource.pause(); musicStarted = false;

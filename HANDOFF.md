@@ -1,5 +1,11 @@
 # HANDOFF (update at the end of every session)
 
+## Latest session (2026-11-20): quiz intro crop and shared mute
+**Status: `npm run check` passes (55 files, 702 passed, 1 skipped, type-check and production build); browser-verified on desktop and mobile.**
+- Anchored Captain Reyes's welcome-screen cutout to the viewport bottom with no desktop scrollbar.
+- Opening the quiz now pauses menu audio even if a music start was already in flight; starting the quiz plays only its own music. The quiz mute control now updates the app-wide sound setting and stops all quiz audio.
+- Browser verification: portrait bottom matched the viewport at 1440×900 and 390×844; menu tracks were paused before the quiz track started; mute toggled global sound and paused/resumed audio. Test sound was restored to off.
+
 ## Latest session (2026-11-20): Astronaut Quiz portrait crop
 **Status: `npm run check` passes (55 files, 702 passed, 1 skipped, type-check and production build); browser-checked at 1440×900.**
 - The Captain Reyes cutout is static instead of bobbing. On desktop quiz questions, its bottom is aligned with the viewport edge so the screen hides the cutout boundary.
