@@ -5,7 +5,8 @@
 - Raised the Astronaut Quiz intro's right-side content so its thought bubble starts level with Captain Reyes's portrait. Portrait size and bottom alignment are unchanged.
 - Zoomed desktop gameplay out by 50% (`DESKTOP_ZOOM_FACTOR = 0.5`); mobile camera behavior is unchanged. Updated desktop camera expectations.
 - Browser geometry check confirmed the intro content and portrait both start at y=340, and the portrait remains anchored to the viewport bottom at y=900. Gameplay screenshot shows the wider desktop view.
-- Camera tests pass (3/3); the timing-sensitive dish tests pass both alone (15/15) and in the successful full check. The initial full run timed out once under load, then the clean rerun passed. Push is pending.
+- Camera tests pass (3/3); the timing-sensitive dish tests pass both alone (15/15) and in the successful full check. The initial full run timed out once under load, then the clean rerun passed.
+- Committed as `7b3afb8` and pushed to `origin/master`. Not redeployed; the user asked to push this latest change.
 
 ## Latest session (2026-11-20): quiz intro crop and shared mute
 **Status: `npm run check` passes (55 files, 702 passed, 1 skipped, type-check and production build); browser-verified on desktop and mobile.**
