@@ -179,7 +179,7 @@ export class AstronautQuizUI {
       </div>
       <div class="aq-pips" id="aq-pips" role="img">${'<i class="aq-pip"></i>'.repeat(total)}</div>
       <div class="aq-grid">
-        <div class="aq-hostrow" aria-live="polite">${this.reyesImg('aq-reyes', '')}${this.reyesImg('aq-hostfull', '')}<div class="aq-bubble left"><span class="aq-who">CAPTAIN REYES</span><span id="aq-hsay"></span></div></div>
+        <div class="aq-hostrow" aria-live="polite">${this.reyesImg('aq-reyes aq-reyes-profile', 'Captain Reyes')}${this.reyesImg('aq-hostfull', '')}<div class="aq-bubble left"><span class="aq-who">CAPTAIN REYES</span><span id="aq-hsay"></span></div></div>
         <div class="aq-col">
           <div class="aq-qp" id="aq-qp"><div class="aq-qp-in"><span class="aq-qno" id="aq-qno"></span><p class="aq-q" id="aq-q"></p></div></div>
           <div class="aq-opts" id="aq-opts" role="group" aria-label="Answers"></div>

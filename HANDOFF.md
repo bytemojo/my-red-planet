@@ -1,5 +1,11 @@
 # HANDOFF (update at the end of every session)
 
+## Latest session (2026-11-20): menu mastery, pause close, quiz portrait
+**Status: `npm run check` passes (43 files, 593 tests, type-check, production build).** Browser-checked the desktop and mobile home-menu placement and verified the pause-panel X closes back to gameplay.
+- Moved Astronaut Mastery to the upper-right menu controls, styled it gold with angular edges, a flat SVG icon, and a subtle reduced-motion-aware wiggle.
+- Added the pause-panel close button and made the in-game quiz's small-screen crew profile explicitly use the healthy crew portrait with a face-first crop.
+- Untested: completing an in-game quiz on a phone-sized viewport. The microscope viewer and its slide/sample controls are not present in the current source or supplied archive; no microscope layout change was made. Next: provide the intended viewer package/assets or confirm that a new viewer should be built.
+
 ## Latest session (2026-11-20): generated action SFX
 **Status: integrated with the validated project; release checks completed without reported errors.**
 - Merged the supplied Web Audio action sounds without overwriting the current game's unrelated newer work. The additions cover farming, panel wiping and controls, storage, repairs, suit-up, sleep pod, ice/water-maker actions, tray handling, and kitchen cooking (including microwave, ding and steam).

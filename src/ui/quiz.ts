@@ -37,7 +37,7 @@ export function openQuiz(attempt: QuizAttempt, playerName: string, settle?: (run
         ${head('crew', pop ? `${crew.name.split(' ').slice(-1)[0]} · Pop quiz` : `${crew.name.split(' ').slice(-1)[0]} · Level ${attempt.level}`, !pop)}
         <div class="panel-body qz-body" id="qz-body">
           <div class="qz-top"><div class="qz-dots" id="qz-dots" role="img"></div><div class="qz-clock" aria-label="Time left" ${pop ? 'hidden' : ''}>${GLASS('hourglass')}<b id="qz-time">${clockText(QUIZ.TIME_LIMIT_S)}</b></div></div>
-          <div class="qz-lvl"><img class="qz-face" src="/crew/${attempt.crew}.png" alt="" aria-hidden="true"><span>${esc(crew.name)} · <b>${esc(pop ? 'Pop quiz' : lvl)}</b></span></div>
+          <div class="qz-lvl"><img class="qz-face" src="/crew/${attempt.crew}.png" alt="${esc(crew.name)} profile"><span>${esc(crew.name)} · <b>${esc(pop ? 'Pop quiz' : lvl)}</b></span></div>
           <div class="qz-card" aria-live="polite"><div class="qz-count" id="qz-count"></div><p class="qz-q" id="qz-q"></p><a class="qz-learn" id="qz-learn" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m12.5 12.5 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>LEARN MORE</span></a></div>
           <div class="qz-opts" id="qz-opts"></div>
           <div class="qz-after" id="qz-after" hidden><a class="qz-study" id="qz-study" target="_blank" rel="noopener noreferrer">STUDY MORE ↗</a><button type="button" class="holo-btn primary qz-next" id="qz-next">NEXT</button></div>
