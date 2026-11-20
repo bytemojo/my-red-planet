@@ -1,8 +1,9 @@
 # HANDOFF (update at the end of every session)
 
-## Latest session (2026-11-20): social preview copy and shared sound controls
-**Status: browser audio flow verified; all 55 test files pass with a 15-second per-test timeout (702 passed, 1 skipped); type-check and production build pass. The default 5-second full-suite run hit the known timeout in `dish.test.ts`.**
+## Latest session (2026-11-20): social preview image, copy, and shared sound controls
+**Status: all 55 test files pass (702 passed, 1 skipped); type-check and production build pass. Browser confirms the requested title/description and serves the new local share image as PNG. The deployed image URL returned 404 before this change was pushed, so production verification is still pending.**
 - Updated the main page/browser title and standard, Open Graph, and X descriptions to: “My Little Red Planet | Explore Mars. Make it your home.” / “The crew is sick. The future of humanity on Mars is in your hands.”
+- Copied the supplied social-preview artwork byte-for-byte to `public/og-image-share.png`; Open Graph and X image tags now use its absolute production URL and declare its 1365×768 dimensions. The previous `public/og-image.png` remains unchanged.
 - Embedded Astronaut Quiz keeps its original header mute button, wired to the app-wide sound setting. The menu mute button is hidden while the quiz is open, so the controls do not stack.
 - Centralized sound-setting changes so menu, settings, and quiz audio stay synchronized. Muting pauses tracks immediately; stale asynchronous menu playback is canceled. Opening the quiz pauses menu music; closing it pauses quiz music and resumes the menu only when sound is enabled.
 - Browser verification: exactly one mute button is visible in the quiz—the original quiz button. It changes the global sound setting; menu tracks pause before quiz music starts, muting stops quiz audio, and closing pauses quiz music before the menu resumes.
