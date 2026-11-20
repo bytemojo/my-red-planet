@@ -5,6 +5,7 @@
 - Anchored Captain Reyes's welcome-screen cutout to the viewport bottom with no desktop scrollbar.
 - Opening the quiz now pauses menu audio even if a music start was already in flight; starting the quiz plays only its own music. The quiz mute control now updates the app-wide sound setting and stops all quiz audio.
 - Browser verification: portrait bottom matched the viewport at 1440×900 and 390×844; menu tracks were paused before the quiz track started; mute toggled global sound and paused/resumed audio. Test sound was restored to off.
+- Pushed as `93f9dfb` and deployed to https://myredplanet.vercel.app; production quiz CSS/JS and both quiz tracks returned successfully.
 
 ## Latest session (2026-11-20): Astronaut Quiz portrait crop
 **Status: `npm run check` passes (55 files, 702 passed, 1 skipped, type-check and production build); browser-checked at 1440×900.**
