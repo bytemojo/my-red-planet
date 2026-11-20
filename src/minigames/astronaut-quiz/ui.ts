@@ -12,7 +12,6 @@ export interface AstronautQuizOptions {
   playerName?: () => string;            // the game's player name; falls back to what the player types on the report card
   isSoundOn?: () => boolean;            // the game's sound setting
   setSoundOn?: (enabled: boolean) => void; // sync the quiz mute control to host-wide sound settings
-  sharedSoundControl?: boolean;          // the host keeps its single global sound button above the quiz
   reduceMotion?: () => boolean;         // the game's "reduce motion" setting
   assetBase?: string;                   // folder that holds crew/reyes.png (default: Vite's BASE_URL)
   shareUrl?: string;                    // link added to shared posts (default: this page)
@@ -77,7 +76,7 @@ export class AstronautQuizUI {
     this.root = document.createElement('div'); this.root.className = 'aq' + (this.calm ? ' calm' : ''); this.root.setAttribute('role', 'dialog'); this.root.setAttribute('aria-modal', 'true'); this.root.setAttribute('aria-label', 'Astronaut Quiz');
     const stars = Array.from({ length: 36 }, () => `<i class="aq-star" style="left:${Math.random() * 100}%;top:${Math.random() * 100}%;animation-delay:${(Math.random() * 3).toFixed(2)}s"></i>`).join('');
     this.root.innerHTML = `<div class="aq-bg"><i class="aq-beam b1"></i><i class="aq-beam b2"></i><i class="aq-beam b3"></i><div class="aq-floor"></div>${stars}</div>
-      <div class="aq-top"><button class="aq-ico" id="aq-exit" aria-label="Close Astronaut Quiz">${ICON.x}</button><div class="aq-title">ASTRONAUT <i>QUIZ</i></div>${o.sharedSoundControl ? '<span class="aq-ico" aria-hidden="true"></span>' : '<button class="aq-ico" id="aq-snd" aria-label="Sound"></button>'}</div>
+      <div class="aq-top"><button class="aq-ico" id="aq-exit" aria-label="Close Astronaut Quiz">${ICON.x}</button><div class="aq-title">ASTRONAUT <i>QUIZ</i></div><button class="aq-ico" id="aq-snd" aria-label="Sound"></button></div>
       <div class="aq-screen"></div>`;
     this.screen = this.root.querySelector('.aq-screen') as HTMLDivElement;
     (o.container ?? document.body).appendChild(this.root);

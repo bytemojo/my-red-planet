@@ -102,7 +102,6 @@ function launchAstronautQuiz() {
     isSoundOn: () => settings.sound,
     setSoundOn: setSoundEnabled,
     reduceMotion: () => settings.reduce,
-    sharedSoundControl: true,
     onOpen: () => { document.documentElement.dataset.astronautQuizOpen = '1'; music.set(null); },
     onClose: () => { delete document.documentElement.dataset.astronautQuizOpen; music.set('menu'); },
     onNameChange: name => {

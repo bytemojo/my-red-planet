@@ -3,9 +3,9 @@
 ## Latest session (2026-11-20): social preview copy and shared sound controls
 **Status: browser audio flow verified; all 55 test files pass with a 15-second per-test timeout (702 passed, 1 skipped); type-check and production build pass. The default 5-second full-suite run hit the known timeout in `dish.test.ts`.**
 - Updated the main page/browser title and standard, Open Graph, and X descriptions to: “My Little Red Planet | Explore Mars. Make it your home.” / “The crew is sick. The future of humanity on Mars is in your hands.”
-- Embedded Astronaut Quiz now shares the app's single global sound button; its separate mute button is omitted. The shared button stays above the quiz and controls all app and quiz audio.
+- Embedded Astronaut Quiz keeps its original header mute button, wired to the app-wide sound setting. The menu mute button is hidden while the quiz is open, so the controls do not stack.
 - Centralized sound-setting changes so menu, settings, and quiz audio stay synchronized. Muting pauses tracks immediately; stale asynchronous menu playback is canceled. Opening the quiz pauses menu music; closing it pauses quiz music and resumes the menu only when sound is enabled.
-- Browser verification: menu tracks paused before quiz music started; only the quiz track was playing in the quiz; the shared mute button stopped/restarted quiz music and kept the setting synchronized; closing the quiz stopped its track before resuming the menu.
+- Browser verification: exactly one mute button is visible in the quiz—the original quiz button. It changes the global sound setting; menu tracks pause before quiz music starts, muting stops quiz audio, and closing pauses quiz music before the menu resumes.
 - Human audio listening on speakers remains untested.
 
 ## Latest session (2026-11-20): quiz intro alignment and desktop gameplay zoom
